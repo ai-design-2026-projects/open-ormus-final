@@ -1,14 +1,31 @@
-import express from "express"
+import express from "express";
+import { createAuthMiddleware } from "./auth/middleware.js";
+import { createStreamableHttpRouter } from "./transport/streamable-http.js";
+import { createSseRouter } from "./transport/sse.js";
 
-const app = express()
-const PORT = process.env.PORT ?? 3001
+const app = express();
+const PORT = process.env["PORT"] ?? 3001;
 
-app.use(express.json())
+app.use(express.json());
 
+// Auth middleware applied before all MCP routes.
+// Set MCP_AUTH_DISABLED=true in .env.local for local dev.
+app.use("/mcp", createAuthMiddleware());
+
+// StreamableHTTP transport: POST /mcp
+// Each session gets its own McpServer instance (see transport/streamable-http.ts).
+app.use("/mcp", createStreamableHttpRouter());
+
+// SSE transport: GET /mcp/sse, POST /mcp/messages
+// Each connection gets its own McpServer instance (see transport/sse.ts).
+app.use("/mcp", createSseRouter());
+
+// Health check (unauthenticated)
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok" })
-})
+  res.json({ status: "ok" });
+});
 
 app.listen(PORT, () => {
-  console.log(`MCP server running on http://localhost:${PORT}`)
-})
+  console.log(`MCP server running on http://localhost:${PORT}`);
+  console.log(`Auth: ${process.env["MCP_AUTH_DISABLED"] === "true" ? "DISABLED (dev mode)" : "enabled"}`);
+});
