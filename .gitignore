@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# env
+.env
+.env.local
+
+# build outputs
+.next/
+dist/
+out/
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+
+# debug logs
+npm-debug.log*
+bun-debug.log*

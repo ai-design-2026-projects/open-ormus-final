@@ -1,0 +1,13 @@
+{
+  "name": "open-ormus",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "mcp_server",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "bun run --cwd frontend dev",
+    "build": "bun run --cwd frontend build"
+  }
+}
