@@ -18,3 +18,4 @@ out/
 # debug logs
 npm-debug.log*
 bun-debug.log*
+.worktrees/
