@@ -1,18 +1,19 @@
 import type { Router, Request, Response } from "express";
 import { Router as createRouter } from "express";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createRegistry } from "../registry/registry.js";
 
 // Session map: sessionId → SSE transport
 // Separate map from StreamableHTTP — different transport type.
 const sseSessions = new Map<string, SSEServerTransport>();
 
-export function createSseRouter(mcpServer: McpServer): Router {
+export function createSseRouter(): Router {
   const router = createRouter();
 
   // Client opens SSE stream here. Server responds with `event: endpoint` pointing
   // to POST /mcp/messages?sessionId=<id>. Client then posts messages there.
   router.get("/sse", async (_req: Request, res: Response): Promise<void> => {
+    const mcpServer = createRegistry();
     const transport = new SSEServerTransport("/mcp/messages", res);
     sseSessions.set(transport.sessionId, transport);
 

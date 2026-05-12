@@ -1,6 +1,5 @@
 import express from "express";
 import { createAuthMiddleware } from "./auth/middleware.js";
-import { createRegistry } from "./registry/registry.js";
 import { createStreamableHttpRouter } from "./transport/streamable-http.js";
 import { createSseRouter } from "./transport/sse.js";
 
@@ -18,9 +17,8 @@ app.use("/mcp", createAuthMiddleware());
 app.use("/mcp", createStreamableHttpRouter());
 
 // SSE transport: GET /mcp/sse, POST /mcp/messages
-// SSE uses a shared McpServer instance (one connection per SSE session).
-const mcpServer = createRegistry();
-app.use("/mcp", createSseRouter(mcpServer));
+// Each connection gets its own McpServer instance (see transport/sse.ts).
+app.use("/mcp", createSseRouter());
 
 // Health check (unauthenticated)
 app.get("/health", (_req, res) => {
