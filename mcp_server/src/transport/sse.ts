@@ -27,7 +27,8 @@ export function createSseRouter(): Router {
 
   // Client posts messages to this endpoint after receiving the session ID from /sse
   router.post("/messages", async (req: Request, res: Response): Promise<void> => {
-    const sessionId = req.query["sessionId"] as string | undefined;
+    const rawSessionId = req.query["sessionId"];
+    const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
     if (!sessionId) {
       res.status(400).json({ error: "missing_sessionId" });
       return;

@@ -17,8 +17,6 @@ export async function characterCreateHandler(
 }
 
 export function register(server: McpServer): void {
-  // @ts-expect-error -- CharacterCreateInputShape uses Zod v4; server.tool() expects Zod v3 ZodRawShape.
-  // Structurally compatible at runtime. Tracked: AGENTS.md §11, resolves before M3-05.
   server.tool(
     "mcp__openormus__character_create",
     "Create a fictional character with a name, description, and personality traits",

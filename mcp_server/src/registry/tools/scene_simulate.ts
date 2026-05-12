@@ -41,8 +41,6 @@ export async function sceneSimulateHandler(
 }
 
 export function register(server: McpServer): void {
-  // @ts-expect-error -- SceneSimulateInputShape uses Zod v4; server.tool() expects Zod v3 ZodRawShape.
-  // Structurally compatible at runtime. Tracked: AGENTS.md §11, resolves before M3-05.
   server.tool(
     "mcp__openormus__scene_simulate",
     "Simulate a scene between fictional characters (stub — no LLM call yet)",

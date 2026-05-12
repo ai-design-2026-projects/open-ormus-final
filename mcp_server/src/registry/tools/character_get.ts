@@ -22,6 +22,7 @@ export function register(server: McpServer): void {
     "mcp__openormus__character_get",
     "Retrieve a fictional character by id",
     CharacterGetInputShape,
+    // @ts-expect-error -- TS2589: type instantiation depth from Zod v3/v4 workspace mismatch. Tracked: AGENTS.md §11, resolves before M3-05.
     async (args: { id: string }) => ({
       content: [
         {
