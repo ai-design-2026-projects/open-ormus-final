@@ -19,3 +19,4 @@ out/
 npm-debug.log*
 bun-debug.log*
 .worktrees/
+.serena/
