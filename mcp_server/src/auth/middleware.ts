@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 
 // Augment Express Request to carry userId set by this middleware.
 // Tools must read userId from req — never from tool arguments (AGENTS.md §6 JWT).
@@ -13,6 +14,8 @@ declare global {
 }
 
 type AuthMiddleware = (req: Request, res: Response, next: NextFunction) => void;
+
+const JwtPayloadSchema = z.object({ userId: z.string() });
 
 export function createAuthMiddleware(): AuthMiddleware {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -37,8 +40,9 @@ export function createAuthMiddleware(): AuthMiddleware {
     }
 
     try {
-      const payload = jwt.verify(token, secret) as { userId: string };
-      req.userId = payload["userId"];
+      const raw = jwt.verify(token, secret);
+      const payload = JwtPayloadSchema.parse(raw);
+      req.userId = payload.userId;
       next();
     } catch {
       res.status(401).json({ error: "invalid_token" });
