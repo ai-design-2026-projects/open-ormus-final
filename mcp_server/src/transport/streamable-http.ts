@@ -13,7 +13,8 @@ export function createStreamableHttpRouter(mcpServer: McpServer): Router {
   const router = createRouter();
 
   router.post("/", async (req: Request, res: Response): Promise<void> => {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    const rawSessionId = req.headers["mcp-session-id"];
+    const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
 
     if (sessionId) {
       const transport = sessions.get(sessionId);
@@ -42,9 +43,11 @@ export function createStreamableHttpRouter(mcpServer: McpServer): Router {
       if (transport.sessionId) sessions.delete(transport.sessionId);
     };
 
-    // Cast needed: StreamableHTTPServerTransport getter returns `(() => void) | undefined`
-    // but Transport interface declares `onclose?: () => void`; these are incompatible under
-    // exactOptionalPropertyTypes despite the class implementing Transport.
+    // Cast required: tsc reports TS2379 — Argument of type 'StreamableHTTPServerTransport' is not
+    // assignable to parameter of type 'Transport' with 'exactOptionalPropertyTypes: true'.
+    // The conflict is on 'onclose': the class getter returns `(() => void) | undefined` but the
+    // Transport interface declares `onclose?: () => void` (no undefined in the value type under
+    // exactOptionalPropertyTypes). The class structurally implements Transport at runtime.
     await mcpServer.connect(transport as Transport);
     await transport.handleRequest(req, res, req.body);
   });
