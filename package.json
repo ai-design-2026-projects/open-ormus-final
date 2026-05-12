@@ -9,5 +9,8 @@
   "scripts": {
     "dev:frontend": "bun run --cwd frontend dev",
     "build": "bun run --cwd frontend build"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }
