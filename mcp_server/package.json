@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "test": "bun test"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29",
     "@open-ormus/shared": "workspace:*",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
