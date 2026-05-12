@@ -3,13 +3,13 @@ import type { Router, Request, Response } from "express";
 import { Router as createRouter } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { createRegistry } from "../registry/registry.js";
 
 // Session map: mcp-session-id header → transport instance
 const sessions = new Map<string, StreamableHTTPServerTransport>();
 
-export function createStreamableHttpRouter(mcpServer: McpServer): Router {
+export function createStreamableHttpRouter(): Router {
   const router = createRouter();
 
   router.post("/", async (req: Request, res: Response): Promise<void> => {
@@ -42,6 +42,10 @@ export function createStreamableHttpRouter(mcpServer: McpServer): Router {
     transport.onclose = () => {
       if (transport.sessionId) sessions.delete(transport.sessionId);
     };
+
+    // A new McpServer instance per session — McpServer.connect() cannot be called more than once
+    // on the same instance (it throws "Already connected to a transport").
+    const mcpServer = createRegistry();
 
     // Cast required: tsc reports TS2379 — Argument of type 'StreamableHTTPServerTransport' is not
     // assignable to parameter of type 'Transport' with 'exactOptionalPropertyTypes: true'.

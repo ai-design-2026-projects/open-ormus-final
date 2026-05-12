@@ -13,13 +13,13 @@ app.use(express.json());
 // Set MCP_AUTH_DISABLED=true in .env.local for local dev.
 app.use("/mcp", createAuthMiddleware());
 
-// Single McpServer instance — both transports share it.
-const mcpServer = createRegistry();
-
 // StreamableHTTP transport: POST /mcp
-app.use("/mcp", createStreamableHttpRouter(mcpServer));
+// Each session gets its own McpServer instance (see transport/streamable-http.ts).
+app.use("/mcp", createStreamableHttpRouter());
 
 // SSE transport: GET /mcp/sse, POST /mcp/messages
+// SSE uses a shared McpServer instance (one connection per SSE session).
+const mcpServer = createRegistry();
 app.use("/mcp", createSseRouter(mcpServer));
 
 // Health check (unauthenticated)
