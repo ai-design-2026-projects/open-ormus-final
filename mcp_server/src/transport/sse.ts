@@ -2,6 +2,7 @@ import type { Router, Request, Response } from "express";
 import { Router as createRouter } from "express";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { createRegistry } from "../registry/registry.js";
+import { userIdStorage } from "../auth/context.js";
 
 // Session map: sessionId → SSE transport
 // Separate map from StreamableHTTP — different transport type.
@@ -25,7 +26,8 @@ export function createSseRouter(): Router {
     await transport.start();
   });
 
-  // Client posts messages to this endpoint after receiving the session ID from /sse
+  // Client posts messages to this endpoint after receiving the session ID from /sse.
+  // Each POST is a tool call — userId is threaded here per-request from the validated JWT.
   router.post("/messages", async (req: Request, res: Response): Promise<void> => {
     const rawSessionId = req.query["sessionId"];
     const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
@@ -40,7 +42,9 @@ export function createSseRouter(): Router {
       return;
     }
 
-    await transport.handlePostMessage(req, res, req.body);
+    await userIdStorage.run(req.userId, () =>
+      transport.handlePostMessage(req, res, req.body)
+    );
   });
 
   return router;

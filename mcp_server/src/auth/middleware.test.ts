@@ -25,7 +25,7 @@ describe("createAuthMiddleware", () => {
     }
   });
 
-  test("passes through with userId=dev-user when MCP_AUTH_DISABLED=true", () => {
+  test("passes through with userId=00000000-0000-0000-0000-000000000000 when MCP_AUTH_DISABLED=true", () => {
     process.env["MCP_AUTH_DISABLED"] = "true";
     const middleware = createAuthMiddleware();
     const { req, res, next, isNextCalled } = mockReqRes();
@@ -33,7 +33,7 @@ describe("createAuthMiddleware", () => {
     middleware(req as never, res as never, next);
 
     expect(isNextCalled()).toBe(true);
-    expect((req as Record<string, unknown>)["userId"]).toBe("dev-user");
+    expect((req as Record<string, unknown>)["userId"]).toBe("00000000-0000-0000-0000-000000000000");
   });
 
   test("returns 401 when auth enabled and no Authorization header", () => {

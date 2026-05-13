@@ -1,0 +1,89 @@
+import { mock } from "bun:test";
+
+const validSheet = {
+  name: "Arthur Updated",
+  imageUrl: "https://example.com/arthur.jpg",
+  shortDescription: "Updated description",
+  firstAppearanceDate: "500 AD",
+  confidence: 2 as const,
+  personality: {
+    personalityTraits: ["wise"],
+    backstory: "Changed backstory",
+    relationships: {},
+    speechPatterns: [],
+    values: ["wisdom"],
+    fears: ["loss"],
+    goals: ["peace"],
+    notableQuotes: [],
+    abilities: ["strategy"],
+    copingStyle: ["meditation"],
+    knowledgeScope: {},
+  },
+};
+
+const mockUpdateMany = mock(async () => ({ count: 1 }));
+const mockFindUnique = mock(async () => ({
+  id: "00000000-0000-0000-0000-000000000001",
+  userId: "test-user",
+  name: "Arthur Updated",
+  sheet: validSheet,
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-06-01"),
+}));
+
+mock.module("../../db.js", () => ({
+  prisma: {
+    character: {
+      updateMany: mockUpdateMany,
+      findUnique: mockFindUnique,
+    },
+  },
+}));
+
+import { describe, test, expect, beforeEach } from "bun:test";
+import { characterUpdateHandler } from "./character_update";
+import { userIdStorage } from "../../auth/context";
+
+const validInput = {
+  id: "00000000-0000-0000-0000-000000000001",
+  sheet: validSheet,
+};
+
+describe("characterUpdateHandler", () => {
+  beforeEach(() => {
+    mockUpdateMany.mockClear();
+    mockFindUnique.mockClear();
+  });
+
+  test("updates character and returns updated record", async () => {
+    const result = await userIdStorage.run("test-user", () =>
+      characterUpdateHandler(validInput)
+    );
+    if ("error" in result) throw new Error("expected success");
+    expect(result.name).toBe("Arthur Updated");
+    expect(result.sheet.confidence).toBe(2);
+  });
+
+  test("scopes update to current userId", async () => {
+    await userIdStorage.run("test-user", () =>
+      characterUpdateHandler(validInput)
+    );
+    const updateCall = mockUpdateMany.mock.calls[0]?.[0] as {
+      where: { id: string; userId: string };
+    };
+    expect(updateCall.where.userId).toBe("test-user");
+    expect(updateCall.where.id).toBe("00000000-0000-0000-0000-000000000001");
+  });
+
+  test("returns not_found when record does not belong to user", async () => {
+    mockUpdateMany.mockImplementation(async () => ({ count: 0 }));
+    const result = await userIdStorage.run("test-user", () =>
+      characterUpdateHandler(validInput)
+    );
+    expect(result).toEqual({ error: "not_found" });
+  });
+
+  test("throws if userId not in context", async () => {
+    expect(() => characterUpdateHandler(validInput)).toThrow();
+  });
+});

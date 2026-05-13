@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { createRegistry } from "../registry/registry.js";
+import { userIdStorage } from "../auth/context.js";
 
 // Session map: mcp-session-id header → transport instance
 const sessions = new Map<string, StreamableHTTPServerTransport>();
@@ -22,7 +23,9 @@ export function createStreamableHttpRouter(): Router {
         res.status(404).json({ error: "session_not_found" });
         return;
       }
-      await transport.handleRequest(req, res, req.body);
+      await userIdStorage.run(req.userId, () =>
+        transport.handleRequest(req, res, req.body)
+      );
       return;
     }
 
@@ -53,7 +56,9 @@ export function createStreamableHttpRouter(): Router {
     // Transport interface declares `onclose?: () => void` (no undefined in the value type under
     // exactOptionalPropertyTypes). The class structurally implements Transport at runtime.
     await mcpServer.connect(transport as Transport);
-    await transport.handleRequest(req, res, req.body);
+    await userIdStorage.run(req.userId, () =>
+      transport.handleRequest(req, res, req.body)
+    );
   });
 
   return router;

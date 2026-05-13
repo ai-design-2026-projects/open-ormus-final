@@ -21,7 +21,7 @@ export function createAuthMiddleware(): AuthMiddleware {
   return (req: Request, res: Response, next: NextFunction): void => {
     // TODO: Remove dev bypass and enforce JWT when frontend /api/auth/tool-token lands (M3-04)
     if (process.env["MCP_AUTH_DISABLED"] === "true") {
-      req.userId = "dev-user";
+      req.userId = "00000000-0000-0000-0000-000000000000";
       next();
       return;
     }

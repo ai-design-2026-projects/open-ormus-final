@@ -1,3 +1,14 @@
+import { mock } from "bun:test";
+mock.module("exa-js", () => ({ default: class Exa {} }));
+mock.module("./tools/character_save.js", () => ({ register: () => {} }));
+mock.module("./tools/character_list.js", () => ({ register: () => {} }));
+mock.module("./tools/character_update.js", () => ({ register: () => {} }));
+mock.module("./tools/character_delete.js", () => ({ register: () => {} }));
+mock.module("./tools/character_search.js", () => ({ register: () => {} }));
+mock.module("./tools/show_search.js", () => ({ register: () => {} }));
+mock.module("./tools/scene_simulate.js", () => ({ register: () => {} }));
+mock.module("../exa.js", () => ({ exa: {} }));
+
 import { describe, test, expect } from "bun:test";
 import { createRegistry } from "./registry";
 

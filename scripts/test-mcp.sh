@@ -159,87 +159,146 @@ bold "── tools/list ──────────────────�
 raw=$(mcp_post "$SESSION_ID" '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
 split_response "$raw"
 assert_status "tools/list" "$RESP_STATUS" "200"
-assert_contains "character_create tool" "$RESP_BODY" "mcp__openormus__character_create"
-assert_contains "character_get tool"    "$RESP_BODY" "mcp__openormus__character_get"
+assert_contains "character_save tool"   "$RESP_BODY" "mcp__openormus__character_save"
+assert_contains "character_list tool"   "$RESP_BODY" "mcp__openormus__character_list"
+assert_contains "character_update tool" "$RESP_BODY" "mcp__openormus__character_update"
+assert_contains "character_delete tool" "$RESP_BODY" "mcp__openormus__character_delete"
 assert_contains "scene_simulate tool"   "$RESP_BODY" "mcp__openormus__scene_simulate"
 assert_contains "character_search tool" "$RESP_BODY" "mcp__openormus__character_search"
 assert_contains "show_search tool"      "$RESP_BODY" "mcp__openormus__show_search"
 
-# ── character_create ───────────────────────────────────────────────────────────
+# ── character_save ─────────────────────────────────────────────────────────────
 
-bold "── character_create ────────────────────────────────"
+bold "── character_save ──────────────────────────────────"
 raw=$(mcp_post "$SESSION_ID" '{
   "jsonrpc":"2.0","id":3,"method":"tools/call",
   "params":{
-    "name":"mcp__openormus__character_create",
-    "arguments":{"name":"Zara","description":"A spy","traits":["cunning","brave"]}
+    "name":"mcp__openormus__character_save",
+    "arguments":{
+      "name":"Zara",
+      "imageUrl":null,
+      "shortDescription":"A cunning spy from the future",
+      "firstAppearanceDate":"2024-01-01",
+      "confidence":2,
+      "personality":{
+        "personalityTraits":["cunning","brave","resourceful"],
+        "backstory":"Former intelligence operative turned freelance.",
+        "relationships":{"Handler":"complex"},
+        "speechPatterns":["clipped sentences","dry wit"],
+        "values":["loyalty","truth"],
+        "fears":["exposure","failure"],
+        "goals":["complete the mission","protect her cover"],
+        "notableQuotes":["Trust no one."],
+        "abilities":["hand-to-hand combat","hacking"],
+        "copingStyle":["deflects with humour"],
+        "knowledgeScope":{"tradecraft":"expert","languages":"intermediate"}
+      }
+    }
   }
 }')
 split_response "$raw"
 TEXT=$(decode_tool_text "$RESP_BODY")
-assert_status "character_create" "$RESP_STATUS" "200"
-assert_contains "name in result"    "$TEXT" '"name":"Zara"'
-assert_contains "traits in result"  "$TEXT" '"cunning"'
-assert_contains "id present"        "$TEXT" '"id"'
-assert_contains "createdAt present" "$TEXT" '"createdAt"'
+assert_status "character_save" "$RESP_STATUS" "200"
+assert_contains "name in result"      "$TEXT" '"name":"Zara"'
+assert_contains "id present"          "$TEXT" '"id"'
+assert_contains "userId present"      "$TEXT" '"userId"'
+assert_contains "createdAt present"   "$TEXT" '"createdAt"'
+assert_not_contains "no error field"  "$TEXT" '"error"'
 
-# Extract Zara's ID from the decoded inner JSON
-ZARA_ID=$(echo "$TEXT" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4 || true)
-if [ -n "$ZARA_ID" ]; then
-  ok "Zara ID: $ZARA_ID"
+SAVED_ID=$(echo "$TEXT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || true)
+if [ -n "$SAVED_ID" ]; then
+  ok "saved character ID: $SAVED_ID"
 else
-  fail "could not extract Zara ID"
-  ZARA_ID="unknown"
+  fail "could not extract saved character ID"
+  SAVED_ID="00000000-0000-4000-8000-000000000000"
 fi
 
-# ── character_get — existing fixture ───────────────────────────────────────────
+# ── character_list ─────────────────────────────────────────────────────────────
 
-bold "── character_get (fixture) ─────────────────────────"
-FIXTURE_ID="00000000-0000-0000-0000-000000000001"
-raw=$(mcp_post "$SESSION_ID" "{
-  \"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",
-  \"params\":{
-    \"name\":\"mcp__openormus__character_get\",
-    \"arguments\":{\"id\":\"$FIXTURE_ID\"}
-  }
-}")
+bold "── character_list ──────────────────────────────────"
+raw=$(mcp_post "$SESSION_ID" '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"mcp__openormus__character_list","arguments":{}}}')
 split_response "$raw"
 TEXT=$(decode_tool_text "$RESP_BODY")
-assert_status "character_get fixture" "$RESP_STATUS" "200"
-assert_contains "fixture character found" "$TEXT" '"id"'
-assert_not_contains "fixture no error" "$TEXT" '"error"'
+assert_status "character_list" "$RESP_STATUS" "200"
+assert_contains "list contains id" "$TEXT" '"id"'
+assert_contains "list contains Zara" "$TEXT" '"name":"Zara"'
 
-# ── character_get — created character ──────────────────────────────────────────
+# ── character_update ───────────────────────────────────────────────────────────
 
-bold "── character_get (created) ─────────────────────────"
+bold "── character_update ────────────────────────────────"
 raw=$(mcp_post "$SESSION_ID" "{
   \"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",
   \"params\":{
-    \"name\":\"mcp__openormus__character_get\",
-    \"arguments\":{\"id\":\"$ZARA_ID\"}
+    \"name\":\"mcp__openormus__character_update\",
+    \"arguments\":{
+      \"id\":\"$SAVED_ID\",
+      \"sheet\":{
+        \"name\":\"Zara Updated\",
+        \"imageUrl\":null,
+        \"shortDescription\":\"Updated description\",
+        \"firstAppearanceDate\":\"2024-06-01\",
+        \"confidence\":3,
+        \"personality\":{
+          \"personalityTraits\":[\"cautious\"],
+          \"backstory\":\"Her past was rewritten.\",
+          \"relationships\":{},
+          \"speechPatterns\":[],
+          \"values\":[\"survival\"],
+          \"fears\":[],
+          \"goals\":[\"disappear\"],
+          \"notableQuotes\":[],
+          \"abilities\":[\"disguise\"],
+          \"copingStyle\":[],
+          \"knowledgeScope\":{}
+        }
+      }
+    }
   }
 }")
 split_response "$raw"
 TEXT=$(decode_tool_text "$RESP_BODY")
-assert_status "character_get created" "$RESP_STATUS" "200"
-assert_contains "Zara retrieved" "$TEXT" '"name":"Zara"'
+assert_status "character_update" "$RESP_STATUS" "200"
+assert_contains "updated name" "$TEXT" '"name":"Zara Updated"'
+assert_not_contains "no error" "$TEXT" '"error"'
 
-# ── character_get — not found ──────────────────────────────────────────────────
+# ── character_update — not found ───────────────────────────────────────────────
 
-bold "── character_get (not found) ───────────────────────"
+bold "── character_update (not found) ────────────────────"
 raw=$(mcp_post "$SESSION_ID" '{
   "jsonrpc":"2.0","id":6,"method":"tools/call",
   "params":{
-    "name":"mcp__openormus__character_get",
-    "arguments":{"id":"00000000-dead-beef-0000-000000000000"}
+    "name":"mcp__openormus__character_update",
+    "arguments":{
+      "id":"00000000-dead-beef-0000-000000000000",
+      "sheet":{
+        "name":"Ghost",
+        "imageUrl":null,
+        "shortDescription":"Does not exist",
+        "firstAppearanceDate":"2000-01-01",
+        "confidence":0,
+        "personality":{
+          "personalityTraits":[],
+          "backstory":"",
+          "relationships":{},
+          "speechPatterns":[],
+          "values":[],
+          "fears":[],
+          "goals":[],
+          "notableQuotes":[],
+          "abilities":[],
+          "copingStyle":[],
+          "knowledgeScope":{}
+        }
+      }
+    }
   }
 }')
 split_response "$raw"
 TEXT=$(decode_tool_text "$RESP_BODY")
-assert_status "character_get not_found" "$RESP_STATUS" "200"
+assert_status "character_update not_found" "$RESP_STATUS" "200"
 assert_contains "not_found error" "$TEXT" '"error":"not_found"'
 
-# ── scene_simulate — valid ─────────────────────────────────────────────────────
+# ── scene_simulate — valid (uses saved character) ──────────────────────────────
 
 bold "── scene_simulate (valid) ──────────────────────────"
 raw=$(mcp_post "$SESSION_ID" "{
@@ -247,9 +306,9 @@ raw=$(mcp_post "$SESSION_ID" "{
   \"params\":{
     \"name\":\"mcp__openormus__scene_simulate\",
     \"arguments\":{
-      \"characterIds\":[\"$FIXTURE_ID\",\"$ZARA_ID\"],
+      \"characterIds\":[\"$SAVED_ID\"],
       \"setting\":\"A dark tavern\",
-      \"prompt\":\"They meet for the first time.\"
+      \"prompt\":\"She arrives alone.\"
     }
   }
 }")
@@ -279,11 +338,42 @@ TEXT=$(decode_tool_text "$RESP_BODY")
 assert_status "scene_simulate unknown char" "$RESP_STATUS" "200"
 assert_contains "character_not_found error" "$TEXT" '"error":"character_not_found"'
 
+# ── character_delete ───────────────────────────────────────────────────────────
+
+bold "── character_delete ────────────────────────────────"
+raw=$(mcp_post "$SESSION_ID" "{
+  \"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",
+  \"params\":{
+    \"name\":\"mcp__openormus__character_delete\",
+    \"arguments\":{\"id\":\"$SAVED_ID\"}
+  }
+}")
+split_response "$raw"
+TEXT=$(decode_tool_text "$RESP_BODY")
+assert_status "character_delete" "$RESP_STATUS" "200"
+assert_contains "success true" "$TEXT" '"success":true'
+assert_not_contains "no error" "$TEXT" '"error"'
+
+# ── character_delete — not found ───────────────────────────────────────────────
+
+bold "── character_delete (not found) ────────────────────"
+raw=$(mcp_post "$SESSION_ID" "{
+  \"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",
+  \"params\":{
+    \"name\":\"mcp__openormus__character_delete\",
+    \"arguments\":{\"id\":\"$SAVED_ID\"}
+  }
+}")
+split_response "$raw"
+TEXT=$(decode_tool_text "$RESP_BODY")
+assert_status "character_delete not_found" "$RESP_STATUS" "200"
+assert_contains "not_found error" "$TEXT" '"error":"not_found"'
+
 # ── character_search ───────────────────────────────────────────────────────────
 
 bold "── character_search ────────────────────────────────"
 raw=$(mcp_post "$SESSION_ID" '{
-  "jsonrpc":"2.0","id":9,"method":"tools/call",
+  "jsonrpc":"2.0","id":11,"method":"tools/call",
   "params":{
     "name":"mcp__openormus__character_search",
     "arguments":{"query":"Berlin, Money Heist"}
@@ -306,7 +396,7 @@ fi
 
 bold "── show_search ─────────────────────────────────────"
 raw=$(mcp_post "$SESSION_ID" '{
-  "jsonrpc":"2.0","id":10,"method":"tools/call",
+  "jsonrpc":"2.0","id":12,"method":"tools/call",
   "params":{
     "name":"mcp__openormus__show_search",
     "arguments":{"query":"Money Heist"}

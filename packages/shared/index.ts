@@ -1,9 +1,17 @@
 export * from "./types";
 export {
-  CharacterCreateInputShape,
-  CharacterCreateInputSchema,
-  CharacterRecordSchema,
-} from "./schema/character";
+  CharacterSaveInputShape,
+  CharacterSaveInputSchema,
+  type CharacterSaveInput,
+  CharacterUpdateInputShape,
+  CharacterUpdateInputSchema,
+  type CharacterUpdateInput,
+  CharacterDeleteInputShape,
+  CharacterDeleteInputSchema,
+  type CharacterDeleteInput,
+  SavedCharacterRecordSchema,
+  type SavedCharacterRecord,
+} from "./schema/character_saved";
 export {
   CharacterSearchInputShape,
   CharacterSearchInputSchema,

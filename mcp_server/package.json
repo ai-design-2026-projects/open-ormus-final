@@ -11,14 +11,21 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29",
     "@open-ormus/shared": "workspace:*",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "exa-js": "^2.12.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.20.0",
     "zod": "^3.25.23"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/node": "^22"
+    "@types/node": "^22",
+    "@types/pg": "^8.20.0"
+  },
+  "prisma": {
+    "schema": "../prisma/schema.prisma"
   }
 }

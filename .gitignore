@@ -9,6 +9,7 @@ node_modules/
 .next/
 dist/
 out/
+mcp_server/src/generated/
 
 # misc
 .DS_Store

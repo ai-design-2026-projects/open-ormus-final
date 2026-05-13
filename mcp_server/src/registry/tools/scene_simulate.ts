@@ -4,7 +4,8 @@ import {
   type SceneSimulateInput,
   type SceneResult,
 } from "@open-ormus/shared";
-import { characterStore } from "../store.js";
+import { prisma } from "../../db.js";
+import { userIdStorage } from "../../auth/context.js";
 
 const CANNED_LINES = [
   "I greet you with cautious eyes.",
@@ -20,9 +21,13 @@ type SceneSimulateResult =
 export async function sceneSimulateHandler(
   args: SceneSimulateInput
 ): Promise<SceneSimulateResult> {
-  // Validate all character IDs exist
+  const userId = userIdStorage.getStore();
+  if (!userId) throw new Error("userId not in context");
+
+  // Validate all character IDs exist and belong to the user
   for (const id of args.characterIds) {
-    if (!characterStore.has(id)) {
+    const record = await prisma.character.findFirst({ where: { id, userId } });
+    if (!record) {
       return { error: "character_not_found", id };
     }
   }

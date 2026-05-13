@@ -3,16 +3,34 @@ generator client {
   output   = "../frontend/lib/generated/prisma"
 }
 
+generator client_mcp {
+  provider = "prisma-client"
+  output   = "../mcp_server/src/generated/prisma"
+}
+
 datasource db {
   provider = "postgresql"
 }
 
 model User {
-  id        String   @id @db.Uuid
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String      @id @db.Uuid
+  email      String      @unique
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  characters Character[]
 
   @@map("users")
 }
 
+model Character {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid @map("user_id")
+  name      String
+  sheet     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("characters")
+}
