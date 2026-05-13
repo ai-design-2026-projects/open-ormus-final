@@ -1,0 +1,87 @@
+// mcp_server/src/registry/tools/character_db_search.test.ts
+import { mock } from "bun:test";
+
+const mockSheet = {
+  name: "Spider-Man",
+  imageUrl: null,
+  shortDescription: "Friendly neighborhood superhero",
+  firstAppearanceDate: "1962-08-10",
+  confidence: 3,
+  personality: {
+    personalityTraits: ["brave", "witty"],
+    backstory: "Bitten by a radioactive spider",
+    relationships: {},
+    speechPatterns: [],
+    values: ["responsibility"],
+    fears: ["losing loved ones"],
+    goals: ["protect New York"],
+    notableQuotes: ["With great power comes great responsibility"],
+    abilities: ["wall-crawling", "web-slinging"],
+    copingStyle: ["humor"],
+    knowledgeScope: {},
+  },
+};
+
+const mockRawRow = {
+  id: "00000000-0000-0000-0000-000000000001",
+  userId: "test-user",
+  name: "Spider-Man",
+  sheet: mockSheet,
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-01-01"),
+  score: 0.45,
+};
+
+const mockQueryRaw = mock(async () => [mockRawRow]);
+
+mock.module("../../db.js", () => ({
+  prisma: { $queryRaw: mockQueryRaw },
+}));
+
+import { describe, test, expect, beforeEach } from "bun:test";
+import { characterDbSearchHandler } from "./character_db_search";
+import { userIdStorage } from "../../auth/context";
+import type { CharacterDbSearchInput } from "@open-ormus/shared";
+
+describe("characterDbSearchHandler", () => {
+  beforeEach(() => {
+    mockQueryRaw.mockClear();
+  });
+
+  test("returns matched characters shaped as SavedCharacterRecord[]", async () => {
+    const input: CharacterDbSearchInput = { query: "spiderman", limit: 10 };
+    const result = await userIdStorage.run("test-user", () =>
+      characterDbSearchHandler(input)
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("00000000-0000-0000-0000-000000000001");
+    expect(result[0]?.name).toBe("Spider-Man");
+    expect(result[0]?.userId).toBe("test-user");
+    expect(result[0]?.createdAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(result[0]?.updatedAt).toBe("2026-01-01T00:00:00.000Z");
+    // score must NOT be present in output
+    expect((result[0] as Record<string, unknown>)["score"]).toBeUndefined();
+  });
+
+  test("returns empty array when no characters match", async () => {
+    mockQueryRaw.mockImplementation(async () => []);
+    const result = await userIdStorage.run("test-user", () =>
+      characterDbSearchHandler({ query: "zzznomatch", limit: 10 })
+    );
+    expect(result).toEqual([]);
+  });
+
+  test("calls $queryRaw once per invocation", async () => {
+    await userIdStorage.run("test-user", () =>
+      characterDbSearchHandler({ query: "spider", limit: 5 })
+    );
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  test("throws if userId not in context", async () => {
+    await expect(
+      characterDbSearchHandler({ query: "spider", limit: 10 })
+    ).rejects.toThrow("userId not in context");
+  });
+});

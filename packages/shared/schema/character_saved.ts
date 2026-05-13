@@ -51,3 +51,12 @@ export const SavedCharacterRecordSchema = z.object({
   updatedAt: z.string(),
 });
 export type SavedCharacterRecord = z.infer<typeof SavedCharacterRecordSchema>;
+
+// DB search input — fuzzy similarity on name and shortDescription
+export const CharacterDbSearchInputShape = {
+  query: z.string().min(1),
+  limit: z.number().int().min(1).max(50).default(10),
+} as const;
+
+export const CharacterDbSearchInputSchema = z.object(CharacterDbSearchInputShape);
+export type CharacterDbSearchInput = z.infer<typeof CharacterDbSearchInputSchema>;

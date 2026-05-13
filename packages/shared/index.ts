@@ -11,6 +11,9 @@ export {
   type CharacterDeleteInput,
   SavedCharacterRecordSchema,
   type SavedCharacterRecord,
+  CharacterDbSearchInputShape,
+  CharacterDbSearchInputSchema,
+  type CharacterDbSearchInput,
 } from "./schema/character_saved";
 export {
   CharacterSearchInputShape,

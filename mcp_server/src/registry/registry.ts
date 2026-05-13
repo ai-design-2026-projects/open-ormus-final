@@ -4,6 +4,7 @@ import { register as registerCharacterList } from "./tools/character_list.js";
 import { register as registerCharacterUpdate } from "./tools/character_update.js";
 import { register as registerCharacterDelete } from "./tools/character_delete.js";
 import { register as registerCharacterSearch } from "./tools/character_search.js";
+import { register as registerCharacterDbSearch } from "./tools/character_db_search.js";
 import { register as registerShowSearch } from "./tools/show_search.js";
 import { register as registerSceneSimulate } from "./tools/scene_simulate.js";
 
@@ -18,6 +19,7 @@ export function createRegistry(): McpServer {
   registerCharacterUpdate(server);
   registerCharacterDelete(server);
   registerCharacterSearch(server);
+  registerCharacterDbSearch(server);
   registerShowSearch(server);
   registerSceneSimulate(server);
 
