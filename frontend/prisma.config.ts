@@ -1,4 +1,9 @@
-import { defineConfig } from "prisma/config"
+import { defineConfig, env } from "prisma/config"
+
+// prisma.config.ts is evaluated before Prisma loads .env files,
+// so we load it explicitly using Node 20's built-in API
+try { process.loadEnvFile(".env.local") } catch { /* file not present */ }
+try { process.loadEnvFile(".env") } catch { /* file not present */ }
 
 export default defineConfig({
   schema: "../prisma/schema.prisma",
@@ -6,6 +11,6 @@ export default defineConfig({
     path: "../prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"] as string,
+    url: env("DATABASE_URL"),
   },
 })

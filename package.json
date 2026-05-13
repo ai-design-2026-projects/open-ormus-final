@@ -8,7 +8,17 @@
   ],
   "scripts": {
     "dev:frontend": "bun run --cwd frontend dev",
-    "build": "bun run --cwd frontend build"
+    "dev:mcp": "bun run --cwd mcp_server dev",
+    "build": "bun run --cwd frontend build",
+    "start": "bun run --cwd frontend start",
+    "typecheck": "bun run typecheck:frontend && bun run typecheck:shared",
+    "typecheck:frontend": "bun run --cwd frontend tsc --noEmit",
+    "typecheck:shared": "bun run --cwd packages/shared tsc --noEmit",
+    "prisma:generate": "bun run --cwd frontend prisma generate",
+    "prisma:migrate:dev": "bun run --cwd frontend prisma migrate dev",
+    "prisma:migrate:deploy": "bun run --cwd frontend prisma migrate deploy",
+    "prisma:migrate:status": "bun run --cwd frontend prisma migrate status",
+    "prisma:studio": "bun run --cwd frontend prisma studio"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
