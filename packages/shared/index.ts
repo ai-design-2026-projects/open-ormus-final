@@ -44,3 +44,13 @@ export {
 } from "./services/character.service";
 export { showSearchHandler } from "./services/show_search.service";
 export { characterSearchHandler } from "./services/character_search.service";
+export {
+  CreateConversationInputSchema,
+  type CreateConversationInput,
+  MessageRecordSchema,
+  type MessageRecord,
+  ConversationListItemSchema,
+  type ConversationListItem,
+  ConversationRecordSchema,
+  type ConversationRecord,
+} from "./schema/conversation";

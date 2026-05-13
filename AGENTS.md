@@ -210,7 +210,6 @@ log the failure to `stderr` — never swallow it silently.
 | `packages/shared` zod v4, `mcp_server` zod v3 | Workspace mismatch | Must converge before M3-05 |
 | Prisma models (PROJECT_EN.md §7) | schema.prisma is datasource-only | Lands in M1-02 |
 | `@anthropic-ai/claude-agent-sdk`, `@modelcontextprotocol/sdk` | Not yet installed | M3-01 / M3-04 |
-| OPENROUTER_API_KEY in .env.example | LiteLLM replaces OpenRouter direct | .env.example update needed |
 
 ---
 

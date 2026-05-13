@@ -1,6 +1,7 @@
 // frontend/app/page.tsx
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { CharacterList } from "@/components/characters/CharacterList";
 import { CharacterSearch } from "@/components/characters/CharacterSearch";
@@ -98,14 +99,22 @@ export default function HomePage() {
     <div className="min-h-screen bg-zinc-50">
       <header className="sticky top-0 z-10 bg-white border-b border-zinc-200 px-6 py-3 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-zinc-900">OpenOrmus</h1>
-        <form action={logout}>
-          <button
-            type="submit"
+        <nav className="flex items-center gap-4">
+          <Link
+            href="/conversations"
             className="text-sm text-zinc-500 hover:text-zinc-800 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
           >
-            Log out
-          </button>
-        </form>
+            Conversations
+          </Link>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="text-sm text-zinc-500 hover:text-zinc-800 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
+            >
+              Log out
+            </button>
+          </form>
+        </nav>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">

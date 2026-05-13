@@ -9,6 +9,8 @@
   "scripts": {
     "dev:frontend": "bun run --cwd frontend dev",
     "dev:mcp": "bun run --cwd mcp_server dev",
+    "dev:llm": "./scripts/dev-llm.sh",
+    "dev:llm:stop": "kill $(lsof -ti:4000) 2>/dev/null && echo 'LiteLLM stopped' || echo 'LiteLLM not running'",
     "build": "bun run --cwd frontend build",
     "start": "bun run --cwd frontend start",
     "typecheck": "bun run typecheck:frontend && bun run typecheck:shared",
