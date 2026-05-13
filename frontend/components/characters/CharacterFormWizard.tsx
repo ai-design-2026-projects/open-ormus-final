@@ -4,10 +4,12 @@ import { useState } from "react";
 import type {
   CharacterSaveInput,
   CharacterPersonality,
+  CharacterSearchResult,
   SavedCharacterRecord,
 } from "@open-ormus/shared";
+import { ImportStep } from "./ImportStep";
 
-// ─── Form State ──────────────────────────────────────────────────────────────
+// ─── Form State ───────────────────────────────────────────────────────────────
 
 type KVPair = { key: string; value: string };
 
@@ -69,8 +71,36 @@ function fromRecord(record: SavedCharacterRecord): FormState {
     notableQuotes: p.notableQuotes,
     abilities: p.abilities,
     copingStyle: p.copingStyle,
-    relationships: Object.entries(p.relationships).map(([key, value]) => ({ key, value: String(value) })),
-    knowledgeScope: Object.entries(p.knowledgeScope).map(([key, value]) => ({ key, value: String(value) })),
+    relationships: Object.entries(p.relationships).map(([key, value]) => ({
+      key,
+      value: String(value),
+    })),
+    knowledgeScope: Object.entries(p.knowledgeScope).map(([key, value]) => ({
+      key,
+      value: String(value),
+    })),
+  };
+}
+
+function fromSearchResult(result: CharacterSearchResult): FormState {
+  const p = result.personality;
+  return {
+    name: result.name,
+    shortDescription: result.shortDescription,
+    imageUrl: result.imageUrl ?? "",
+    firstAppearanceDate: result.firstAppearanceDate,
+    confidence: result.confidence,
+    personalityTraits: p.personalityTraits,
+    backstory: p.backstory,
+    speechPatterns: p.speechPatterns,
+    values: p.values,
+    fears: p.fears,
+    goals: p.goals,
+    notableQuotes: p.notableQuotes,
+    abilities: p.abilities,
+    copingStyle: p.copingStyle,
+    relationships: Object.entries(p.relationships).map(([key, value]) => ({ key, value })),
+    knowledgeScope: Object.entries(p.knowledgeScope).map(([key, value]) => ({ key, value })),
   };
 }
 
@@ -102,7 +132,7 @@ function toSaveInput(state: FormState): CharacterSaveInput {
   };
 }
 
-// ─── TagInput ─────────────────────────────────────────────────────────────────
+// ─── TagInput ──────────────────────────────────────────────────────────────────
 
 function TagInput({
   label,
@@ -230,7 +260,11 @@ function KVEditor({
 
 // ─── Wizard ───────────────────────────────────────────────────────────────────
 
-const STEPS = ["Basics", "Personality", "Connections"] as const;
+const FORM_STEPS = ["Basics", "Personality", "Connections"] as const;
+
+// In create mode: step 0 = Import, steps 1-3 = FORM_STEPS.
+// In edit mode:   steps 0-2 = FORM_STEPS.
+const CREATE_STEPS = ["Import", ...FORM_STEPS] as const;
 
 interface WizardProps {
   mode: "create" | "edit";
@@ -252,9 +286,31 @@ export function CharacterFormWizard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Queue state for multi-character imports
+  const [pendingQueue, setPendingQueue] = useState<CharacterSearchResult[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  // formStep is the index into FORM_STEPS (0=Basics, 1=Personality, 2=Connections).
+  // In create mode, step 0 is Import, so formStep = step - 1.
+  // In edit mode, formStep = step directly.
+  const formStep = mode === "create" ? step - 1 : step;
+  const displaySteps = mode === "create" ? CREATE_STEPS : FORM_STEPS;
+  const isImportStep = mode === "create" && step === 0;
+  const isLastFormStep = formStep === FORM_STEPS.length - 1;
+
+  // Called by ImportStep when user confirms import selection
+  const handleImported = (results: CharacterSearchResult[]) => {
+    if (results.length === 0) return;
+    const [first, ...rest] = results;
+    setForm(fromSearchResult(first!));
+    setPendingQueue(rest);
+    setQueueTotal(results.length);
+    setStep(mode === "create" ? 1 : 0); // advance to Basics
+  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -267,6 +323,40 @@ export function CharacterFormWizard({
       setSubmitting(false);
     }
   };
+
+  const handleSaveAndNext = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSubmit(toSaveInput(form));
+      if (pendingQueue.length > 0) {
+        const [next, ...rest] = pendingQueue;
+        setForm(fromSearchResult(next!));
+        setPendingQueue(rest);
+        setStep(mode === "create" ? 1 : 0); // back to Basics for next character
+      } else {
+        onClose();
+      }
+    } catch {
+      setError("Failed to save character. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSkip = () => {
+    if (pendingQueue.length > 0) {
+      const [next, ...rest] = pendingQueue;
+      setForm(fromSearchResult(next!));
+      setPendingQueue(rest);
+      setStep(mode === "create" ? 1 : 0);
+      setError(null);
+    } else {
+      onClose();
+    }
+  };
+
+  const queuePosition = queueTotal - pendingQueue.length; // 1-based index of current char
 
   return (
     <div
@@ -293,17 +383,21 @@ export function CharacterFormWizard({
 
         {/* Step indicator */}
         <div className="px-6 py-3 border-b border-zinc-100 flex gap-6">
-          {STEPS.map((label, i) => (
+          {displaySteps.map((label, i) => (
             <button
               key={label}
               type="button"
-              onClick={() => setStep(i)}
+              // Allow clicking on visited form steps; import step (i=0 create) is not re-enterable
+              onClick={() => {
+                if (mode === "create" && i === 0) return;
+                if (i <= step) setStep(i);
+              }}
               className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
                 i === step
                   ? "border-zinc-900 text-zinc-900"
                   : i < step
-                  ? "border-zinc-300 text-zinc-500"
-                  : "border-transparent text-zinc-300"
+                  ? "border-zinc-300 text-zinc-500 cursor-pointer"
+                  : "border-transparent text-zinc-300 cursor-default"
               }`}
             >
               {i + 1}. {label}
@@ -313,129 +407,160 @@ export function CharacterFormWizard({
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          {step === 0 && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">
-                  Short Description
-                </label>
-                <textarea
-                  value={form.shortDescription}
-                  onChange={(e) => set("shortDescription", e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">Image URL</label>
-                <input
-                  type="text"
-                  value={form.imageUrl}
-                  onChange={(e) => set("imageUrl", e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">
-                  First Appearance Date
-                </label>
-                <input
-                  type="text"
-                  value={form.firstAppearanceDate}
-                  onChange={(e) => set("firstAppearanceDate", e.target.value)}
-                  placeholder="e.g. 2013-09-22 or 0000-01-01 if unknown"
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">Confidence</label>
-                <select
-                  value={form.confidence}
-                  onChange={(e) => set("confidence", Number(e.target.value) as 0 | 1 | 2 | 3)}
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400 bg-white"
-                >
-                  <option value={0}>0 — Unknown</option>
-                  <option value={1}>1 — Low</option>
-                  <option value={2}>2 — Medium</option>
-                  <option value={3}>3 — High</option>
-                </select>
-              </div>
-            </>
+          {/* Import step — create mode only */}
+          {isImportStep && (
+            <ImportStep onImported={handleImported} />
           )}
 
-          {step === 1 && (
+          {/* Form steps */}
+          {!isImportStep && (
             <>
-              <TagInput
-                label="Personality Traits"
-                values={form.personalityTraits}
-                onChange={(v) => set("personalityTraits", v)}
-              />
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1">Backstory</label>
-                <textarea
-                  value={form.backstory}
-                  onChange={(e) => set("backstory", e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                />
-              </div>
-              <TagInput
-                label="Speech Patterns"
-                values={form.speechPatterns}
-                onChange={(v) => set("speechPatterns", v)}
-              />
-              <TagInput label="Values" values={form.values} onChange={(v) => set("values", v)} />
-              <TagInput label="Fears" values={form.fears} onChange={(v) => set("fears", v)} />
-              <TagInput label="Goals" values={form.goals} onChange={(v) => set("goals", v)} />
-              <TagInput
-                label="Notable Quotes"
-                values={form.notableQuotes}
-                onChange={(v) => set("notableQuotes", v)}
-              />
-              <TagInput
-                label="Abilities"
-                values={form.abilities}
-                onChange={(v) => set("abilities", v)}
-              />
-              <TagInput
-                label="Coping Style"
-                values={form.copingStyle}
-                onChange={(v) => set("copingStyle", v)}
-              />
+              {formStep === 0 && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Short Description
+                    </label>
+                    <textarea
+                      value={form.shortDescription}
+                      onChange={(e) => set("shortDescription", e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Image URL
+                    </label>
+                    <input
+                      type="text"
+                      value={form.imageUrl}
+                      onChange={(e) => set("imageUrl", e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      First Appearance Date
+                    </label>
+                    <input
+                      type="text"
+                      value={form.firstAppearanceDate}
+                      onChange={(e) => set("firstAppearanceDate", e.target.value)}
+                      placeholder="e.g. 2013-09-22 or 0000-01-01 if unknown"
+                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Confidence
+                    </label>
+                    <select
+                      value={form.confidence}
+                      onChange={(e) =>
+                        set("confidence", Number(e.target.value) as 0 | 1 | 2 | 3)
+                      }
+                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400 bg-white"
+                    >
+                      <option value={0}>0 — Unknown</option>
+                      <option value={1}>1 — Low</option>
+                      <option value={2}>2 — Medium</option>
+                      <option value={3}>3 — High</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {formStep === 1 && (
+                <>
+                  <TagInput
+                    label="Personality Traits"
+                    values={form.personalityTraits}
+                    onChange={(v) => set("personalityTraits", v)}
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Backstory
+                    </label>
+                    <textarea
+                      value={form.backstory}
+                      onChange={(e) => set("backstory", e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    />
+                  </div>
+                  <TagInput
+                    label="Speech Patterns"
+                    values={form.speechPatterns}
+                    onChange={(v) => set("speechPatterns", v)}
+                  />
+                  <TagInput
+                    label="Values"
+                    values={form.values}
+                    onChange={(v) => set("values", v)}
+                  />
+                  <TagInput
+                    label="Fears"
+                    values={form.fears}
+                    onChange={(v) => set("fears", v)}
+                  />
+                  <TagInput
+                    label="Goals"
+                    values={form.goals}
+                    onChange={(v) => set("goals", v)}
+                  />
+                  <TagInput
+                    label="Notable Quotes"
+                    values={form.notableQuotes}
+                    onChange={(v) => set("notableQuotes", v)}
+                  />
+                  <TagInput
+                    label="Abilities"
+                    values={form.abilities}
+                    onChange={(v) => set("abilities", v)}
+                  />
+                  <TagInput
+                    label="Coping Style"
+                    values={form.copingStyle}
+                    onChange={(v) => set("copingStyle", v)}
+                  />
+                </>
+              )}
+
+              {formStep === 2 && (
+                <>
+                  <KVEditor
+                    label="Relationships (name → description)"
+                    pairs={form.relationships}
+                    onChange={(p) => set("relationships", p)}
+                  />
+                  <KVEditor
+                    label="Knowledge Scope (topic → scope)"
+                    pairs={form.knowledgeScope}
+                    onChange={(p) => set("knowledgeScope", p)}
+                  />
+                </>
+              )}
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
             </>
           )}
-
-          {step === 2 && (
-            <>
-              <KVEditor
-                label="Relationships (name → description)"
-                pairs={form.relationships}
-                onChange={(p) => set("relationships", p)}
-              />
-              <KVEditor
-                label="Knowledge Scope (topic → scope)"
-                pairs={form.knowledgeScope}
-                onChange={(p) => set("knowledgeScope", p)}
-              />
-            </>
-          )}
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-zinc-100 flex justify-between">
+        <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between">
+          {/* Left button */}
           <button
             type="button"
             onClick={() => (step > 0 ? setStep(step - 1) : onClose())}
@@ -443,19 +568,57 @@ export function CharacterFormWizard({
           >
             {step === 0 ? "Cancel" : "Back"}
           </button>
-          {step < STEPS.length - 1 ? (
+
+          {/* Right area */}
+          {isImportStep ? (
+            // Import step: offer manual entry escape hatch
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              Enter manually →
+            </button>
+          ) : !isLastFormStep ? (
+            // Form steps — not last
             <button
               type="button"
               onClick={() => setStep(step + 1)}
-              disabled={step === 0 && !form.name.trim()}
+              disabled={formStep === 0 && !form.name.trim()}
               className="px-4 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next
             </button>
+          ) : pendingQueue.length > 0 ? (
+            // Last form step with pending queue
+            <div className="flex items-center gap-3">
+              {queueTotal > 1 && (
+                <span className="text-xs text-zinc-400">
+                  Character {queuePosition} of {queueTotal}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSkip}
+                disabled={submitting}
+                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-40"
+              >
+                Skip
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveAndNext()}
+                disabled={submitting || !form.name.trim()}
+                className="px-4 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Saving…" : "Save & Next"}
+              </button>
+            </div>
           ) : (
+            // Last form step, no queue — normal save
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
               disabled={submitting || !form.name.trim()}
               className="px-4 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >

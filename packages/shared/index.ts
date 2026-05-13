@@ -34,6 +34,7 @@ export {
   ShowSearchInputSchema,
   ShowResultSchema,
   ShowSearchResultSchema,
+  type ShowResult,
 } from "./schema/show_search";
 export {
   listCharacters,
@@ -41,3 +42,5 @@ export {
   updateCharacter,
   deleteCharacter,
 } from "./services/character.service";
+export { showSearchHandler } from "./services/show_search.service";
+export { characterSearchHandler } from "./services/character_search.service";
