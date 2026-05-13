@@ -35,3 +35,9 @@ export {
   ShowResultSchema,
   ShowSearchResultSchema,
 } from "./schema/show_search";
+export {
+  listCharacters,
+  saveCharacter,
+  updateCharacter,
+  deleteCharacter,
+} from "./services/character.service";

@@ -1,89 +1,155 @@
-import Image from "next/image";
-import { createClient } from "@/lib/supabase/server";
-import { logout } from "@/app/(auth)/actions";
+// frontend/app/page.tsx
+"use client";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { CharacterList } from "@/components/characters/CharacterList";
+import { CharacterSearch } from "@/components/characters/CharacterSearch";
+import { CharacterFormWizard } from "@/components/characters/CharacterFormWizard";
+import { CharacterViewDrawer } from "@/components/characters/CharacterViewDrawer";
+import { DeleteConfirmDialog } from "@/components/characters/DeleteConfirmDialog";
+import { logout } from "@/app/(auth)/actions";
+import type { SavedCharacterRecord, CharacterSaveInput } from "@open-ormus/shared";
+
+export default function HomePage() {
+  const [characters, setCharacters] = useState<SavedCharacterRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeModal, setActiveModal] = useState<
+    "create" | "edit" | "view" | "delete" | null
+  >(null);
+  const [selected, setSelected] = useState<SavedCharacterRecord | null>(null);
+
+  const fetchCharacters = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/characters");
+      const data = (await res.json()) as SavedCharacterRecord[];
+      setCharacters(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchCharacters();
+  }, [fetchCharacters]);
+
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return characters;
+    const q = searchQuery.toLowerCase();
+    return characters.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.sheet.shortDescription.toLowerCase().includes(q)
+    );
+  }, [characters, searchQuery]);
+
+  const handleCreate = async (data: CharacterSaveInput) => {
+    const res = await fetch("/api/characters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to create character");
+    await fetchCharacters();
+  };
+
+  const handleEdit = async (data: CharacterSaveInput) => {
+    if (!selected) return;
+    const res = await fetch(`/api/characters/${selected.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: selected.id, sheet: data }),
+    });
+    if (!res.ok) throw new Error("Failed to update character");
+    await fetchCharacters();
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    const res = await fetch(`/api/characters/${selected.id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete character");
+    setActiveModal(null);
+    setSelected(null);
+    await fetchCharacters();
+  };
+
+  const openView = (c: SavedCharacterRecord) => {
+    setSelected(c);
+    setActiveModal("view");
+  };
+
+  const openEdit = (c: SavedCharacterRecord) => {
+    setSelected(c);
+    setActiveModal("edit");
+  };
+
+  const openDelete = (c: SavedCharacterRecord) => {
+    setSelected(c);
+    setActiveModal("delete");
+  };
+
+  const closeModal = () => {
+    setActiveModal(null);
+    setSelected(null);
+  };
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <div className="flex w-full items-center justify-between">
-          <Image
-            className="dark:invert"
-            src="/next.svg"
-            alt="Next.js logo"
-            width={100}
-            height={20}
-            priority
-          />
-          <div className="flex items-center gap-4">
-            {user && (
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                {user.email}
-              </span>
-            )}
-            <form action={logout}>
-              <button
-                type="submit"
-                className="flex h-9 items-center justify-center rounded-full border border-solid border-black/[.08] px-4 text-sm transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-              >
-                Log out
-              </button>
-            </form>
-          </div>
-        </div>
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="min-h-screen bg-zinc-50">
+      <header className="sticky top-0 z-10 bg-white border-b border-zinc-200 px-6 py-3 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-zinc-900">OpenOrmus</h1>
+        <form action={logout}>
+          <button
+            type="submit"
+            className="text-sm text-zinc-500 hover:text-zinc-800 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Log out
+          </button>
+        </form>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <CharacterSearch onSearch={setSearchQuery} />
+          <button
+            type="button"
+            onClick={() => setActiveModal("create")}
+            className="px-4 py-2 text-sm bg-zinc-900 text-white rounded-lg hover:bg-zinc-700 transition-colors whitespace-nowrap"
           >
-            Documentation
-          </a>
+            + New Character
+          </button>
         </div>
+
+        <CharacterList
+          characters={filtered}
+          loading={loading}
+          onView={openView}
+          onEdit={openEdit}
+          onDelete={openDelete}
+        />
       </main>
+
+      {activeModal === "create" && (
+        <CharacterFormWizard mode="create" onSubmit={handleCreate} onClose={closeModal} />
+      )}
+      {activeModal === "edit" && selected && (
+        <CharacterFormWizard
+          mode="edit"
+          initialData={selected}
+          onSubmit={handleEdit}
+          onClose={closeModal}
+        />
+      )}
+      {activeModal === "view" && selected && (
+        <CharacterViewDrawer character={selected} onClose={closeModal} />
+      )}
+      {activeModal === "delete" && selected && (
+        <DeleteConfirmDialog
+          characterName={selected.name}
+          onConfirm={handleDelete}
+          onCancel={closeModal}
+        />
+      )}
     </div>
   );
 }

@@ -1,8 +1,10 @@
+// mcp_server/src/registry/tools/character_delete.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CharacterDeleteInputShape,
   type CharacterDeleteInput,
 } from "@open-ormus/shared";
+import { deleteCharacter } from "@open-ormus/shared/services/character.service";
 import { prisma } from "../../db.js";
 import { userIdStorage } from "../../auth/context.js";
 
@@ -13,13 +15,7 @@ export async function characterDeleteHandler(
 ): Promise<DeleteResult> {
   const userId = userIdStorage.getStore();
   if (!userId) throw new Error("userId not in context");
-
-  const result = await prisma.character.deleteMany({
-    where: { id: args.id, userId },
-  });
-  if (result.count === 0) return { error: "not_found" };
-
-  return { success: true };
+  return deleteCharacter(prisma, userId, args.id);
 }
 
 export function register(server: McpServer): void {
@@ -28,12 +24,7 @@ export function register(server: McpServer): void {
     "Delete a saved character from your collection by id.",
     CharacterDeleteInputShape,
     async (args: CharacterDeleteInput) => ({
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(await characterDeleteHandler(args)),
-        },
-      ],
+      content: [{ type: "text" as const, text: JSON.stringify(await characterDeleteHandler(args)) }],
     })
   );
 }

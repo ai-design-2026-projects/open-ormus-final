@@ -1,9 +1,11 @@
+// mcp_server/src/registry/tools/character_save.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CharacterSaveInputShape,
   type CharacterSaveInput,
   type SavedCharacterRecord,
 } from "@open-ormus/shared";
+import { saveCharacter } from "@open-ormus/shared/services/character.service";
 import { prisma } from "../../db.js";
 import { userIdStorage } from "../../auth/context.js";
 
@@ -12,23 +14,7 @@ export async function characterSaveHandler(
 ): Promise<SavedCharacterRecord> {
   const userId = userIdStorage.getStore();
   if (!userId) throw new Error("userId not in context");
-
-  const record = await prisma.character.create({
-    data: {
-      userId,
-      name: args.name,
-      sheet: args,
-    },
-  });
-
-  return {
-    id: record.id,
-    userId: record.userId,
-    name: record.name,
-    sheet: args,
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt.toISOString(),
-  };
+  return saveCharacter(prisma, userId, args);
 }
 
 export function register(server: McpServer): void {
@@ -37,12 +23,7 @@ export function register(server: McpServer): void {
     "Save a character to your collection. Accepts the full character profile returned by character_search.",
     CharacterSaveInputShape,
     async (args: CharacterSaveInput) => ({
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(await characterSaveHandler(args)),
-        },
-      ],
+      content: [{ type: "text" as const, text: JSON.stringify(await characterSaveHandler(args)) }],
     })
   );
 }

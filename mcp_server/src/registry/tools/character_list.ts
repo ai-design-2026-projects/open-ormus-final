@@ -1,28 +1,14 @@
+// mcp_server/src/registry/tools/character_list.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  CharacterSearchResultSchema,
-  type SavedCharacterRecord,
-} from "@open-ormus/shared";
+import type { SavedCharacterRecord } from "@open-ormus/shared";
+import { listCharacters } from "@open-ormus/shared/services/character.service";
 import { prisma } from "../../db.js";
 import { userIdStorage } from "../../auth/context.js";
 
 export async function characterListHandler(): Promise<SavedCharacterRecord[]> {
   const userId = userIdStorage.getStore();
   if (!userId) throw new Error("userId not in context");
-
-  const records = await prisma.character.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return records.map((record) => ({
-    id: record.id,
-    userId: record.userId,
-    name: record.name,
-    sheet: CharacterSearchResultSchema.parse(record.sheet),
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt.toISOString(),
-  }));
+  return listCharacters(prisma, userId);
 }
 
 export function register(server: McpServer): void {
@@ -31,12 +17,7 @@ export function register(server: McpServer): void {
     "List all characters saved in your collection.",
     {},
     async () => ({
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(await characterListHandler()),
-        },
-      ],
+      content: [{ type: "text" as const, text: JSON.stringify(await characterListHandler()) }],
     })
   );
 }
