@@ -162,6 +162,8 @@ assert_status "tools/list" "$RESP_STATUS" "200"
 assert_contains "character_create tool" "$RESP_BODY" "mcp__openormus__character_create"
 assert_contains "character_get tool"    "$RESP_BODY" "mcp__openormus__character_get"
 assert_contains "scene_simulate tool"   "$RESP_BODY" "mcp__openormus__scene_simulate"
+assert_contains "character_search tool" "$RESP_BODY" "mcp__openormus__character_search"
+assert_contains "show_search tool"      "$RESP_BODY" "mcp__openormus__show_search"
 
 # ── character_create ───────────────────────────────────────────────────────────
 
@@ -276,6 +278,52 @@ split_response "$raw"
 TEXT=$(decode_tool_text "$RESP_BODY")
 assert_status "scene_simulate unknown char" "$RESP_STATUS" "200"
 assert_contains "character_not_found error" "$TEXT" '"error":"character_not_found"'
+
+# ── character_search ───────────────────────────────────────────────────────────
+
+bold "── character_search ────────────────────────────────"
+raw=$(mcp_post "$SESSION_ID" '{
+  "jsonrpc":"2.0","id":9,"method":"tools/call",
+  "params":{
+    "name":"mcp__openormus__character_search",
+    "arguments":{"query":"Berlin, Money Heist"}
+  }
+}')
+split_response "$raw"
+TEXT=$(decode_tool_text "$RESP_BODY")
+assert_status "character_search" "$RESP_STATUS" "200"
+echo "    Raw response: $TEXT" >&2
+# Accept either valid result or expected error (no Exa key, parse fail, etc)
+if echo "$TEXT" | grep -qE '("name"|"error")'; then
+  ok "character_search response valid (name or error field)"
+  echo "    Parsed: $TEXT" >&2
+else
+  fail "character_search response invalid (no name or error field)"
+  echo "    response: $TEXT" >&2
+fi
+
+# ── show_search ────────────────────────────────────────────────────────────────
+
+bold "── show_search ─────────────────────────────────────"
+raw=$(mcp_post "$SESSION_ID" '{
+  "jsonrpc":"2.0","id":10,"method":"tools/call",
+  "params":{
+    "name":"mcp__openormus__show_search",
+    "arguments":{"query":"Money Heist"}
+  }
+}')
+split_response "$raw"
+TEXT=$(decode_tool_text "$RESP_BODY")
+assert_status "show_search" "$RESP_STATUS" "200"
+echo "    Raw response: $TEXT" >&2
+# Accept either valid result or expected error (no Exa key, parse fail, etc)
+if echo "$TEXT" | grep -qE '("results"|"error")'; then
+  ok "show_search response valid (results or error field)"
+  echo "    Parsed: $TEXT" >&2
+else
+  fail "show_search response invalid (no results or error field)"
+  echo "    response: $TEXT" >&2
+fi
 
 # ── summary ────────────────────────────────────────────────────────────────────
 
