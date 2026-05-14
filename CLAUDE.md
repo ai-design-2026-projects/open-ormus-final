@@ -32,10 +32,29 @@ Don't start implementing until the plan is confirmed.
 ## Context Engineering
 
 - Use the Explore subagent for codebase searches that span > 3 queries — keep main context clean.
-- `context7` MCP is available: use it for Next.js, Prisma, Supabase, Claude Agent SDK,
+- `context7` MCP is available: use it for Next.js, Prisma, Supabase,
   and `@modelcontextprotocol/sdk` docs in preference to web search.
 - Use Plan mode by default for any change touching: auth flow, MCP transport, tool registry,
   or Prisma schema — these are load-bearing and hard to reverse.
+
+## Communication
+
+- Language: **English** — responses, code, commits.
+- Lead with the answer (BLUF). Reasoning and context only if needed.
+- No preamble. Never open with "Sure!", "Happy to help", or any variant.
+- No sign-off. Don't restate what you just did at the end of a response.
+- Progress updates: one sentence max. What changed and what's next.
+- No filler: "It's worth noting", "In conclusion", "As mentioned" → cut.
+
+## Verification
+
+- Never claim something works without running it. Show the output.
+- No silent TODOs. If leaving something unimplemented, say so explicitly before finishing.
+
+## Context
+
+- When context compacts, the summary must preserve: list of modified files,
+  any open decisions, and the current task's next step.
 
 ## Never (Claude Code specifics)
 

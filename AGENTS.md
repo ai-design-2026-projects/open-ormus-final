@@ -4,9 +4,9 @@
 
 OpenOrmus is a web app for creating fictional characters, simulating multi-character scenes, and
 evaluating LLM behavioural fidelity. The central design is a **single tool registry** consumed by
-three channels: traditional UI, an internal AI assistant (Claude Agent SDK loop), and an external
+three channels: traditional UI, an internal AI assistant (LiteLLM-backed chat loop), and an external
 MCP server. Two-track architecture: production chat (live SSE) and evaluation (offline batch,
-separate judge model). Source of truth for product behaviour is `PROJECT_EN.md`.
+separate judge model).
 
 ---
 
@@ -16,11 +16,11 @@ separate judge model). Source of truth for product behaviour is `PROJECT_EN.md`.
 frontend/           Next.js 16 — App Router, Supabase Auth, Prisma client, shadcn/ui
 mcp_server/         Express 5 MCP server (port 3001) — tool registry host
 packages/shared/    Zod schemas, tool registry types, prompt templates (shared by all)
-prisma/             Centralised schema.prisma + migrations (no models yet — see §11)
+prisma/             Centralised schema.prisma + migrations (User, Character, Conversation, …)
+docs/               Internal docs and skill files
 .env.example        Required env vars — copy to .env.local before starting
-PROJECT_EN.md       Product spec: vision, features, data model, evaluation framework
-TECH_STACK_EN.md    Stack rationale and ADRs (known drift — see §11)
-DEVELOPMENT_PLAN.md 4-week sprint, milestone table, Davide / Leonardo split
+litellm_config.yaml LiteLLM proxy config (model aliases, providers)
+scripts/            Dev helper scripts (dev-llm.sh, test-mcp.sh)
 ```
 
 ---
@@ -32,8 +32,8 @@ DEVELOPMENT_PLAN.md 4-week sprint, milestone table, Davide / Leonardo split
 - **Bun ≥ 1.2** — package manager and runtime (`bun install`, `bun run`)
 - **Node ≥ 20** — needed only by tooling that has no Bun binary (Prisma CLI migrations)
 - **PostgreSQL 15+** locally, or a Supabase project with `DATABASE_URL` set
-- **LiteLLM proxy on `http://localhost:4000`** — runs *outside* this repo (see §7); the Claude
-  Agent SDK routes every LLM call through it via `ANTHROPIC_BASE_URL`
+- **LiteLLM proxy on `http://localhost:4000`** — runs *outside* this repo (see §7); all LLM calls
+  route through it via `ANTHROPIC_BASE_URL`. Start with `bun run dev:llm`.
 
 **Bootstrap**
 
@@ -42,7 +42,7 @@ bun install                                    # install all workspaces
 cp .env.example .env.local                     # fill in your values
 bun run --cwd frontend prisma migrate dev      # run DB migrations
 bun run dev:frontend                           # start Next.js on :3000
-bun run --cwd mcp_server dev                   # start MCP server on :3001
+bun run dev:mcp                                # start MCP server on :3001
 ```
 
 ---
@@ -52,14 +52,14 @@ bun run --cwd mcp_server dev                   # start MCP server on :3001
 | Goal | Command (run from repo root) |
 | ---- | ---- |
 | Frontend dev server | `bun run dev:frontend` |
-| MCP server dev (watch) | `bun run --cwd mcp_server dev` |
+| MCP server dev (watch) | `bun run dev:mcp` |
+| LiteLLM proxy (dev) | `bun run dev:llm` |
 | Build frontend | `bun run build` |
-| Prisma migrate (dev) | `bun run --cwd frontend prisma migrate dev` |
-| Prisma generate client | `bun run --cwd frontend prisma generate` |
-| Type-check frontend | `bun run --cwd frontend tsc --noEmit` |
-| Type-check shared | `bun run --cwd packages/shared tsc --noEmit` |
-
-No test runner is wired up yet. Add commands here when they land.
+| Type-check (all)   | `bun run typecheck` |
+| Prisma migrate (dev) | `bun run prisma:migrate:dev` |
+| Prisma generate client | `bun run prisma:generate` |
+| Prisma Studio | `bun run prisma:studio` |
+| Run tests (mcp_server) | `bun test --cwd mcp_server` |
 
 ---
 
@@ -71,7 +71,7 @@ No test runner is wired up yet. Add commands here when they land.
         frontend ─────┘      │      └────── mcp_server
         (Next.js)            │              (Express + MCP SDK)
                     /api/chat/stream
-                  (Claude Agent SDK loop)
+                  (chat loop → LiteLLM)
                      │
                      └──► POST http://localhost:3001/mcp  (JWT-authed tool calls)
 ```
@@ -117,11 +117,10 @@ No test runner is wired up yet. Add commands here when they land.
 - Singleton client: `lib/prisma.ts` (frontend), `src/db.ts` (mcp_server). Never `new PrismaClient()` ad hoc.
 - `Character.sheet` is JSONB (`Json` type in Prisma) — do not normalise it into relational columns.
 
-### LLM — Claude Agent SDK + LiteLLM
-- SDK connects to LiteLLM: `ANTHROPIC_BASE_URL=http://localhost:4000`.
+### LLM — LiteLLM proxy
+- Frontend calls LiteLLM directly via HTTP: `ANTHROPIC_BASE_URL=http://localhost:4000`.
   `ANTHROPIC_API_KEY` is the LiteLLM master key, not a direct Anthropic key.
-- **Never hardcode a model name** — pass model as an argument; LiteLLM config decides routing.
-  Production chat → one model; eval judge → a separate low-RLHF model (see `PROJECT_EN.md §6.7`).
+- **Never hardcode a model name** — pass model as an argument (`CONVERSATION_MODEL` env); LiteLLM config decides routing.
 - Every LLM call must be logged: `model`, `prompt_hash`, `temperature_ms`, `latency_ms`, `userId`.
 
 ### MCP Server
@@ -141,7 +140,7 @@ No test runner is wired up yet. Add commands here when they land.
 
 ### Zod
 - A single major version must be used across all workspaces. Currently mismatched (`packages/shared`
-  v4, `mcp_server` v3) — see §11. Resolve before shared schemas are consumed in tools.
+  v4, `mcp_server` v3) — resolve before shared schemas are consumed in tools.
 - Schemas are defined once in `packages/shared/schema/`, exported as Zod objects + inferred types.
   Both API validation (frontend) and MCP tool validation (mcp_server) import from there.
 
@@ -151,8 +150,8 @@ No test runner is wired up yet. Add commands here when they land.
 
 **LiteLLM proxy**
 Runs at `http://localhost:4000` and is *not* part of this repo. It accepts requests in Anthropic
-API shape and routes them to the configured provider by model name. The Claude Agent SDK sends all
-LLM traffic here via `ANTHROPIC_BASE_URL`. If LiteLLM is unavailable the agent loop must fail fast
+API shape and routes them to the configured provider by model name. The frontend sends all
+LLM traffic here via `ANTHROPIC_BASE_URL`. If LiteLLM is unavailable the chat handler must fail fast
 with a clear error — no silent retries that bill the wrong provider.
 
 **Supabase**
@@ -194,27 +193,65 @@ log the failure to `stderr` — never swallow it silently.
 | Import Prisma in Next.js middleware (runs on Edge runtime) | Keep all Prisma in Node-runtime route handlers / Server Components |
 | Call `supabase.auth.getSession()` server-side | Use `supabase.auth.getUser()` — see §6 Supabase Auth |
 | Add a new MCP tool without first updating `packages/shared/schema/` | Schema-first: add Zod schema → infer types → implement handler |
-| Grow `mcp_server/src/index.ts` past ~150 lines | Extract to `src/transport/`, `src/auth/`, `src/registry/` |
 | Refactor code adjacent to the requested change | Surgical changes only; mention unrelated issues but don't touch them |
-| Introduce a pattern not in `PROJECT_EN.md` (event bus, CQRS, …) | Surface the gap as a question; do not invent |
+| Introduce a pattern not discussed (event bus, CQRS, …) | Surface the gap as a question; do not invent |
 | Push to `main` / `develop` without confirmation | Always ask first |
 
 ---
 
-## 11. Known Drift (code ≠ spec — do not treat as bugs to fix silently)
+## 11. References
 
-| Spec says | Code has | Status |
-| ---- | ---- | ---- |
-| NextAuth (TECH_STACK_EN.md) | `@supabase/ssr` + Supabase Auth | Doc-only PR needed |
-| Prisma 5, Next.js 14 (TECH_STACK_EN.md) | Prisma 7.8, Next.js 16.2.6 | Doc-only PR needed |
-| `packages/shared` zod v4, `mcp_server` zod v3 | Workspace mismatch | Must converge before M3-05 |
-| Prisma models (PROJECT_EN.md §7) | schema.prisma is datasource-only | Lands in M1-02 |
-| `@anthropic-ai/claude-agent-sdk`, `@modelcontextprotocol/sdk` | Not yet installed | M3-01 / M3-04 |
+- `README.md` — project overview and quick start
+- `.env.example` — canonical list of required environment variables
+- `litellm_config.yaml` — LiteLLM proxy routing config (model aliases, providers)
 
 ---
 
-## 12. References
+## 12. Worktree Setup
 
-- `PROJECT_EN.md` — product spec (vision, features, data model, evaluation framework)
-- `DEVELOPMENT_PLAN.md` — 4-week sprint plan and milestone ownership
-- `TECH_STACK_EN.md` — stack rationale and ADRs (note: known drift, see §11)
+### Rules
+
+- **Always work in a worktree** — never commit directly to `develop`.
+- Finish the work in the worktree, then **squash merge into `develop`**.
+- Worktrees branch from local `HEAD` — make sure you're on `develop` before creating one.
+
+### Creating a worktree
+
+Name the worktree with a type prefix using `-` as separator: `feature-character-import`, `fix-auth-token`, `refactor-tool-registry`. The resulting branch will be `worktree-<name>`.
+
+**Inside a session** — ask Claude:
+> "Create a worktree for `feature-character-import`"
+
+Claude uses `EnterWorktree`, then symlinks `.env` and `.env.local` from the root worktree and runs project setup.
+
+**From the CLI** — start an isolated session directly:
+```bash
+# make sure you're on develop first
+claude --worktree feature-character-import
+```
+
+After entering, run setup manually:
+```bash
+ROOT="$(git worktree list --porcelain | head -1 | awk '{print $2}')"
+for f in .env .env.local; do [ -f "$ROOT/$f" ] && ln -sf "$ROOT/$f" "$f" || true; done
+ln -sf ../.env frontend/.env && ln -sf ../.env frontend/.env.local
+bun install && bun run prisma:generate
+```
+
+### Finishing a worktree
+
+```bash
+# from develop
+git merge --squash worktree-<name>
+git commit -m "Squash merge worktree-<name> into develop"
+git worktree remove .claude/worktrees/<name>
+git branch -d worktree-<name>
+```
+
+### Verify before merging
+
+```bash
+bun run typecheck
+bun run build
+bun test --cwd mcp_server
+```

@@ -20,4 +20,5 @@ mcp_server/src/generated/
 npm-debug.log*
 bun-debug.log*
 .worktrees/
+.claude/worktrees/
 .serena/
