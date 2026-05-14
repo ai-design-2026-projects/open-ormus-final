@@ -19,6 +19,7 @@ model User {
   updatedAt  DateTime    @updatedAt @map("updated_at")
   characters Character[]
   conversations Conversation[]
+  agentSessions AgentSession[]
 
   @@map("users")
 }
@@ -79,4 +80,31 @@ model Message {
 
   @@index([conversationId])
   @@map("messages")
+}
+
+model AgentSession {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @db.Uuid @map("user_id")
+  title     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns AgentTurn[]
+
+  @@map("agent_sessions")
+}
+
+model AgentTurn {
+  id        String       @id @default(uuid()) @db.Uuid
+  sessionId String       @db.Uuid @map("session_id")
+  role      String
+  content   String
+  toolCalls Json?
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("agent_turns")
 }
