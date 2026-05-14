@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
+import { buildCharacterPrompt } from "@/lib/prompts";
+import { CharacterSearchResultSchema } from "@open-ormus/shared";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -72,12 +74,8 @@ export async function POST(_request: Request, { params }: RouteContext) {
       ]!;
   }
 
-  const systemPrompt = [
-    `You are ${nextParticipant.character.name}.`,
-    `Your character sheet: ${JSON.stringify(nextParticipant.character.sheet)}`,
-    `Scene context: ${conversation.context}`,
-    `Respond only as ${nextParticipant.character.name}. Write only the character's next line of dialogue or action. Do not include a name prefix.`,
-  ].join("\n\n");
+  const sheet = CharacterSearchResultSchema.parse(nextParticipant.character.sheet);
+  const systemPrompt = buildCharacterPrompt(sheet, conversation.context);
 
   const historyText =
     conversation.messages.length > 0
