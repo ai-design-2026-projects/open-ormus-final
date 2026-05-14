@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -46,13 +47,29 @@ export async function POST(_request: Request, { params }: RouteContext) {
     );
   }
 
-  const nextParticipant =
-    conversation.participants[
-      conversation.messages.length % conversation.participants.length
-    ];
+  let nextParticipant: (typeof conversation.participants)[number];
 
-  if (nextParticipant === undefined) {
-    return NextResponse.json({ error: "Could not determine next speaker" }, { status: 500 });
+  if (conversation.participants.length >= 3) {
+    const characterId = await selectNextSpeakerWithOrchestrator(
+      conversation.participants,
+      conversation.messages
+    );
+    const found = conversation.participants.find((p) => p.characterId === characterId);
+    if (!found) {
+      console.error(
+        `[next/route] orchestrator returned unknown characterId "${characterId}" — falling back to round-robin`
+      );
+    }
+    nextParticipant =
+      found ??
+      conversation.participants[
+        conversation.messages.length % conversation.participants.length
+      ]!;
+  } else {
+    nextParticipant =
+      conversation.participants[
+        conversation.messages.length % conversation.participants.length
+      ]!;
   }
 
   const systemPrompt = [
