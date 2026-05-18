@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { title, context, characterIds } = parsed.data;
+  const { title, context, characterIds, turnStrategy } = parsed.data;
 
   const characters = await prisma.character.findMany({
     where: { id: { in: characterIds }, userId: user.id },
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
       userId: user.id,
       title,
       context,
+      turnStrategy,
       participants: {
         create: characterIds.map((characterId, index) => ({
           characterId,

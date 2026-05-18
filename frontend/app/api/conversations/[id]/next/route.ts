@@ -51,7 +51,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
 
   let nextParticipant: (typeof conversation.participants)[number];
 
-  if (conversation.participants.length >= 3) {
+  if (conversation.turnStrategy === 'ORCHESTRATOR') {
     const characterId = await selectNextSpeakerWithOrchestrator(
       conversation.participants,
       conversation.messages,

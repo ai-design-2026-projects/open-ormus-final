@@ -7,10 +7,14 @@ const uuidSchema = z
     "Invalid UUID"
   );
 
+export const TurnStrategySchema = z.enum(['ORCHESTRATOR', 'ROUND_ROBIN']);
+export type TurnStrategy = z.infer<typeof TurnStrategySchema>;
+
 export const CreateConversationInputSchema = z.object({
   title: z.string().min(1),
   context: z.string().min(1),
   characterIds: z.array(uuidSchema).min(1),
+  turnStrategy: TurnStrategySchema.optional().default('ORCHESTRATOR'),
 });
 export type CreateConversationInput = z.infer<typeof CreateConversationInputSchema>;
 
@@ -48,6 +52,7 @@ export const ConversationRecordSchema = z.object({
   id: uuidSchema,
   title: z.string(),
   context: z.string(),
+  turnStrategy: TurnStrategySchema,
   createdAt: z.string(),
   participants: z.array(
     z.object({

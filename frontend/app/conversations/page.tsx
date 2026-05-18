@@ -28,6 +28,7 @@ export default function ConversationsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [turnStrategy, setTurnStrategy] = useState<'ORCHESTRATOR' | 'ROUND_ROBIN'>('ORCHESTRATOR');
   const [loadError, setLoadError] = useState<string | null>(null);
 
   async function loadConversations() {
@@ -63,6 +64,7 @@ export default function ConversationsPage() {
     setContext("");
     setSelectedIds([]);
     setCreateError(null);
+    setTurnStrategy('ORCHESTRATOR');
     setShowModal(true);
   }
 
@@ -77,7 +79,7 @@ export default function ConversationsPage() {
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, context, characterIds: orderedIds }),
+      body: JSON.stringify({ title, context, characterIds: orderedIds, turnStrategy }),
     });
     setCreating(false);
     if (res.ok) {
@@ -190,6 +192,41 @@ export default function ConversationsPage() {
                   </ul>
                 )}
               </div>
+              {selectedIds.length >= 3 && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Turn strategy</label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="turnStrategy"
+                        value="ORCHESTRATOR"
+                        checked={turnStrategy === 'ORCHESTRATOR'}
+                        onChange={() => setTurnStrategy('ORCHESTRATOR')}
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm">
+                        <span className="font-medium">AI Orchestrator</span>
+                        <span className="text-zinc-500 ml-1">— decides who speaks based on scene context</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="turnStrategy"
+                        value="ROUND_ROBIN"
+                        checked={turnStrategy === 'ROUND_ROBIN'}
+                        onChange={() => setTurnStrategy('ROUND_ROBIN')}
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm">
+                        <span className="font-medium">Round-robin</span>
+                        <span className="text-zinc-500 ml-1">— characters speak in fixed cyclic order</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
               {createError != null && (
                 <p className="text-sm text-red-500">{createError}</p>
               )}

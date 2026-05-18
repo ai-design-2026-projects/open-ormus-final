@@ -38,6 +38,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     id: conversation.id,
     title: conversation.title,
     context: conversation.context,
+    turnStrategy: conversation.turnStrategy,
     createdAt: conversation.createdAt.toISOString(),
     participants: conversation.participants.map((p) => ({
       characterId: p.character.id,

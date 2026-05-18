@@ -47,6 +47,8 @@ export { characterSearchHandler } from "./services/character_search.service";
 export {
   CreateConversationInputSchema,
   type CreateConversationInput,
+  TurnStrategySchema,
+  type TurnStrategy,
   MessageRecordSchema,
   type MessageRecord,
   ConversationListItemSchema,

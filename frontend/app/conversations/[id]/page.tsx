@@ -15,6 +15,7 @@ type ConversationDetail = {
   id: string;
   title: string;
   context: string;
+  turnStrategy: 'ORCHESTRATOR' | 'ROUND_ROBIN';
   participants: Participant[];
   messages: Message[];
 };
@@ -70,7 +71,18 @@ export default function ConversationPage() {
         ← Back to conversations
       </Link>
 
-      <h1 className="text-2xl font-semibold mb-1">{conversation.title}</h1>
+      <div className="flex items-center gap-2 mb-1">
+        <h1 className="text-2xl font-semibold">{conversation.title}</h1>
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            conversation.turnStrategy === 'ORCHESTRATOR'
+              ? 'bg-indigo-100 text-indigo-700'
+              : 'bg-zinc-100 text-zinc-600'
+          }`}
+        >
+          {conversation.turnStrategy === 'ORCHESTRATOR' ? 'Orchestrator' : 'Round-robin'}
+        </span>
+      </div>
       <p className="text-sm text-zinc-500 mb-6">
         {sortedParticipants.map((p) => p.name).join(", ")}
       </p>
@@ -91,7 +103,7 @@ export default function ConversationPage() {
         )}
       </div>
 
-      {nextSpeaker !== undefined && (
+      {conversation.turnStrategy === 'ROUND_ROBIN' && nextSpeaker !== undefined && (
         <p className="text-xs text-zinc-400 mb-2">Next: {nextSpeaker.name}</p>
       )}
 

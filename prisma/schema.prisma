@@ -12,14 +12,20 @@ datasource db {
   provider = "postgresql"
 }
 
+enum TurnStrategy {
+  ORCHESTRATOR
+  ROUND_ROBIN
+}
+
 model User {
   id         String      @id @db.Uuid
   email      String      @unique
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
-  characters Character[]
-  conversations Conversation[]
-  agentSessions AgentSession[]
+  characters       Character[]
+  conversations    Conversation[]
+  agentSessions    AgentSession[]
+  conversationJobs ConversationJob[]
 
   @@map("users")
 }
@@ -40,16 +46,18 @@ model Character {
 }
 
 model Conversation {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid @map("user_id")
-  title     String
-  context   String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String       @id @default(uuid()) @db.Uuid
+  userId       String       @db.Uuid @map("user_id")
+  title        String
+  context      String
+  turnStrategy TurnStrategy @default(ORCHESTRATOR) @map("turn_strategy")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
   user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   participants ConversationParticipant[]
   messages     Message[]
+  jobs         ConversationJob[]
 
   @@map("conversations")
 }
@@ -107,4 +115,23 @@ model AgentTurn {
 
   @@index([sessionId])
   @@map("agent_turns")
+}
+
+model ConversationJob {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @db.Uuid @map("conversation_id")
+  userId         String   @db.Uuid @map("user_id")
+  totalTurns     Int      @map("total_turns")
+  doneTurns      Int      @default(0) @map("done_turns")
+  status         String   @default("pending")
+  errorMessage   String?  @map("error_message")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([userId])
+  @@map("conversation_jobs")
 }
