@@ -14,6 +14,7 @@ import type { SavedCharacterRecord, CharacterSaveInput } from "@open-ormus/share
 export default function HomePage() {
   const [characters, setCharacters] = useState<SavedCharacterRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeModal, setActiveModal] = useState<
     "create" | "edit" | "view" | "delete" | null
@@ -22,10 +23,18 @@ export default function HomePage() {
 
   const fetchCharacters = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch("/api/characters");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setFetchError(body.error ?? `Error ${res.status}`);
+        return;
+      }
       const data = (await res.json()) as SavedCharacterRecord[];
       setCharacters(data);
+    } catch {
+      setFetchError("Could not reach the server");
     } finally {
       setLoading(false);
     }
@@ -129,13 +138,19 @@ export default function HomePage() {
           </button>
         </div>
 
-        <CharacterList
-          characters={filtered}
-          loading={loading}
-          onView={openView}
-          onEdit={openEdit}
-          onDelete={openDelete}
-        />
+        {fetchError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {fetchError}
+          </div>
+        ) : (
+          <CharacterList
+            characters={filtered}
+            loading={loading}
+            onView={openView}
+            onEdit={openEdit}
+            onDelete={openDelete}
+          />
+        )}
       </main>
 
       {activeModal === "create" && (

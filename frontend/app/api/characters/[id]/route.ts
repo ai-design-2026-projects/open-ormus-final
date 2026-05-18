@@ -28,10 +28,14 @@ export async function PUT(request: Request, { params }: RouteContext) {
   if (!parsed.success)
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 
-  const result = await updateCharacter(prisma, user.id, parsed.data);
-  if ("error" in result)
-    return NextResponse.json({ error: result.error }, { status: 404 });
-  return NextResponse.json(result);
+  try {
+    const result = await updateCharacter(prisma, user.id, parsed.data);
+    if ("error" in result)
+      return NextResponse.json({ error: result.error }, { status: 404 });
+    return NextResponse.json(result);
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
@@ -45,8 +49,12 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   const idParsed = CharacterDeleteInputSchema.safeParse({ id });
   if (!idParsed.success)
     return NextResponse.json({ error: idParsed.error.issues }, { status: 400 });
-  const result = await deleteCharacter(prisma, user.id, idParsed.data.id);
-  if ("error" in result)
-    return NextResponse.json({ error: result.error }, { status: 404 });
-  return NextResponse.json({ success: true });
+  try {
+    const result = await deleteCharacter(prisma, user.id, idParsed.data.id);
+    if ("error" in result)
+      return NextResponse.json({ error: result.error }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  }
 }

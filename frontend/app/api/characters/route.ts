@@ -10,8 +10,12 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const characters = await listCharacters(prisma, user.id);
-  return NextResponse.json(characters);
+  try {
+    const characters = await listCharacters(prisma, user.id);
+    return NextResponse.json(characters);
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -31,6 +35,10 @@ export async function POST(request: Request) {
   if (!parsed.success)
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 
-  const character = await saveCharacter(prisma, user.id, parsed.data);
-  return NextResponse.json(character, { status: 201 });
+  try {
+    const character = await saveCharacter(prisma, user.id, parsed.data);
+    return NextResponse.json(character, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  }
 }

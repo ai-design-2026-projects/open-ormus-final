@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   "/register",
   "/forgot-password",
   "/api/auth/callback",
+  "/preview",
 ]
 
 export async function proxy(request: NextRequest) {
