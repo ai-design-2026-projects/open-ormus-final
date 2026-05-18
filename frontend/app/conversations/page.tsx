@@ -51,6 +51,21 @@ export default function ConversationsPage() {
   useEffect(() => {
     void loadConversations();
     void loadCharacters();
+
+    const interval = setInterval(() => {
+      if (!document.hidden) void loadConversations();
+    }, 5000);
+
+    const onVisible = () => {
+      if (!document.hidden) void loadConversations();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleCharacter(id: string) {
@@ -127,7 +142,10 @@ export default function ConversationsPage() {
                   <p className="text-sm text-zinc-400 italic">No messages yet</p>
                 )}
                 <p className="text-xs text-zinc-400 mt-1">
-                  {new Date(c.createdAt).toLocaleDateString()}
+                  {new Date(c.lastMessage?.createdAt ?? c.createdAt).toLocaleString(undefined, {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
                 </p>
               </Link>
               <button

@@ -1,6 +1,7 @@
+// frontend/app/conversations/[id]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -19,55 +20,151 @@ type ConversationDetail = {
   participants: Participant[];
   messages: Message[];
 };
+type ActiveJob = {
+  id: string;
+  totalTurns: number;
+  doneTurns: number;
+  status: string;
+};
 
 export default function ConversationPage() {
   const { id } = useParams<{ id: string }>();
+
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [turnsInput, setTurnsInput] = useState("5");
+  const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
+  const [streamingBuffer, setStreamingBuffer] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const isMountedRef = useRef(true);
+
+  async function loadConversation() {
     const res = await fetch(`/api/conversations/${id}`);
     if (res.ok) setConversation((await res.json()) as ConversationDetail);
     setLoading(false);
   }
 
+  async function checkActiveJob() {
+    const res = await fetch(`/api/conversations/${id}/jobs`);
+    if (!res.ok) return;
+    const job = (await res.json()) as ActiveJob | null;
+    if (job && (job.status === "running" || job.status === "pending")) {
+      setActiveJob(job);
+      connectToJob(job.id);
+    }
+  }
+
+  function connectToJob(jobId: string) {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const es = new EventSource(`/api/conversations/${id}/jobs/${jobId}/stream`);
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      const data = JSON.parse(event.data as string) as {
+        type: string;
+        text?: string;
+        doneTurns?: number;
+        totalTurns?: number;
+        message?: string;
+      };
+
+      if (data.type === "token") {
+        setStreamingBuffer((prev) => prev + (data.text ?? ""));
+      } else if (data.type === "turn_done") {
+        const doneTurns = data.doneTurns;
+        void loadConversation().then(() => {
+          setStreamingBuffer("");
+          setActiveJob((prev) =>
+            prev ? { ...prev, doneTurns: doneTurns ?? prev.doneTurns } : prev,
+          );
+        });
+      } else if (data.type === "done") {
+        es.close();
+        eventSourceRef.current = null;
+        setActiveJob(null);
+        setStreamingBuffer("");
+        void loadConversation();
+      } else if (data.type === "error") {
+        es.close();
+        eventSourceRef.current = null;
+        setActiveJob(null);
+        setStreamingBuffer("");
+        setError(data.message ?? "Job failed");
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+      if (isMountedRef.current) {
+        setActiveJob(null);
+        setStreamingBuffer("");
+      }
+    };
+  }
+
   useEffect(() => {
-    void load();
+    isMountedRef.current = true;
+    void loadConversation();
+    void checkActiveJob();
+
+    return () => {
+      isMountedRef.current = false;
+      eventSourceRef.current?.close();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function handleGenerateNext() {
-    if (conversation === null) return;
-    setGenerating(true);
-    setGenerateError(null);
-    const res = await fetch(`/api/conversations/${id}/next`, { method: "POST" });
-    setGenerating(false);
-    if (res.ok) {
-      const newMessage = (await res.json()) as Message;
-      setConversation((prev) =>
-        prev !== null ? { ...prev, messages: [...prev.messages, newMessage] } : prev
-      );
-    } else {
-      setGenerateError("Failed to generate next message. Check that LiteLLM is running.");
+  async function handleRun() {
+    const turns = parseInt(turnsInput, 10);
+    if (isNaN(turns) || turns < 1 || turns > 500) {
+      setError("Enter a number between 1 and 500");
+      return;
     }
+    setError(null);
+
+    const res = await fetch(`/api/conversations/${id}/jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ turns }),
+    });
+
+    if (!res.ok) {
+      const body = (await res.json()) as { error?: string };
+      setError(body.error ?? "Failed to start job");
+      return;
+    }
+
+    const { jobId } = (await res.json()) as { jobId: string };
+    setActiveJob({ id: jobId, totalTurns: turns, doneTurns: 0, status: "running" });
+    connectToJob(jobId);
+  }
+
+  async function handleStop() {
+    if (!activeJob) return;
+    await fetch(`/api/conversations/${id}/jobs/${activeJob.id}`, { method: "DELETE" });
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+    setActiveJob(null);
+    setStreamingBuffer("");
   }
 
   if (loading) return <p className="p-8 text-zinc-500">Loading...</p>;
   if (conversation === null) return <p className="p-8 text-zinc-500">Conversation not found.</p>;
 
-  const sortedParticipants = [...conversation.participants].sort(
-    (a, b) => a.turnOrder - b.turnOrder
-  );
-  const nextSpeaker =
-    sortedParticipants[conversation.messages.length % sortedParticipants.length];
+  const sortedParticipants = [...conversation.participants].sort((a, b) => a.turnOrder - b.turnOrder);
+  const nextSpeaker = sortedParticipants[conversation.messages.length % sortedParticipants.length];
+  const isRunning = activeJob !== null;
+  const progress = activeJob ? activeJob.doneTurns / activeJob.totalTurns : 0;
 
   return (
     <div className="max-w-3xl mx-auto p-8 font-sans">
-      <Link
-        href="/conversations"
-        className="text-sm text-zinc-500 hover:text-black mb-4 block"
-      >
+      <Link href="/conversations" className="text-sm text-zinc-500 hover:text-black mb-4 block">
         ← Back to conversations
       </Link>
 
@@ -88,7 +185,7 @@ export default function ConversationPage() {
       </p>
 
       <div className="flex flex-col gap-3 mb-8 min-h-[4rem]">
-        {conversation.messages.length === 0 ? (
+        {conversation.messages.length === 0 && !streamingBuffer ? (
           <p className="text-zinc-400 italic">No messages yet. Generate the first one.</p>
         ) : (
           conversation.messages.map((m) => (
@@ -101,23 +198,62 @@ export default function ConversationPage() {
             </div>
           ))
         )}
+        {streamingBuffer && (
+          <div className="text-sm">
+            <span className="font-medium text-zinc-400">
+              {nextSpeaker?.name ?? "..."}:
+            </span>{" "}
+            <span className="text-zinc-500">{streamingBuffer}</span>
+            <span className="animate-pulse">▋</span>
+          </div>
+        )}
       </div>
 
-      {conversation.turnStrategy === 'ROUND_ROBIN' && nextSpeaker !== undefined && (
+      {nextSpeaker !== undefined && !isRunning && (
         <p className="text-xs text-zinc-400 mb-2">Next: {nextSpeaker.name}</p>
       )}
 
-      {generateError !== null && (
-        <p className="text-sm text-red-500 mb-2">{generateError}</p>
-      )}
+      {error !== null && <p className="text-sm text-red-500 mb-2">{error}</p>}
 
-      <button
-        onClick={() => void handleGenerateNext()}
-        disabled={generating}
-        className="px-4 py-2 bg-black text-white text-sm rounded-md hover:bg-zinc-800 disabled:opacity-50"
-      >
-        {generating ? "Generating..." : "Generate next"}
-      </button>
+      {!isRunning ? (
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={turnsInput}
+            onChange={(e) => setTurnsInput(e.target.value)}
+            className="w-20 px-2 py-2 border border-zinc-300 rounded-md text-sm text-center"
+          />
+          <span className="text-sm text-zinc-500">turns</span>
+          <button
+            onClick={() => void handleRun()}
+            className="px-4 py-2 bg-black text-white text-sm rounded-md hover:bg-zinc-800"
+          >
+            ▶ Run
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-black rounded-full transition-all duration-300"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            </div>
+            <span className="text-xs text-zinc-500 whitespace-nowrap">
+              {activeJob.doneTurns}/{activeJob.totalTurns}
+            </span>
+            <button
+              onClick={() => void handleStop()}
+              className="px-3 py-1 bg-zinc-100 text-zinc-700 text-sm rounded-md hover:bg-zinc-200"
+            >
+              ■ Stop
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

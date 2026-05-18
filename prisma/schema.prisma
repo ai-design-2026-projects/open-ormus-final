@@ -12,19 +12,14 @@ datasource db {
   provider = "postgresql"
 }
 
-enum TurnStrategy {
-  ORCHESTRATOR
-  ROUND_ROBIN
-}
-
 model User {
   id         String      @id @db.Uuid
   email      String      @unique
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
-  characters       Character[]
-  conversations    Conversation[]
-  agentSessions    AgentSession[]
+  characters Character[]
+  conversations Conversation[]
+  agentSessions AgentSession[]
   conversationJobs ConversationJob[]
 
   @@map("users")
@@ -46,13 +41,12 @@ model Character {
 }
 
 model Conversation {
-  id           String       @id @default(uuid()) @db.Uuid
-  userId       String       @db.Uuid @map("user_id")
-  title        String
-  context      String
-  turnStrategy TurnStrategy @default(ORCHESTRATOR) @map("turn_strategy")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid @map("user_id")
+  title     String
+  context   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   participants ConversationParticipant[]

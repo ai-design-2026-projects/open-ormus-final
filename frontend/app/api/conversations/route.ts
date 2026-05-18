@@ -29,23 +29,29 @@ export async function GET() {
     },
   });
 
-  const items = conversations.map((c) => ({
-    id: c.id,
-    title: c.title,
-    createdAt: c.createdAt.toISOString(),
-    participants: c.participants.map((p) => ({
-      characterId: p.character.id,
-      name: p.character.name,
-    })),
-    lastMessage:
-      c.messages[0] != null
-        ? {
-            characterName: c.messages[0].character.name,
-            content: c.messages[0].content,
-            createdAt: c.messages[0].createdAt.toISOString(),
-          }
-        : null,
-  }));
+  const items = conversations
+    .map((c) => ({
+      id: c.id,
+      title: c.title,
+      createdAt: c.createdAt.toISOString(),
+      participants: c.participants.map((p) => ({
+        characterId: p.character.id,
+        name: p.character.name,
+      })),
+      lastMessage:
+        c.messages[0] != null
+          ? {
+              characterName: c.messages[0].character.name,
+              content: c.messages[0].content,
+              createdAt: c.messages[0].createdAt.toISOString(),
+            }
+          : null,
+    }))
+    .sort((a, b) => {
+      const ta = a.lastMessage ? Date.parse(a.lastMessage.createdAt) : Date.parse(a.createdAt);
+      const tb = b.lastMessage ? Date.parse(b.lastMessage.createdAt) : Date.parse(b.createdAt);
+      return tb - ta;
+    });
 
   return NextResponse.json(items);
 }
