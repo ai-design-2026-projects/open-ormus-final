@@ -45,7 +45,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
   if (!model) {
     return NextResponse.json(
       { error: "CONVERSATION_MODEL env var not set" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -54,12 +54,14 @@ export async function POST(_request: Request, { params }: RouteContext) {
   if (conversation.participants.length >= 3) {
     const characterId = await selectNextSpeakerWithOrchestrator(
       conversation.participants,
-      conversation.messages
+      conversation.messages,
     );
-    const found = conversation.participants.find((p) => p.characterId === characterId);
+    const found = conversation.participants.find(
+      (p) => p.characterId === characterId,
+    );
     if (!found) {
       console.error(
-        `[next/route] orchestrator returned unknown characterId "${characterId}" — falling back to round-robin`
+        `[next/route] orchestrator returned unknown characterId "${characterId}" — falling back to round-robin`,
       );
     }
     nextParticipant =
@@ -74,7 +76,9 @@ export async function POST(_request: Request, { params }: RouteContext) {
       ]!;
   }
 
-  const sheet = CharacterSearchResultSchema.parse(nextParticipant.character.sheet);
+  const sheet = CharacterSearchResultSchema.parse(
+    nextParticipant.character.sheet,
+  );
   const systemPrompt = buildCharacterPrompt(sheet, conversation.context);
 
   const historyText =
@@ -108,7 +112,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
     const text = await litellmResponse.text();
     return NextResponse.json(
       { error: `LiteLLM error: ${text}` },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
@@ -116,8 +120,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
     content: { type: string; text: string }[];
   };
 
-  const content =
-    completion.content.find((b) => b.type === "text")?.text ?? "";
+  const content = completion.content.find((b) => b.type === "text")?.text ?? "";
 
   const message = await prisma.message.create({
     data: {
@@ -137,6 +140,6 @@ export async function POST(_request: Request, { params }: RouteContext) {
       content: message.content,
       createdAt: message.createdAt.toISOString(),
     },
-    { status: 201 }
+    { status: 201 },
   );
 }

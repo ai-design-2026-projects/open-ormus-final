@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "concurrently --names \"frontend,mcp,llm\" --prefix-colors \"blue,green,yellow\" --kill-others-on-fail \"bun run dev:frontend\" \"bun run dev:mcp\" \"bun run dev:llm\"",
     "dev:frontend": "bun run --cwd frontend dev",
     "dev:mcp": "bun run --cwd mcp_server dev",
     "dev:llm": "./scripts/dev-llm.sh",
@@ -23,6 +24,7 @@
     "prisma:studio": "bun run --cwd frontend prisma studio"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "typescript": "^6.0.3"
   }
 }

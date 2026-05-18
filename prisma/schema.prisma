@@ -100,7 +100,7 @@ model AgentTurn {
   sessionId String       @db.Uuid @map("session_id")
   role      String
   content   String
-  toolCalls Json?
+  toolCalls Json?        @map("tool_calls")
   createdAt DateTime     @default(now()) @map("created_at")
 
   session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

@@ -15,7 +15,7 @@ CREATE TABLE "agent_turns" (
     "session_id" UUID NOT NULL,
     "role" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "toolCalls" JSONB,
+    "tool_calls" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "agent_turns_pkey" PRIMARY KEY ("id")

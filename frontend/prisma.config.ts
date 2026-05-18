@@ -11,6 +11,9 @@ export default defineConfig({
     path: "../prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // DIRECT_URL (port 5432) is required for DDL operations — pgbouncer (DATABASE_URL)
+    // does not support the prepared-statement protocol that Prisma migrate needs.
+    // The app uses DATABASE_URL at runtime via lib/prisma.ts (driver adapter), independently.
+    url: env("DIRECT_URL"),
   },
 })
