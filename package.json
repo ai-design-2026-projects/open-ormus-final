@@ -24,6 +24,7 @@
     "prisma:studio": "bun run --cwd frontend prisma studio"
   },
   "devDependencies": {
+    "@prisma/client": "^7.8.0",
     "concurrently": "^9.2.1",
     "typescript": "^6.0.3"
   }

@@ -153,7 +153,7 @@ export function ImportStep({ onImported }: ImportStepProps) {
       const data = (await res.json()) as CharacterSearchResult | { error: string };
       if (!res.ok || "error" in data) {
         setCharError(
-          data.error === "character_not_found"
+          ("error" in data && data.error === "character_not_found")
             ? "Character not found"
             : "Search failed, try again"
         );

@@ -1,5 +1,4 @@
-// packages/shared/services/character.service.ts
-
+import type { InputJsonValue } from "@prisma/client/runtime/client";
 import type {
   CharacterSaveInput,
   CharacterUpdateInput,
@@ -7,8 +6,6 @@ import type {
 } from "../schema/character_saved";
 import { CharacterSearchResultSchema } from "../schema/character_search";
 
-// Structural interface satisfied by both frontend (lib/prisma.ts) and MCP (src/db.ts)
-// PrismaClient instances. Avoids adding @prisma/client as a dependency here.
 interface CharacterRow {
   id: string;
   userId: string;
@@ -18,6 +15,8 @@ interface CharacterRow {
   updatedAt: Date;
 }
 
+// Structural interface satisfied by both frontend (lib/prisma.ts) and MCP (src/db.ts)
+// PrismaClient instances. Avoids importing the generated client here.
 interface PrismaLike {
   character: {
     findMany(args: {
@@ -25,11 +24,11 @@ interface PrismaLike {
       orderBy?: { createdAt: "asc" | "desc" };
     }): Promise<CharacterRow[]>;
     create(args: {
-      data: { userId: string; name: string; sheet: unknown };
+      data: { userId: string; name: string; sheet: InputJsonValue };
     }): Promise<CharacterRow>;
     updateMany(args: {
       where: { id: string; userId: string };
-      data: { name: string; sheet: unknown };
+      data: { name: string; sheet: InputJsonValue };
     }): Promise<{ count: number }>;
     findFirst(args: { where: { id: string; userId: string } }): Promise<CharacterRow | null>;
     deleteMany(args: {
@@ -66,9 +65,8 @@ export async function saveCharacter(
   data: CharacterSaveInput
 ): Promise<SavedCharacterRecord> {
   const row = await prisma.character.create({
-    data: { userId, name: data.name, sheet: data },
+    data: { userId, name: data.name, sheet: data as unknown as InputJsonValue },
   });
-  // data was already validated by the caller — skip re-parsing
   return {
     id: row.id,
     userId: row.userId,
@@ -86,7 +84,7 @@ export async function updateCharacter(
 ): Promise<SavedCharacterRecord | { error: "not_found" }> {
   const updated = await prisma.character.updateMany({
     where: { id: data.id, userId },
-    data: { name: data.sheet.name, sheet: data.sheet },
+    data: { name: data.sheet.name, sheet: data.sheet as unknown as InputJsonValue },
   });
   if (updated.count === 0) return { error: "not_found" };
   const row = await prisma.character.findFirst({ where: { id: data.id, userId } });
