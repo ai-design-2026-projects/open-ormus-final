@@ -12,6 +12,7 @@ const abortControllers = new Map<string, AbortController>();
 
 export interface JobHandlers {
   onToken: (text: string) => void;
+  onEmotion: (emotion: { emotion: string; intensity: string; subtext: string }) => void;
   onTurnDone: (doneTurns: number, totalTurns: number) => void;
   onDone: () => void;
   onError: (message: string) => void;
@@ -27,7 +28,10 @@ export function subscribeToJob(jobId: string, handlers: JobHandlers): () => void
   const onThinking = () => handlers.onThinking?.();
   const onThinkingDone = () => handlers.onThinkingDone?.();
 
+  const onEmotion = (e: { emotion: string; intensity: string; subtext: string }) =>
+    handlers.onEmotion(e);
   emitter.on(`${jobId}:token`, onToken);
+  emitter.on(`${jobId}:emotion`, onEmotion);
   emitter.on(`${jobId}:turn_done`, onTurnDone);
   emitter.once(`${jobId}:done`, onDone);
   emitter.once(`${jobId}:error`, onError);
@@ -36,6 +40,7 @@ export function subscribeToJob(jobId: string, handlers: JobHandlers): () => void
 
   return () => {
     emitter.off(`${jobId}:token`, onToken);
+    emitter.off(`${jobId}:emotion`, onEmotion);
     emitter.off(`${jobId}:turn_done`, onTurnDone);
     emitter.off(`${jobId}:thinking`, onThinking);
     emitter.off(`${jobId}:thinking_done`, onThinkingDone);
@@ -91,7 +96,12 @@ async function runTurns(
       }
 
       try {
-        for await (const event of generateNextTurnStream(conversationId, userId, ac.signal)) {
+        for await (const event of generateNextTurnStream(
+          conversationId,
+          userId,
+          ac.signal,
+          (emotion) => emitter.emit(`${jobId}:emotion`, emotion),
+        )) {
           if (event.type === "token") {
             emitter.emit(`${jobId}:token`, event.text);
           } else if (event.type === "thinking") {
@@ -99,6 +109,10 @@ async function runTurns(
           } else if (event.type === "thinking_done") {
             emitter.emit(`${jobId}:thinking_done`);
           }
+          // Yield to event loop so Node.js can flush the HTTP write buffer
+          // before processing the next token. Without this, tokens from the
+          // same LiteLLM TCP chunk are emitted synchronously and bundled into
+          // a single HTTP chunk — the client receives them as one block.
           await new Promise<void>((r) => setTimeout(r, 0));
         }
       } catch (err) {

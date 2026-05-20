@@ -77,6 +77,9 @@ model Message {
   characterId    String   @db.Uuid @map("character_id")
   content        String
   reasoning      String?
+  emotion        String   @default("Joy")
+  intensity      String   @default("low")
+  subtext        String   @default("")
   createdAt      DateTime @default(now()) @map("created_at")
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

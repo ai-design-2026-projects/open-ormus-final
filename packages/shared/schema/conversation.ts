@@ -25,6 +25,9 @@ export const MessageRecordSchema = z.object({
   characterName: z.string(),
   content: z.string(),
   reasoning: z.string().nullable(),
+  emotion: z.string(),
+  intensity: z.string(),
+  subtext: z.string(),
   createdAt: z.string(),
 });
 export type MessageRecord = z.infer<typeof MessageRecordSchema>;

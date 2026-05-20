@@ -52,6 +52,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
       characterName: m.character.name,
       content: m.content,
       reasoning: m.reasoning ?? null,
+      emotion: m.emotion,
+      intensity: m.intensity,
+      subtext: m.subtext,
       createdAt: m.createdAt.toISOString(),
     })),
   });

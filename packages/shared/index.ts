@@ -56,3 +56,8 @@ export {
   ConversationRecordSchema,
   type ConversationRecord,
 } from "./schema/conversation";
+export {
+  EmotionSchema,
+  type Emotion,
+  parseEmotionBlock,
+} from "./schema/emotion";

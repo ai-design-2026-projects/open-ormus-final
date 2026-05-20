@@ -57,7 +57,7 @@ describe("CreateConversationInputSchema", () => {
 });
 
 describe("MessageRecordSchema", () => {
-  test("accepts valid message record", () => {
+  test("accepts valid message record with emotion fields", () => {
     const result = MessageRecordSchema.safeParse({
       id: "11111111-1111-1111-1111-111111111111",
       conversationId: "22222222-2222-2222-2222-222222222222",
@@ -65,6 +65,9 @@ describe("MessageRecordSchema", () => {
       characterName: "Alice",
       content: "Hello there.",
       reasoning: null,
+      emotion: "Fear",
+      intensity: "high",
+      subtext: "Hiding something",
       createdAt: new Date().toISOString(),
     });
     expect(result.success).toBe(true);

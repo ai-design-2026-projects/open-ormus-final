@@ -52,6 +52,9 @@ export async function GET(request: Request, { params }: RouteContext) {
         onToken: (text) => {
           if (!closed) controller.enqueue(encode({ type: "token", text }));
         },
+        onEmotion: (emotion) => {
+          if (!closed) controller.enqueue(encode({ type: "emotion", ...emotion }));
+        },
         onTurnDone: (doneTurns, totalTurns) => {
           if (!closed) controller.enqueue(encode({ type: "turn_done", doneTurns, totalTurns }));
         },

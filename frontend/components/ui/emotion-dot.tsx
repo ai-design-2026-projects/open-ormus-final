@@ -1,0 +1,30 @@
+const EMOTION_COLOR: Record<string, string> = {
+  Joy: "var(--signal-warn)",
+  Trust: "var(--signal-ok)",
+  Fear: "var(--ink-dim)",
+  Surprise: "var(--accent-bright)",
+  Sadness: "var(--accent-deep)",
+  Disgust: "var(--signal-flag)",
+  Anger: "var(--signal-flag)",
+  Anticipation: "var(--accent-oo)",
+};
+
+interface EmotionDotProps {
+  emotion: string;
+  intensity: "low" | "medium" | "high";
+  subtext?: string;
+}
+
+export function EmotionDot({ emotion, intensity, subtext }: EmotionDotProps) {
+  const color = EMOTION_COLOR[emotion] ?? "var(--ink-mute)";
+  const sizeClass = intensity === "low" ? "size-2 opacity-60" : "size-3";
+  const ringClass = intensity === "high" ? "shadow-glow animate-pulse" : "";
+
+  return (
+    <span
+      title={subtext}
+      className={`rounded-full inline-block shrink-0 ${sizeClass} ${ringClass}`}
+      style={{ background: color }}
+    />
+  );
+}

@@ -7,13 +7,11 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently --names \"frontend,mcp,llm\" --prefix-colors \"blue,green,yellow\" --kill-others-on-fail \"bun run dev:frontend\" \"bun run dev:mcp\" \"bun run dev:llm\"",
-    "dev:frontend": "bun run --cwd frontend dev",
-    "dev:mcp": "bun run --cwd mcp_server dev",
+    "dev": "concurrently --names \"frontend,mcp,llm\" --prefix-colors \"blue,green,yellow\" --kill-others-on-fail \"bun run --cwd frontend dev\" \"bun run --cwd mcp_server dev\" \"./scripts/dev-llm.sh\"",
+    "start": "concurrently --names \"frontend,mcp,llm\" --prefix-colors \"blue,green,yellow\" --kill-others-on-fail \"bun run --cwd frontend start\" \"bun run --cwd mcp_server start\" \"./scripts/dev-llm.sh\"",
     "dev:llm": "./scripts/dev-llm.sh",
     "dev:llm:stop": "kill $(lsof -ti:4000) 2>/dev/null && echo 'LiteLLM stopped' || echo 'LiteLLM not running'",
     "build": "bun run --cwd frontend build",
-    "start": "bun run --cwd frontend start",
     "typecheck": "bun run typecheck:frontend && bun run typecheck:shared",
     "typecheck:frontend": "bun run --cwd frontend tsc --noEmit",
     "typecheck:shared": "bun run --cwd packages/shared tsc --noEmit",

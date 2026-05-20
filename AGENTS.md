@@ -235,6 +235,7 @@ After entering, run setup manually:
 ROOT="$(git worktree list --porcelain | head -1 | awk '{print $2}')"
 for f in .env .env.local; do [ -f "$ROOT/$f" ] && ln -sf "$ROOT/$f" "$f" || true; done
 ln -sf ../.env frontend/.env && ln -sf ../.env frontend/.env.local
+ln -sf ../.env mcp_server/.env
 bun install && bun run prisma:generate
 ```
 
@@ -251,6 +252,7 @@ git branch -d worktree-<name>
 ### Verify before merging
 
 ```bash
+bun run prisma:generate   # always — client is gitignored and may be stale after schema changes
 bun run typecheck
 bun run build
 bun test --cwd mcp_server

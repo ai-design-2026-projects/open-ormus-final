@@ -2,7 +2,8 @@
 import { prisma } from "@/lib/prisma";
 import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
 import { buildCharacterPrompt, buildReasoningSystemPrompt, buildReasoningUserMessage } from "@/lib/prompts";
-import { CharacterSearchResultSchema } from "@open-ormus/shared";
+import { CharacterSearchResultSchema, parseEmotionBlock, type Emotion } from "@open-ormus/shared";
+import { buildHistoryLine } from "./parse-turn";
 
 export class ConversationError extends Error {
   constructor(
@@ -19,6 +20,8 @@ export type TurnEvent =
   | { type: "thinking" }
   | { type: "thinking_done" };
 
+const FALLBACK_EMOTION: Emotion = { emotion: "Joy", intensity: "low", subtext: "" };
+
 type LiteLLMDelta = { type?: string; text?: string };
 type LiteLLMEvent = { type: string; delta?: LiteLLMDelta };
 
@@ -30,6 +33,7 @@ export async function* generateNextTurnStream(
   conversationId: string,
   userId: string,
   signal?: AbortSignal,
+  onEmotion?: (emotion: Emotion) => void,
 ): AsyncGenerator<TurnEvent> {
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, userId },
@@ -81,7 +85,17 @@ export async function* generateNextTurnStream(
 
   const historyText =
     conversation.messages.length > 0
-      ? conversation.messages.map((m) => `[${m.character.name}]: ${m.content}`).join("\n")
+      ? conversation.messages
+          .map((m) =>
+            buildHistoryLine(
+              m.character.name,
+              m.content,
+              m.emotion,
+              m.intensity,
+              m.subtext,
+            ),
+          )
+          .join("\n")
       : "(The scene has just begun — no lines have been spoken yet.)";
 
   const baseUrl = process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000";
@@ -158,12 +172,18 @@ export async function* generateNextTurnStream(
   const contentType = response.headers.get("content-type") ?? "";
   console.log(`[generateNextTurnStream] content-type: "${contentType}"`);
 
+  let parsedEmotion: Emotion | null = null;
+
   if (!contentType.includes("text/event-stream")) {
     console.log("[generateNextTurnStream] path: JSON (no streaming from LiteLLM)");
     const completion = (await response.json()) as {
       content?: { type: string; text: string }[];
     };
-    content = completion.content?.find((b) => b.type === "text")?.text ?? "";
+    const rawContent = completion.content?.find((b) => b.type === "text")?.text ?? "";
+    parsedEmotion = parseEmotionBlock(rawContent);
+    onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
+    const dialogueMatch = rawContent.match(/<dialogue>([\s\S]*?)<\/dialogue>/);
+    content = dialogueMatch?.[1]?.trim() ?? rawContent;
     if (content) yield { type: "token", text: content };
   } else {
     console.log("[generateNextTurnStream] path: SSE streaming");
@@ -171,6 +191,10 @@ export async function* generateNextTurnStream(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+
+    // Two-phase parser state
+    let rawBuffer = "";
+    let parserState: "buffering" | "awaiting_open" | "dialogue" = "buffering";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -186,36 +210,71 @@ export async function* generateNextTurnStream(
         if (data === "[DONE]") continue;
 
         let parsed: unknown;
-        try {
-          parsed = JSON.parse(data);
-        } catch {
-          continue;
-        }
+        try { parsed = JSON.parse(data); } catch { continue; }
         if (typeof parsed !== "object" || parsed === null) continue;
 
         const obj = parsed as Record<string, unknown>;
+        let token: string | undefined;
 
         if (obj["type"] === "content_block_delta") {
           const event = parsed as LiteLLMEvent;
           if (event.delta?.type === "text_delta" && typeof event.delta.text === "string") {
-            content += event.delta.text;
-            yield { type: "token", text: event.delta.text };
+            token = event.delta.text;
           }
         } else {
           const choices = obj["choices"] as Array<{ delta?: { content?: string } }> | undefined;
-          const token = choices?.[0]?.delta?.content;
-          if (typeof token === "string" && token) {
-            content += token;
-            yield { type: "token", text: token };
+          const t = choices?.[0]?.delta?.content;
+          if (typeof t === "string" && t) token = t;
+        }
+
+        if (!token) continue;
+        rawBuffer += token;
+
+        if (parserState === "buffering") {
+          const emotionEndIdx = rawBuffer.indexOf("</emotion>");
+          if (emotionEndIdx !== -1) {
+            parsedEmotion = parseEmotionBlock(rawBuffer.slice(0, emotionEndIdx + 10));
+            onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
+            const rest = rawBuffer.slice(emotionEndIdx + 10);
+            const dialogueOpenIdx = rest.indexOf("<dialogue>");
+            if (dialogueOpenIdx !== -1) {
+              parserState = "dialogue";
+              const initial = rest.slice(dialogueOpenIdx + 10);
+              if (initial) { content += initial; yield { type: "token", text: initial }; }
+            } else {
+              parserState = "awaiting_open";
+            }
+          } else if (rawBuffer.length > 200) {
+            onEmotion?.(FALLBACK_EMOTION);
+            parserState = "dialogue";
+            content += rawBuffer;
+            yield { type: "token", text: rawBuffer };
           }
+        } else if (parserState === "awaiting_open") {
+          const dialogueOpenIdx = rawBuffer.indexOf("<dialogue>");
+          if (dialogueOpenIdx !== -1) {
+            parserState = "dialogue";
+            const initial = rawBuffer.slice(dialogueOpenIdx + 10);
+            if (initial) { content += initial; yield { type: "token", text: initial }; }
+          }
+        } else if (parserState === "dialogue") {
+          content += token;
+          yield { type: "token", text: token };
         }
       }
     }
+
+    if (parsedEmotion === null) onEmotion?.(FALLBACK_EMOTION);
   }
+
+  // Strip </dialogue> closing tag that may have been streamed into content
+  content = content.replace(/<\/dialogue>[\s\S]*$/, "").trim();
 
   if (!content) {
     console.error(`[generateNextTurnStream] empty content from LiteLLM (content-type: ${contentType})`);
   }
+
+  const emotionToSave = parsedEmotion ?? FALLBACK_EMOTION;
 
   await prisma.message.create({
     data: {
@@ -223,6 +282,9 @@ export async function* generateNextTurnStream(
       characterId: nextParticipant.characterId,
       content,
       reasoning: reasoning || null,
+      emotion: emotionToSave.emotion,
+      intensity: emotionToSave.intensity,
+      subtext: emotionToSave.subtext,
     },
   });
 }
