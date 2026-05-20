@@ -22,3 +22,4 @@ bun-debug.log*
 .worktrees/
 .claude/worktrees/
 .serena/
+.agents/

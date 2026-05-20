@@ -15,25 +15,30 @@ export interface JobHandlers {
   onTurnDone: (doneTurns: number, totalTurns: number) => void;
   onDone: () => void;
   onError: (message: string) => void;
+  onThinking?: () => void;
+  onThinkingDone?: () => void;
 }
 
 export function subscribeToJob(jobId: string, handlers: JobHandlers): () => void {
   const onToken = (text: string) => handlers.onToken(text);
   const onTurnDone = (done: number, total: number) => handlers.onTurnDone(done, total);
-  // done/error are terminal — use once so they self-clean after firing
   const onDone = () => handlers.onDone();
   const onError = (msg: string) => handlers.onError(msg);
+  const onThinking = () => handlers.onThinking?.();
+  const onThinkingDone = () => handlers.onThinkingDone?.();
 
   emitter.on(`${jobId}:token`, onToken);
   emitter.on(`${jobId}:turn_done`, onTurnDone);
   emitter.once(`${jobId}:done`, onDone);
   emitter.once(`${jobId}:error`, onError);
+  emitter.on(`${jobId}:thinking`, onThinking);
+  emitter.on(`${jobId}:thinking_done`, onThinkingDone);
 
   return () => {
     emitter.off(`${jobId}:token`, onToken);
     emitter.off(`${jobId}:turn_done`, onTurnDone);
-    // Terminal listeners (done/error) remain so the promise can resolve
-    // even if the caller unsubscribes early from token/turn_done events.
+    emitter.off(`${jobId}:thinking`, onThinking);
+    emitter.off(`${jobId}:thinking_done`, onThinkingDone);
   };
 }
 
@@ -86,12 +91,14 @@ async function runTurns(
       }
 
       try {
-        for await (const token of generateNextTurnStream(conversationId, userId, ac.signal)) {
-          emitter.emit(`${jobId}:token`, token);
-          // Yield to event loop so Node.js can flush the HTTP write buffer
-          // before processing the next token. Without this, tokens from the
-          // same LiteLLM TCP chunk are emitted synchronously and bundled into
-          // a single HTTP chunk — the client receives them as one block.
+        for await (const event of generateNextTurnStream(conversationId, userId, ac.signal)) {
+          if (event.type === "token") {
+            emitter.emit(`${jobId}:token`, event.text);
+          } else if (event.type === "thinking") {
+            emitter.emit(`${jobId}:thinking`);
+          } else if (event.type === "thinking_done") {
+            emitter.emit(`${jobId}:thinking_done`);
+          }
           await new Promise<void>((r) => setTimeout(r, 0));
         }
       } catch (err) {

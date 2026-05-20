@@ -47,6 +47,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
       characterId: message.characterId,
       characterName: message.character.name,
       content: message.content,
+      reasoning: message.reasoning ?? null,
       createdAt: message.createdAt.toISOString(),
     },
     { status: 201 },

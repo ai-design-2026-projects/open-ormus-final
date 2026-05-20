@@ -65,6 +65,12 @@ export async function GET(request: Request, { params }: RouteContext) {
           unsub();
           close();
         },
+        onThinking: () => {
+          if (!closed) controller.enqueue(encode({ type: "thinking" }));
+        },
+        onThinkingDone: () => {
+          if (!closed) controller.enqueue(encode({ type: "thinking_done" }));
+        },
       });
 
       request.signal.addEventListener("abort", () => {

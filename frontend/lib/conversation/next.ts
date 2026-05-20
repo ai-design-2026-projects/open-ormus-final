@@ -1,7 +1,7 @@
 // frontend/lib/conversation/next.ts
 import { prisma } from "@/lib/prisma";
 import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
-import { buildCharacterPrompt } from "@/lib/prompts";
+import { buildCharacterPrompt, buildReasoningSystemPrompt, buildReasoningUserMessage } from "@/lib/prompts";
 import { CharacterSearchResultSchema } from "@open-ormus/shared";
 
 export class ConversationError extends Error {
@@ -14,18 +14,23 @@ export class ConversationError extends Error {
   }
 }
 
+export type TurnEvent =
+  | { type: "token"; text: string }
+  | { type: "thinking" }
+  | { type: "thinking_done" };
+
 type LiteLLMDelta = { type?: string; text?: string };
 type LiteLLMEvent = { type: string; delta?: LiteLLMDelta };
 
-// Yields each text token as it arrives from LiteLLM.
-// Saves the completed message to DB before returning.
-// Throws if the conversation is not found, has no participants,
-// or if CONVERSATION_MODEL / ANTHROPIC_BASE_URL env vars are missing.
+// Yields TurnEvent items: thinking/thinking_done bracket the reasoning call,
+// then token events stream the character's spoken message.
+// Saves the completed message (content + reasoning) to DB before returning.
+// Throws ConversationError on any failure — no message is saved on error.
 export async function* generateNextTurnStream(
   conversationId: string,
   userId: string,
   signal?: AbortSignal,
-): AsyncGenerator<string> {
+): AsyncGenerator<TurnEvent> {
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, userId },
     include: {
@@ -79,10 +84,52 @@ export async function* generateNextTurnStream(
       ? conversation.messages.map((m) => `[${m.character.name}]: ${m.content}`).join("\n")
       : "(The scene has just begun — no lines have been spoken yet.)";
 
-  const userMessage = `Conversation so far:\n${historyText}\n\nNow continue as ${nextParticipant.character.name}. Write only their next line.`;
-
   const baseUrl = process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000";
   const apiKey = process.env["ANTHROPIC_API_KEY"] ?? "";
+
+  // ── Call 1: reasoning (non-streaming) ──────────────────────────────────────
+  yield { type: "thinking" };
+
+  const reasoningResponse = await fetch(`${baseUrl}/v1/messages`, {
+    method: "POST",
+    signal: signal ?? null,
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 256,
+      stream: false,
+      system: buildReasoningSystemPrompt(),
+      messages: [
+        {
+          role: "user",
+          content: buildReasoningUserMessage(sheet, historyText, nextParticipant.character.name),
+        },
+      ],
+    }),
+  });
+
+  if (!reasoningResponse.ok) {
+    const text = await reasoningResponse.text();
+    throw new ConversationError("LITELLM_ERROR", `LiteLLM reasoning error: ${text}`);
+  }
+
+  const reasoningCompletion = (await reasoningResponse.json()) as {
+    content?: { type: string; text: string }[];
+  };
+  const reasoning = reasoningCompletion.content?.find((b) => b.type === "text")?.text ?? "";
+
+  yield { type: "thinking_done" };
+
+  // ── Call 2: content (streaming) ─────────────────────────────────────────────
+  const contentSystemPrompt = reasoning
+    ? `${systemPrompt}\n\n[Your private thoughts before this response — use as context, do not repeat or quote]\n${reasoning}`
+    : systemPrompt;
+
+  const contentUserMessage = `Conversation so far:\n${historyText}\n\nNow continue as ${nextParticipant.character.name}. Write only their next line.`;
 
   const response = await fetch(`${baseUrl}/v1/messages`, {
     method: "POST",
@@ -97,8 +144,8 @@ export async function* generateNextTurnStream(
       model,
       max_tokens: 512,
       stream: true,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      system: contentSystemPrompt,
+      messages: [{ role: "user", content: contentUserMessage }],
     }),
   });
 
@@ -112,13 +159,12 @@ export async function* generateNextTurnStream(
   console.log(`[generateNextTurnStream] content-type: "${contentType}"`);
 
   if (!contentType.includes("text/event-stream")) {
-    // LiteLLM returned a non-streaming JSON response — parse it directly
     console.log("[generateNextTurnStream] path: JSON (no streaming from LiteLLM)");
     const completion = (await response.json()) as {
       content?: { type: string; text: string }[];
     };
     content = completion.content?.find((b) => b.type === "text")?.text ?? "";
-    if (content) yield content;
+    if (content) yield { type: "token", text: content };
   } else {
     console.log("[generateNextTurnStream] path: SSE streaming");
     if (!response.body) throw new ConversationError("LITELLM_ERROR", "LiteLLM response body is null");
@@ -149,20 +195,18 @@ export async function* generateNextTurnStream(
 
         const obj = parsed as Record<string, unknown>;
 
-        // Anthropic SSE format: content_block_delta
         if (obj["type"] === "content_block_delta") {
           const event = parsed as LiteLLMEvent;
           if (event.delta?.type === "text_delta" && typeof event.delta.text === "string") {
             content += event.delta.text;
-            yield event.delta.text;
+            yield { type: "token", text: event.delta.text };
           }
         } else {
-          // OpenAI SSE format fallback: choices[0].delta.content
           const choices = obj["choices"] as Array<{ delta?: { content?: string } }> | undefined;
           const token = choices?.[0]?.delta?.content;
           if (typeof token === "string" && token) {
             content += token;
-            yield token;
+            yield { type: "token", text: token };
           }
         }
       }
@@ -178,6 +222,7 @@ export async function* generateNextTurnStream(
       conversationId,
       characterId: nextParticipant.characterId,
       content,
+      reasoning: reasoning || null,
     },
   });
 }

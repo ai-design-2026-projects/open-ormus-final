@@ -64,6 +64,7 @@ describe("MessageRecordSchema", () => {
       characterId: "33333333-3333-3333-3333-333333333333",
       characterName: "Alice",
       content: "Hello there.",
+      reasoning: null,
       createdAt: new Date().toISOString(),
     });
     expect(result.success).toBe(true);
@@ -108,6 +109,7 @@ describe("ConversationRecordSchema", () => {
       id: "11111111-1111-1111-1111-111111111111",
       title: "Scene 1",
       context: "Forest at night.",
+      turnStrategy: "ORCHESTRATOR",
       createdAt: new Date().toISOString(),
       participants: [
         {

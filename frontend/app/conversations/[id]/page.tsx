@@ -10,6 +10,7 @@ type Message = {
   id: string;
   characterName: string;
   content: string;
+  reasoning: string | null;
   createdAt: string;
 };
 type ConversationDetail = {
@@ -36,9 +37,20 @@ export default function ConversationPage() {
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
   const [streamingBuffer, setStreamingBuffer] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
+  const [expandedReasonings, setExpandedReasonings] = useState<Set<string>>(new Set());
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
+
+  function toggleReasoning(id: string) {
+    setExpandedReasonings((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function loadConversation() {
     const res = await fetch(`/api/conversations/${id}`);
@@ -83,15 +95,21 @@ export default function ConversationPage() {
             prev ? { ...prev, doneTurns: doneTurns ?? prev.doneTurns } : prev,
           );
         });
+      } else if (data.type === "thinking") {
+        setIsThinking(true);
+      } else if (data.type === "thinking_done") {
+        setIsThinking(false);
       } else if (data.type === "done") {
         es.close();
         eventSourceRef.current = null;
+        setIsThinking(false);
         setActiveJob(null);
         setStreamingBuffer("");
         void loadConversation();
       } else if (data.type === "error") {
         es.close();
         eventSourceRef.current = null;
+        setIsThinking(false);
         setActiveJob(null);
         setStreamingBuffer("");
         setError(data.message ?? "Job failed");
@@ -102,6 +120,7 @@ export default function ConversationPage() {
       es.close();
       eventSourceRef.current = null;
       if (isMountedRef.current) {
+        setIsThinking(false);
         setActiveJob(null);
         setStreamingBuffer("");
       }
@@ -190,6 +209,22 @@ export default function ConversationPage() {
         ) : (
           conversation.messages.map((m) => (
             <div key={m.id} className="text-sm">
+              {m.reasoning !== null && (
+                <div className="mb-1">
+                  <button
+                    onClick={() => toggleReasoning(m.id)}
+                    className="text-xs text-zinc-400 hover:text-zinc-600 flex items-center gap-1"
+                  >
+                    💭 {m.characterName}'s thoughts
+                    <span>{expandedReasonings.has(m.id) ? "▲" : "▼"}</span>
+                  </button>
+                  {expandedReasonings.has(m.id) && (
+                    <p className="mt-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded text-xs text-zinc-500 italic">
+                      {m.reasoning}
+                    </p>
+                  )}
+                </div>
+              )}
               <span className="font-medium">{m.characterName}:</span>{" "}
               <span className="text-zinc-700">{m.content}</span>
               <span className="text-xs text-zinc-400 ml-2">
@@ -197,6 +232,11 @@ export default function ConversationPage() {
               </span>
             </div>
           ))
+        )}
+        {isThinking && (
+          <div className="text-sm text-zinc-400 italic">
+            💭 {nextSpeaker?.name ?? "..."} is thinking…
+          </div>
         )}
         {streamingBuffer && (
           <div className="text-sm">

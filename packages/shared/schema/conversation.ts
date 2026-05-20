@@ -24,6 +24,7 @@ export const MessageRecordSchema = z.object({
   characterId: uuidSchema,
   characterName: z.string(),
   content: z.string(),
+  reasoning: z.string().nullable(),
   createdAt: z.string(),
 });
 export type MessageRecord = z.infer<typeof MessageRecordSchema>;
