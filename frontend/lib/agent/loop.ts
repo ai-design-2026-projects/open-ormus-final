@@ -7,7 +7,15 @@ import type {
 import { encodeChunk } from "./stream";
 import type { McpSession } from "./mcp_bridge";
 import { buildMcpTools, callMcpTool } from "./mcp_bridge";
-import { handleExaResearch, exaResearchTool, handleShowResearch, researchShowTool } from "./tools/exa_research";
+import {
+  handleShowResearch,
+  researchShowTool,
+  handleCharacterBasicsResearch,
+  researchCharacterBasicsTool,
+  handleCharacterDetailsResearch,
+  researchCharacterDetailsTool,
+  CharacterDetailsResearchInputSchema,
+} from "./tools/exa_research";
 import { handleWizard, wizardTool } from "./tools/wizard";
 import { AGENT_SYSTEM_PROMPT } from "./prompt";
 
@@ -48,7 +56,7 @@ export async function runAgentLoop(
     { role: "user", content: userMessage },
   ];
 
-  const tools = [...buildMcpTools(), researchShowTool, exaResearchTool, wizardTool];
+  const tools = [...buildMcpTools(), researchShowTool, researchCharacterBasicsTool, researchCharacterDetailsTool, wizardTool];
 
   let assistantText = "";
   let lastAssistantContent: ContentBlock[] = [];
@@ -85,9 +93,16 @@ export async function runAgentLoop(
         if (block.name === "research_show_online") {
           const input = block.input as { query: string };
           result = await handleShowResearch(input);
-        } else if (block.name === "research_character_online") {
+        } else if (block.name === "research_character_basics") {
           const input = block.input as { query: string };
-          result = await handleExaResearch(input);
+          result = await handleCharacterBasicsResearch(input);
+        } else if (block.name === "research_character_details") {
+          const parsed = CharacterDetailsResearchInputSchema.safeParse(block.input);
+          if (!parsed.success) {
+            result = { error: "invalid_input", details: parsed.error.format() };
+          } else {
+            result = await handleCharacterDetailsResearch(parsed.data);
+          }
         } else if (block.name === "start_character_wizard") {
           result = handleWizard();
         } else {

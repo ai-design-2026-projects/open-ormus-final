@@ -1,9 +1,17 @@
+import { z } from "zod";
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 import {
-  characterSearchHandler,
+  characterBasicsHandler,
+  characterDetailsHandler,
   showSearchHandler,
 } from "@open-ormus/shared";
-import type { CharacterSearchResult, ShowResult } from "@open-ormus/shared";
+import type {
+  CharacterBasics,
+  CharacterSaveInput,
+  ShowResult,
+} from "@open-ormus/shared";
+
+// ─── Show research (unchanged) ────────────────────────────────────────────────
 
 export const researchShowTool: Tool = {
   name: "research_show_online",
@@ -11,7 +19,7 @@ export const researchShowTool: Tool = {
     "Look up a TV series, film, or book by title using Exa. " +
     "Returns the show's title, description, year, genre, and the list of main character names. " +
     "Call this FIRST when the user asks to import characters from a collection. " +
-    "Then call research_character_online for each character name in the returned list.",
+    "Then call research_character_basics for each character name in the returned list.",
   input_schema: {
     type: "object" as const,
     properties: {
@@ -35,30 +43,106 @@ export async function handleShowResearch(args: {
   return first;
 }
 
-export const exaResearchTool: Tool = {
-  name: "research_character_online",
+// ─── Character basics (step 1 of 2) ──────────────────────────────────────────
+
+export const researchCharacterBasicsTool: Tool = {
+  name: "research_character_basics",
   description:
-    "Research a single fictional character online using Exa. " +
-    "Returns a CharacterSearchResult with personality, backstory, and traits. " +
-    "For best results, include the show/film context in the query (e.g. 'Sam Puckett, iCarly'). " +
-    "After this tool returns, call mcp__openormus__character_save to persist the character.",
+    "Research the basic identity of a fictional character using Exa. " +
+    "Returns name, shortDescription, firstAppearanceDate, imageUrl, and confidence (0–3). " +
+    "Call this FIRST when researching any character. " +
+    "If confidence is 0, the character was not found — stop and inform the user. " +
+    "If confidence > 0, call research_character_details next with the returned name and shortDescription.",
   input_schema: {
     type: "object" as const,
     properties: {
       query: {
         type: "string",
         description:
-          "Character name with show context (e.g. 'Carly Shay, iCarly') or just the character name (e.g. 'Walter White').",
+          "Character name with show context (e.g. 'Walter White, Breaking Bad') or just the name.",
       },
     },
     required: ["query"],
   },
 };
 
-export async function handleExaResearch(args: {
+export async function handleCharacterBasicsResearch(args: {
   query: string;
-}): Promise<CharacterSearchResult[] | { error: string }> {
-  const result = await characterSearchHandler({ query: args.query });
+}): Promise<CharacterBasics | { error: string }> {
+  const result = await characterBasicsHandler({ query: args.query });
   if ("error" in result) return { error: result.error };
-  return [result];
+  return result;
+}
+
+// ─── Character details (step 2 of 2) ─────────────────────────────────────────
+
+// Extended input: all basics fields + original query.
+// Handler returns the full character_save-compatible object — pass it directly.
+export const CharacterDetailsResearchInputSchema = z.object({
+  query: z.string().min(1),
+  name: z.string().min(1),
+  imageUrl: z.string().nullable(),
+  shortDescription: z.string(),
+  firstAppearanceDate: z.string(),
+  confidence: z.number().int().min(1).max(3) as z.ZodType<1 | 2 | 3>,
+});
+export type CharacterDetailsResearchInput = z.infer<typeof CharacterDetailsResearchInputSchema>;
+
+export const researchCharacterDetailsTool: Tool = {
+  name: "research_character_details",
+  description:
+    "Research the full personality, backstory, and connections of a confirmed fictional character. " +
+    "Must be called AFTER research_character_basics — pass ALL fields from that result plus the original query. " +
+    "Returns a complete character profile ready to pass directly to mcp__openormus__character_save.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      query: {
+        type: "string",
+        description: "Original search query used in research_character_basics.",
+      },
+      name: {
+        type: "string",
+        description: "Character name from research_character_basics.",
+      },
+      imageUrl: {
+        type: ["string", "null"] as unknown as "string",
+        description: "imageUrl from research_character_basics.",
+      },
+      shortDescription: {
+        type: "string",
+        description: "shortDescription from research_character_basics.",
+      },
+      firstAppearanceDate: {
+        type: "string",
+        description: "firstAppearanceDate from research_character_basics.",
+      },
+      confidence: {
+        type: "integer",
+        minimum: 1,
+        maximum: 3,
+        description: "confidence from research_character_basics.",
+      },
+    },
+    required: ["query", "name", "imageUrl", "shortDescription", "firstAppearanceDate", "confidence"],
+  },
+};
+
+export async function handleCharacterDetailsResearch(
+  args: CharacterDetailsResearchInput
+): Promise<CharacterSaveInput | { error: string }> {
+  const result = await characterDetailsHandler({
+    query: args.query,
+    name: args.name,
+    shortDescription: args.shortDescription,
+  });
+  if ("error" in result) return { error: result.error };
+  return {
+    name: args.name,
+    imageUrl: args.imageUrl,
+    shortDescription: args.shortDescription,
+    firstAppearanceDate: args.firstAppearanceDate,
+    confidence: args.confidence,
+    personality: result,
+  };
 }

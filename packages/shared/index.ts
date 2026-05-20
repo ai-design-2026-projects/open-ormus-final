@@ -19,6 +19,10 @@ export {
   CharacterSearchInputShape,
   CharacterSearchInputSchema,
   type CharacterSearchInput,
+  CharacterBasicsSchema,
+  type CharacterBasics,
+  CharacterDetailsInputSchema,
+  type CharacterDetailsInput,
   CharacterPersonalitySchema,
   type CharacterPersonality,
   CharacterSearchResultSchema,
@@ -43,7 +47,11 @@ export {
   deleteCharacter,
 } from "./services/character.service";
 export { showSearchHandler } from "./services/show_search.service";
-export { characterSearchHandler } from "./services/character_search.service";
+export {
+  characterBasicsHandler,
+  characterDetailsHandler,
+  characterSearchHandler,
+} from "./services/character_search.service";
 export {
   CreateConversationInputSchema,
   type CreateConversationInput,
