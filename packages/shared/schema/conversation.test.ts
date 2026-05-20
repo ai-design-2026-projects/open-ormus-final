@@ -1,10 +1,45 @@
 import { describe, expect, test } from "bun:test";
 import {
-  CreateConversationInputSchema,
   ConversationListItemSchema,
   ConversationRecordSchema,
+  CreateConversationInputSchema,
+  ImproveContextInputSchema,
   MessageRecordSchema,
 } from "./conversation";
+
+describe("ImproveContextInputSchema", () => {
+  test("accepts valid input", () => {
+    const result = ImproveContextInputSchema.safeParse({
+      draft: "Walter and Jesse meet in the desert at sunset",
+      characterIds: ["00000000-0000-0000-0000-000000000001"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects empty draft", () => {
+    const result = ImproveContextInputSchema.safeParse({
+      draft: "",
+      characterIds: ["00000000-0000-0000-0000-000000000001"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("rejects empty characterIds array", () => {
+    const result = ImproveContextInputSchema.safeParse({
+      draft: "A scene in the desert",
+      characterIds: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("rejects malformed UUID in characterIds", () => {
+    const result = ImproveContextInputSchema.safeParse({
+      draft: "A scene",
+      characterIds: ["not-a-uuid"],
+    });
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("CreateConversationInputSchema", () => {
   test("accepts valid input", () => {

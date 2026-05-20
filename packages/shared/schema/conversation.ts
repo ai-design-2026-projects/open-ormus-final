@@ -68,3 +68,14 @@ export const ConversationRecordSchema = z.object({
   messages: z.array(MessageRecordSchema),
 });
 export type ConversationRecord = z.infer<typeof ConversationRecordSchema>;
+
+export const ImproveContextInputSchema = z.object({
+  draft: z.string().min(1),
+  characterIds: z.array(uuidSchema).min(1),
+});
+export type ImproveContextInput = z.infer<typeof ImproveContextInputSchema>;
+
+export const ImproveContextOutputSchema = z.object({
+  improved: z.string().min(1),
+});
+export type ImproveContextOutput = z.infer<typeof ImproveContextOutputSchema>;

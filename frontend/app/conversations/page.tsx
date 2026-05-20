@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ImproveContextModal } from "@/components/conversations/ImproveContextModal";
+import { ImproveContextOutputSchema } from "@open-ormus/shared";
 
 type Participant = { characterId: string; name: string };
 type LastMessage = {
@@ -30,6 +32,11 @@ export default function ConversationsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [turnStrategy, setTurnStrategy] = useState<'ORCHESTRATOR' | 'ROUND_ROBIN'>('ORCHESTRATOR');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [improving, setImproving] = useState(false);
+  const [improveResult, setImproveResult] = useState<{
+    original: string;
+    improved: string;
+  } | null>(null);
 
   async function loadConversations() {
     try {
@@ -80,6 +87,8 @@ export default function ConversationsPage() {
     setSelectedIds([]);
     setCreateError(null);
     setTurnStrategy('ORCHESTRATOR');
+    setImproveResult(null);
+    setImproving(false);
     setShowModal(true);
   }
 
@@ -109,6 +118,33 @@ export default function ConversationsPage() {
     if (!confirm("Delete this conversation?")) return;
     await fetch(`/api/conversations/${id}`, { method: "DELETE" });
     void loadConversations();
+  }
+
+  async function handleImprove() {
+    setImproving(true);
+    setCreateError(null);
+    const draftAtClick = context;
+    try {
+      const res = await fetch("/api/conversations/improve-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft: draftAtClick, characterIds: selectedIds }),
+      });
+      if (!res.ok) {
+        setCreateError("Improvement failed — try again.");
+        return;
+      }
+      const parsed = ImproveContextOutputSchema.safeParse(await res.json());
+      if (!parsed.success) {
+        setCreateError("Improvement failed — try again.");
+        return;
+      }
+      setImproveResult({ original: draftAtClick, improved: parsed.data.improved });
+    } catch {
+      setCreateError("Improvement failed — try again.");
+    } finally {
+      setImproving(false);
+    }
   }
 
   if (loading) return <p className="p-8 text-zinc-500">Loading...</p>;
@@ -174,7 +210,17 @@ export default function ConversationsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Scene context</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">Scene context</label>
+                  <button
+                    type="button"
+                    onClick={() => void handleImprove()}
+                    disabled={!context.trim() || selectedIds.length === 0 || improving}
+                    className="text-xs px-2 py-1 border border-zinc-300 rounded hover:bg-zinc-50 disabled:opacity-40 transition-colors"
+                  >
+                    {improving ? "Improving..." : "✨ Improve"}
+                  </button>
+                </div>
                 <textarea
                   value={context}
                   onChange={(e) => setContext(e.target.value)}
@@ -265,6 +311,17 @@ export default function ConversationsPage() {
                 </button>
               </div>
             </form>
+            {improveResult != null && (
+              <ImproveContextModal
+                original={improveResult.original}
+                improved={improveResult.improved}
+                onAccept={(text) => {
+                  setContext(text);
+                  setImproveResult(null);
+                }}
+                onDiscard={() => setImproveResult(null)}
+              />
+            )}
           </div>
         </div>
       )}
