@@ -43,7 +43,7 @@ cp .env.example .env.local                     # fill in DATABASE_URL, DIRECT_UR
 cp litellm.env.example litellm.env.local       # fill in LITELLM_MODEL and LITELLM_API_KEY
 ln -sf ../.env.local frontend/.env.local       # frontend reads from root source of truth
 ln -sf ../.env.local mcp_server/.env.local     # mcp_server reads from root source of truth
-bun run --cwd frontend prisma migrate dev      # run DB migrations
+bun run prisma:migrate:dev                     # run DB migrations
 bun run dev:frontend                           # start Next.js on :3000
 bun run dev:mcp                                # start MCP server on :3001
 ```
