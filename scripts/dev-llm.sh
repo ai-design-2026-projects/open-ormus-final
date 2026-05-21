@@ -7,4 +7,4 @@ export LITELLM_MODEL=$(parse LITELLM_MODEL)
 export LITELLM_API_KEY=$(parse LITELLM_API_KEY)
 [ -n "$LITELLM_MODEL" ] || { echo "Error: LITELLM_MODEL not set in $ENV_FILE"; exit 1; }
 [ -n "$LITELLM_API_KEY" ] || { echo "Error: LITELLM_API_KEY not set in $ENV_FILE"; exit 1; }
-exec litellm --config "$DIR/litellm_config.yaml"
+exec env -u DATABASE_URL litellm --config "$DIR/litellm_config.yaml"
