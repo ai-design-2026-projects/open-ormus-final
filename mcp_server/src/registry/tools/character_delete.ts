@@ -4,27 +4,40 @@ import {
   CharacterDeleteInputShape,
   type CharacterDeleteInput,
 } from "@open-ormus/shared";
-import { deleteCharacter } from "@open-ormus/shared/services/character.service";
+import { archiveCharacter } from "@open-ormus/shared/services/character.service";
 import { prisma } from "../../db.js";
 import { userIdStorage } from "../../auth/context.js";
 
-type DeleteResult = { success: true } | { error: "not_found" };
+type ArchiveResult =
+  | { success: true }
+  | { error: "not_found" }
+  | { error: "already_archived" };
 
 export async function characterDeleteHandler(
   args: CharacterDeleteInput
-): Promise<DeleteResult> {
+): Promise<ArchiveResult> {
   const userId = userIdStorage.getStore();
   if (!userId) throw new Error("userId not in context");
-  return deleteCharacter(prisma, userId, args.id);
+  return archiveCharacter(prisma, userId, args.id);
 }
 
 export function register(server: McpServer): void {
   server.tool(
     "mcp__openormus__character_delete",
-    "Delete a saved character from your collection by id.",
+    "Archive a saved character by id. The character is removed from all views and becomes read-only. This action is permanent.",
     CharacterDeleteInputShape,
-    async (args: CharacterDeleteInput) => ({
-      content: [{ type: "text" as const, text: JSON.stringify(await characterDeleteHandler(args)) }],
-    })
+    async (args: CharacterDeleteInput) => {
+      const result = await characterDeleteHandler(args);
+      let text: string;
+      if ("error" in result) {
+        text =
+          result.error === "not_found"
+            ? "Character not found."
+            : "Character already archived.";
+      } else {
+        text = JSON.stringify(result);
+      }
+      return { content: [{ type: "text" as const, text }] };
+    }
   );
 }

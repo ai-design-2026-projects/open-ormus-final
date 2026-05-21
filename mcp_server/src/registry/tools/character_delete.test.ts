@@ -1,11 +1,13 @@
 import { mock } from "bun:test";
 
-const mockDeleteMany = mock(async () => ({ count: 1 }));
+const mockUpdateMany = mock(async () => ({ count: 1 }));
+const mockFindFirst = mock(async () => null);
 
 mock.module("../../db.js", () => ({
   prisma: {
     character: {
-      deleteMany: mockDeleteMany,
+      updateMany: mockUpdateMany,
+      findFirst: mockFindFirst,
     },
   },
 }));
@@ -14,37 +16,58 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { characterDeleteHandler } from "./character_delete";
 import { userIdStorage } from "../../auth/context";
 
-describe("characterDeleteHandler", () => {
+describe("characterDeleteHandler (archive)", () => {
   beforeEach(() => {
-    mockDeleteMany.mockClear();
+    mockUpdateMany.mockClear();
+    mockFindFirst.mockClear();
   });
 
-  test("deletes character and returns success", async () => {
+  test("archives character and returns success", async () => {
     const result = await userIdStorage.run("test-user", () =>
       characterDeleteHandler({ id: "00000000-0000-0000-0000-000000000001" })
     );
     expect(result).toEqual({ success: true });
-    expect(mockDeleteMany).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMany).toHaveBeenCalledTimes(1);
   });
 
-  test("scopes delete to current userId", async () => {
+  test("scopes archive to current userId and filters by archivedAt: null", async () => {
     await userIdStorage.run("test-user", () =>
       characterDeleteHandler({ id: "00000000-0000-0000-0000-000000000001" })
     );
-    const deleteCall = mockDeleteMany.mock.calls[0]?.[0] as {
-      where: { id: string; userId: string };
+    const updateCall = mockUpdateMany.mock.calls[0]?.[0] as {
+      where: { id: string; userId: string; archivedAt: null };
+      data: { archivedAt: Date };
     };
-    expect(deleteCall.where.userId).toBe("test-user");
-    expect(deleteCall.where.id).toBe("00000000-0000-0000-0000-000000000001");
+    expect(updateCall.where.userId).toBe("test-user");
+    expect(updateCall.where.id).toBe("00000000-0000-0000-0000-000000000001");
+    expect(updateCall.where.archivedAt).toBeNull();
+    expect(updateCall.data.archivedAt).toBeInstanceOf(Date);
   });
 
-  test("returns not_found when record does not belong to user", async () => {
-    mockDeleteMany.mockImplementation(async () => ({ count: 0 }));
+  test("returns not_found when no row matches", async () => {
+    mockUpdateMany.mockImplementationOnce(async () => ({ count: 0 }));
+    // mockFindFirst already returns null by default
     const result = await userIdStorage.run("test-user", () =>
       characterDeleteHandler({ id: "00000000-0000-0000-0000-000000000001" })
     );
     expect(result).toEqual({ error: "not_found" });
-    expect(mockDeleteMany).toHaveBeenCalledTimes(1);
+  });
+
+  test("returns already_archived when row exists but is already archived", async () => {
+    mockUpdateMany.mockImplementationOnce(async () => ({ count: 0 }));
+    mockFindFirst.mockImplementationOnce(async () => ({
+      id: "00000000-0000-0000-0000-000000000001",
+      userId: "test-user",
+      name: "Arthur",
+      sheet: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      archivedAt: new Date("2026-01-15"),
+    }));
+    const result = await userIdStorage.run("test-user", () =>
+      characterDeleteHandler({ id: "00000000-0000-0000-0000-000000000001" })
+    );
+    expect(result).toEqual({ error: "already_archived" });
   });
 
   test("throws if userId not in context", async () => {

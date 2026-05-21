@@ -49,8 +49,13 @@ export const SavedCharacterRecordSchema = z.object({
   sheet: CharacterSearchResultSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
+  archivedAt: z.string().datetime().nullable(),
 });
 export type SavedCharacterRecord = z.infer<typeof SavedCharacterRecordSchema>;
+
+// Archive input — same shape as delete input, separate for semantic clarity
+export const CharacterArchiveInputSchema = z.object({ id: uuidSchema });
+export type CharacterArchiveInput = z.infer<typeof CharacterArchiveInputSchema>;
 
 // DB search input — fuzzy similarity on name and shortDescription
 export const CharacterDbSearchInputShape = {

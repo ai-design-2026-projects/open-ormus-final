@@ -21,21 +21,24 @@ const validSheet = {
   },
 };
 
-const mockUpdateMany = mock(async () => ({ count: 1 }));
-const mockFindUnique = mock(async () => ({
+const baseRow = {
   id: "00000000-0000-0000-0000-000000000001",
   userId: "test-user",
   name: "Arthur Updated",
   sheet: validSheet,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-06-01"),
-}));
+  archivedAt: null,
+};
+
+const mockUpdateMany = mock(async () => ({ count: 1 }));
+const mockFindFirst = mock(async () => ({ ...baseRow }));
 
 mock.module("../../db.js", () => ({
   prisma: {
     character: {
       updateMany: mockUpdateMany,
-      findUnique: mockFindUnique,
+      findFirst: mockFindFirst,
     },
   },
 }));
@@ -52,7 +55,7 @@ const validInput = {
 describe("characterUpdateHandler", () => {
   beforeEach(() => {
     mockUpdateMany.mockClear();
-    mockFindUnique.mockClear();
+    mockFindFirst.mockClear();
   });
 
   test("updates character and returns updated record", async () => {
@@ -62,6 +65,7 @@ describe("characterUpdateHandler", () => {
     if ("error" in result) throw new Error("expected success");
     expect(result.name).toBe("Arthur Updated");
     expect(result.sheet.confidence).toBe(2);
+    expect(result.archivedAt).toBeNull();
   });
 
   test("scopes update to current userId", async () => {
@@ -75,12 +79,25 @@ describe("characterUpdateHandler", () => {
     expect(updateCall.where.id).toBe("00000000-0000-0000-0000-000000000001");
   });
 
-  test("returns not_found when record does not belong to user", async () => {
-    mockUpdateMany.mockImplementation(async () => ({ count: 0 }));
+  test("returns not_found when character does not exist", async () => {
+    mockFindFirst.mockImplementationOnce(async () => null);
     const result = await userIdStorage.run("test-user", () =>
       characterUpdateHandler(validInput)
     );
     expect(result).toEqual({ error: "not_found" });
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  test("returns archived when character is archived", async () => {
+    mockFindFirst.mockImplementationOnce(async () => ({
+      ...baseRow,
+      archivedAt: new Date("2026-01-15"),
+    }));
+    const result = await userIdStorage.run("test-user", () =>
+      characterUpdateHandler(validInput)
+    );
+    expect(result).toEqual({ error: "archived" });
+    expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 
   test("throws if userId not in context", async () => {

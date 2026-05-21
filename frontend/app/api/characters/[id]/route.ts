@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { CharacterUpdateInputSchema, CharacterDeleteInputSchema, updateCharacter, deleteCharacter } from "@open-ormus/shared";
+import {
+  CharacterUpdateInputSchema,
+  CharacterArchiveInputSchema,
+  updateCharacter,
+  archiveCharacter,
+} from "@open-ormus/shared";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -30,8 +35,10 @@ export async function PUT(request: Request, { params }: RouteContext) {
 
   try {
     const result = await updateCharacter(prisma, user.id, parsed.data);
-    if ("error" in result)
-      return NextResponse.json({ error: result.error }, { status: 404 });
+    if ("error" in result) {
+      const status = result.error === "archived" ? 409 : 404;
+      return NextResponse.json({ error: result.error }, { status });
+    }
     return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -46,13 +53,16 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const idParsed = CharacterDeleteInputSchema.safeParse({ id });
+  const idParsed = CharacterArchiveInputSchema.safeParse({ id });
   if (!idParsed.success)
     return NextResponse.json({ error: idParsed.error.issues }, { status: 400 });
+
   try {
-    const result = await deleteCharacter(prisma, user.id, idParsed.data.id);
-    if ("error" in result)
-      return NextResponse.json({ error: result.error }, { status: 404 });
+    const result = await archiveCharacter(prisma, user.id, idParsed.data.id);
+    if ("error" in result) {
+      const status = result.error === "not_found" ? 404 : 409;
+      return NextResponse.json({ error: result.error }, { status });
+    }
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

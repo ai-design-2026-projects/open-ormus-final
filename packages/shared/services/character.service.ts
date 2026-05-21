@@ -13,6 +13,7 @@ interface CharacterRow {
   sheet: unknown;
   createdAt: Date;
   updatedAt: Date;
+  archivedAt: Date | null;
 }
 
 // Structural interface satisfied by both frontend (lib/prisma.ts) and MCP (src/db.ts)
@@ -20,20 +21,17 @@ interface CharacterRow {
 interface PrismaLike {
   character: {
     findMany(args: {
-      where: { userId: string };
+      where: { userId: string; archivedAt: null };
       orderBy?: { createdAt: "asc" | "desc" };
     }): Promise<CharacterRow[]>;
     create(args: {
       data: { userId: string; name: string; sheet: InputJsonValue };
     }): Promise<CharacterRow>;
     updateMany(args: {
-      where: { id: string; userId: string };
-      data: { name: string; sheet: InputJsonValue };
+      where: { id: string; userId: string; archivedAt?: null };
+      data: { name?: string; sheet?: InputJsonValue; archivedAt?: Date };
     }): Promise<{ count: number }>;
     findFirst(args: { where: { id: string; userId: string } }): Promise<CharacterRow | null>;
-    deleteMany(args: {
-      where: { id: string; userId: string };
-    }): Promise<{ count: number }>;
   };
 }
 
@@ -45,6 +43,7 @@ function toRecord(row: CharacterRow): SavedCharacterRecord {
     sheet: CharacterSearchResultSchema.parse(row.sheet),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
   };
 }
 
@@ -53,7 +52,7 @@ export async function listCharacters(
   userId: string
 ): Promise<SavedCharacterRecord[]> {
   const rows = await prisma.character.findMany({
-    where: { userId },
+    where: { userId, archivedAt: null },
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toRecord);
@@ -74,6 +73,7 @@ export async function saveCharacter(
     sheet: data,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
   };
 }
 
@@ -81,12 +81,14 @@ export async function updateCharacter(
   prisma: PrismaLike,
   userId: string,
   data: CharacterUpdateInput
-): Promise<SavedCharacterRecord | { error: "not_found" }> {
-  const updated = await prisma.character.updateMany({
-    where: { id: data.id, userId },
+): Promise<SavedCharacterRecord | { error: "not_found" } | { error: "archived" }> {
+  const existing = await prisma.character.findFirst({ where: { id: data.id, userId } });
+  if (!existing) return { error: "not_found" };
+  if (existing.archivedAt !== null) return { error: "archived" };
+  await prisma.character.updateMany({
+    where: { id: data.id, userId, archivedAt: null },
     data: { name: data.sheet.name, sheet: data.sheet as unknown as InputJsonValue },
   });
-  if (updated.count === 0) return { error: "not_found" };
   const row = await prisma.character.findFirst({ where: { id: data.id, userId } });
   if (row === null) return { error: "not_found" };
   return {
@@ -96,17 +98,23 @@ export async function updateCharacter(
     sheet: data.sheet,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
   };
 }
 
-export async function deleteCharacter(
+export async function archiveCharacter(
   prisma: PrismaLike,
   userId: string,
   id: string
-): Promise<{ success: true } | { error: "not_found" }> {
-  const result = await prisma.character.deleteMany({
-    where: { id, userId },
+): Promise<{ success: true } | { error: "not_found" } | { error: "already_archived" }> {
+  const result = await prisma.character.updateMany({
+    where: { id, userId, archivedAt: null },
+    data: { archivedAt: new Date() },
   });
-  if (result.count === 0) return { error: "not_found" };
+  if (result.count === 0) {
+    const existing = await prisma.character.findFirst({ where: { id, userId } });
+    if (!existing) return { error: "not_found" };
+    return { error: "already_archived" };
+  }
   return { success: true };
 }

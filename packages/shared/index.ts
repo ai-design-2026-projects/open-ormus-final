@@ -11,6 +11,8 @@ export {
   type CharacterDeleteInput,
   SavedCharacterRecordSchema,
   type SavedCharacterRecord,
+  CharacterArchiveInputSchema,
+  type CharacterArchiveInput,
   CharacterDbSearchInputShape,
   CharacterDbSearchInputSchema,
   type CharacterDbSearchInput,
@@ -44,7 +46,7 @@ export {
   listCharacters,
   saveCharacter,
   updateCharacter,
-  deleteCharacter,
+  archiveCharacter,
 } from "./services/character.service";
 export { showSearchHandler } from "./services/show_search.service";
 export {

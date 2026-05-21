@@ -20,6 +20,7 @@ type RawRow = {
   sheet: unknown;
   createdAt: Date;
   updatedAt: Date;
+  archivedAt: Date | null;
   score: number;
 };
 
@@ -39,12 +40,14 @@ export async function characterDbSearchHandler(
       sheet,
       created_at     AS "createdAt",
       updated_at     AS "updatedAt",
+      archived_at    AS "archivedAt",
       GREATEST(
         similarity(name, ${query}),
         similarity(sheet->>'shortDescription', ${query})
       ) AS score
     FROM characters
     WHERE user_id = ${userId}::uuid
+      AND archived_at IS NULL
       AND (
         similarity(name, ${query}) > 0.15
         OR similarity(sheet->>'shortDescription', ${query}) > 0.15
@@ -60,6 +63,7 @@ export async function characterDbSearchHandler(
     sheet: CharacterSearchResultSchema.parse(row.sheet),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
   }));
 }
 
