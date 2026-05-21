@@ -1,3 +1,120 @@
+# Character Conversations View Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a "Conversations" tab to the character view drawer showing all conversations that include the given character, with a link to navigate to each conversation.
+
+**Architecture:** New `GET /api/characters/[id]/conversations` route queries `ConversationParticipant` to find matching conversations scoped by `userId`. `CharacterViewDrawer` gains tab state ("sheet" | "conversations"); the conversations tab fetches lazily on first activation and caches results in component state.
+
+**Tech Stack:** Next.js 15 App Router, Prisma 7, Supabase Auth, React (client component), TypeScript strict mode.
+
+---
+
+## File Map
+
+| Action | Path | Responsibility |
+|--------|------|----------------|
+| Create | `frontend/app/api/characters/[id]/conversations/route.ts` | GET endpoint — returns conversations for a character |
+| Modify | `frontend/components/characters/CharacterViewDrawer.tsx` | Add tab bar + conversations tab with fetch logic |
+
+---
+
+### Task 1: API route — GET /api/characters/[id]/conversations
+
+**Files:**
+- Create: `frontend/app/api/characters/[id]/conversations/route.ts`
+
+- [ ] **Step 1: Create the route file**
+
+```ts
+// frontend/app/api/characters/[id]/conversations/route.ts
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
+
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(_request: Request, { params }: RouteContext) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  if (!user || error) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      userId: user.id,
+      participants: { some: { characterId: id } },
+    },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      participants: {
+        include: { character: { select: { id: true, name: true } } },
+        orderBy: { turnOrder: "asc" },
+      },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { character: { select: { name: true } } },
+      },
+    },
+  });
+
+  const items = conversations.map((c) => ({
+    id: c.id,
+    title: c.title,
+    createdAt: c.createdAt.toISOString(),
+    participants: c.participants.map((p) => ({
+      characterId: p.character.id,
+      name: p.character.name,
+    })),
+    lastMessage:
+      c.messages[0] != null
+        ? {
+            characterName: c.messages[0].character.name,
+            content: c.messages[0].content,
+            createdAt: c.messages[0].createdAt.toISOString(),
+          }
+        : null,
+  }));
+
+  return NextResponse.json(items);
+}
+```
+
+- [ ] **Step 2: Verify typecheck passes**
+
+Run from repo root:
+```bash
+bun run typecheck
+```
+Expected: no errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add frontend/app/api/characters/[id]/conversations/route.ts
+git commit -m "feat: add GET /api/characters/[id]/conversations route"
+```
+
+---
+
+### Task 2: CharacterViewDrawer — tabs + conversations tab
+
+**Files:**
+- Modify: `frontend/components/characters/CharacterViewDrawer.tsx`
+
+- [ ] **Step 1: Replace the full file content**
+
+```tsx
+// frontend/components/characters/CharacterViewDrawer.tsx
 "use client";
 
 import { useState } from "react";
@@ -83,13 +200,11 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
 
   if (!character) return null;
 
-  const characterId = character.id;
-
   async function fetchConversations() {
     setConvsLoading(true);
     setConvsError(null);
     try {
-      const res = await fetch(`/api/characters/${characterId}/conversations`);
+      const res = await fetch(`/api/characters/${character.id}/conversations`);
       if (!res.ok) {
         setConvsError(`Error ${res.status}: failed to load conversations`);
         return;
@@ -126,7 +241,6 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
               className="text-zinc-400 hover:text-zinc-600 text-2xl leading-none"
             >
               &times;
@@ -238,12 +352,12 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
               )}
               {!convsLoading && convsError === null && conversations !== null && (
                 conversations.length === 0 ? (
-                  <p className="text-sm text-zinc-400 italic py-4">No conversations yet</p>
+                  <p className="text-sm text-zinc-400 italic py-4">No conversations yet.</p>
                 ) : (
                   <ul className="divide-y divide-zinc-100">
                     {conversations.map((c) => {
                       const others = c.participants
-                        .filter((p) => p.characterId !== characterId)
+                        .filter((p) => p.characterId !== character.id)
                         .map((p) => p.name);
                       const timestamp = c.lastMessage?.createdAt ?? c.createdAt;
                       return (
@@ -285,3 +399,29 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
     </div>
   );
 }
+```
+
+- [ ] **Step 2: Verify typecheck passes**
+
+Run from repo root:
+```bash
+bun run typecheck
+```
+Expected: no errors.
+
+- [ ] **Step 3: Smoke test in browser**
+
+1. Start dev server: `bun run dev:frontend`
+2. Navigate to `http://localhost:3000`
+3. Click any character → drawer opens → confirm "Sheet" tab is active and shows existing content
+4. Click "Conversations" tab → spinner appears briefly → list of conversations renders (or "No conversations yet")
+5. Click a conversation title → navigates to `/conversations/[id]`, drawer closes
+6. Re-open drawer → switch to Conversations → no second fetch fires (cached)
+7. Confirm error state: temporarily break the URL in DevTools Network to intercept; "Retry" button re-fetches
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/components/characters/CharacterViewDrawer.tsx
+git commit -m "feat: add conversations tab to CharacterViewDrawer"
+```
