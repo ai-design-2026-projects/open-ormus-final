@@ -62,7 +62,7 @@ ln -sf ../.env.local frontend/.env.local
 | `NEXT_PUBLIC_SUPABASE_URL`             | Yes         | Your Supabase project URL, e.g. `https://xxxx.supabase.co`                                                            |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes         | Supabase anon/publishable key (`sb_publishable_…`)                                                                    |
 | `NEXT_PUBLIC_SITE_URL`                 | Yes         | Base URL used in auth email links — `http://localhost:3000` for local dev                                             |
-| `PORT`                                 | No          | MCP server port (default: `3001`)                                                                                     |
+| `MCP_PORT`                             | No          | MCP server port (default: `3001`)                                                                                     |
 | `MCP_AUTH_DISABLED`                    | No          | Set to `"true"` in local dev to skip JWT validation between frontend and MCP server                                   |
 | `JWT_SECRET`                           | Conditional | Required when `MCP_AUTH_DISABLED` is not set. Signs the short-lived tokens issued by `/api/auth/tool-token`           |
 | `ANTHROPIC_BASE_URL`                   | Yes         | LiteLLM proxy URL — `http://localhost:4000` for local dev                                                             |

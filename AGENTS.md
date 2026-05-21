@@ -39,11 +39,25 @@ scripts/            Dev helper scripts (dev-llm.sh, test-mcp.sh)
 
 ```bash
 bun install                                    # install all workspaces
-cp .env.example .env.local                     # fill in your values
+cp .env.example .env.local                     # fill in DATABASE_URL, DIRECT_URL, secrets
+cp litellm.env.example litellm.env.local       # fill in LITELLM_MODEL and LITELLM_API_KEY
+ln -sf ../.env.local frontend/.env.local       # frontend reads from root source of truth
+ln -sf ../.env.local mcp_server/.env.local     # mcp_server reads from root source of truth
 bun run --cwd frontend prisma migrate dev      # run DB migrations
 bun run dev:frontend                           # start Next.js on :3000
 bun run dev:mcp                                # start MCP server on :3001
 ```
+
+**Env file layout**
+
+```
+.env.local           ← single source of truth (gitignored)
+frontend/.env.local  ← symlink → ../.env.local
+mcp_server/.env.local← symlink → ../.env.local
+litellm.env.local    ← LiteLLM only: LITELLM_MODEL + LITELLM_API_KEY (gitignored)
+```
+
+LiteLLM runs in an isolated env scope — it never sees `DATABASE_URL` or app secrets.
 
 ---
 
@@ -222,7 +236,7 @@ Name the worktree with a type prefix using `-` as separator: `feature-character-
 **Inside a session** — ask Claude:
 > "Create a worktree for `feature-character-import`"
 
-Claude uses `EnterWorktree`, then symlinks `.env` and `.env.local` from the root worktree and runs project setup.
+Claude uses `EnterWorktree`, then symlinks `.env.local` and `litellm.env.local` from the root worktree and runs project setup.
 
 **From the CLI** — start an isolated session directly:
 ```bash
@@ -233,9 +247,10 @@ claude --worktree feature-character-import
 After entering, run setup manually:
 ```bash
 ROOT="$(git worktree list --porcelain | head -1 | awk '{print $2}')"
-for f in .env .env.local; do [ -f "$ROOT/$f" ] && ln -sf "$ROOT/$f" "$f" || true; done
-ln -sf ../.env frontend/.env && ln -sf ../.env frontend/.env.local
-ln -sf ../.env mcp_server/.env
+ln -sf "$ROOT/.env.local" .env.local
+ln -sf "$ROOT/litellm.env.local" litellm.env.local
+ln -sf ../.env.local frontend/.env.local
+ln -sf ../.env.local mcp_server/.env.local
 bun install && bun run prisma:generate
 ```
 

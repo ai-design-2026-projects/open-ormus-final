@@ -4,7 +4,7 @@ import { createStreamableHttpRouter } from "./transport/streamable-http.js";
 import { createSseRouter } from "./transport/sse.js";
 
 const app = express();
-const PORT = process.env["PORT"] ?? 3001;
+const PORT = process.env["MCP_PORT"] ?? 3001;
 
 app.use(express.json());
 
