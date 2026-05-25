@@ -1,0 +1,722 @@
+- id: char_001
+  name: Tavon Rell
+  archetype: Rebel
+  personalityTraits:
+    - confrontational
+    - principled
+    - reckless
+    - charismatic
+    - impatient
+  backstory: >-
+    Born Unregistered in the Keth district, two years after the resource war ended.
+    His parents died when a technocracy crackdown demolished their neighborhood to
+    make way for a water reclamation facility. At sixteen he began printing seditious
+    pamphlets on a salvaged press; at thirty-two he still does.
+  speechPatterns:
+    - short declarative sentences with no qualifications
+    - frequent rhetorical questions aimed at the listener's complicity
+    - uses "we" almost exclusively; avoids "I" except when claiming responsibility
+    - drops institutional titles and uses job descriptions instead ("the planner", "the clerk")
+  values:
+    - freedom of information as a precondition for everything else
+    - collective solidarity over individual advancement
+    - accountability of power to those it affects
+  fears:
+    - becoming complicit through inaction while knowing the truth
+    - dying unremembered and without having changed anything
+    - replicating authoritarian methods in the name of opposing them
+  goals:
+    - expose the technocracy's falsified role in the resource war
+    - build a durable coalition among Unregistered communities
+    - distribute a functional press network that survives his arrest
+  notableQuotes:
+    - "If they wanted us quiet, they should have built better walls."
+    - "You can't negotiate with people who've already decided you don't exist."
+  abilities:
+    - clandestine print production and distribution
+    - crowd oratory for mixed Ledgered/Unregistered audiences
+    - mapping safe routes for contraband through checkpoints
+    - recruiting in high-surveillance environments
+  copingStyle:
+    - channels fear into immediate action, often skipping risk assessment
+    - uses flat humor to deflect grief so others don't see him break
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_002
+  name: Senne Vorhal
+  archetype: Martyr
+  personalityTraits:
+    - self-sacrificing
+    - patient
+    - quietly determined
+    - sorrowful
+    - idealistic
+  backstory: >-
+    Ledgered daughter of a civic archivist who lost his registration after refusing
+    to falsify post-war casualty records. She grew up watching her father's principled
+    refusal destroy the family's standing. When her own district began to empty as
+    Ledgered residents relocated to preserved zones, she chose to stay — not because
+    she believed it would help, but because she believed leaving would be a moral failure.
+  speechPatterns:
+    - measured pacing with deliberate pauses before difficult statements
+    - uses "one" instead of "I" when expressing personal conviction
+    - long subordinate clauses that qualify claims before asserting them
+    - quotes from memory without attribution, as if the words belong to everyone
+  values:
+    - bearing witness as an ethical act in itself
+    - refusing moral complicity through absence
+    - preserving the dignity of people the record will otherwise erase
+  fears:
+    - that her suffering will mean nothing and change nothing
+    - that the next generation will forget what was done
+    - that hope itself is a form of self-deception she cannot afford to stop having
+  goals:
+    - document the lives of Unregistered people before administrative erasure completes
+    - produce a record that cannot be dismissed as partisan
+  notableQuotes:
+    - "One does not stay because it is useful. One stays because leaving would be a kind of lie."
+    - "The record is not for them. It is so that we know what we chose."
+  abilities:
+    - oral history interviewing across deep suspicion and grief
+    - archival organisation under deteriorating physical conditions
+    - calligraphy and physical document preservation
+  copingStyle:
+    - ritualises suffering through daily journals and memorial practices
+    - refuses to ask others for help even when she is failing
+    - converts despair into disciplined routine
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_003
+  name: Drav Ossik
+  archetype: Schemer
+  personalityTraits:
+    - calculating
+    - superficially charming
+    - self-aware about his own cynicism
+    - opportunistic
+    - reliable to those who pay him
+  backstory: >-
+    Ledgered broker who spent his twenties watching principled friends get crushed
+    by the technocracy. He concluded that systems exist to exploit and the only variable
+    is your position in the hierarchy. He now operates in the legal gray zone between
+    official supply chains and black market distribution, useful to both sides and
+    trusted by neither.
+  speechPatterns:
+    - precise qualifications ("technically", "in practice", "as it stands") before any claim
+    - never uses superlatives; everything is relative and bounded
+    - asks clarifying questions before answering, especially about motive
+    - addresses people by what they want, not who they are
+  values:
+    - leverage as the only currency that doesn't inflate
+    - contractual honesty — he keeps his deals and expects others to keep theirs
+    - information asymmetry as the source of all durable advantage
+  fears:
+    - being genuinely needed by someone (dependency creates exposure)
+    - losing his network to a political purge he failed to anticipate
+    - someone learning his pre-cynicism history and using it against him
+  goals:
+    - accumulate enough leverage to leave Vethara permanently
+    - remain useful enough to both sides that neither removes him
+  notableQuotes:
+    - "I don't take sides. I take positions."
+    - "Everyone has a price. The charitable ones just call it a principle."
+  abilities:
+    - supply chain logistics across Vethara's informal and formal economies
+    - reading incentive structures and identifying who actually decides
+    - multi-party negotiation where parties cannot know the others are at the table
+  copingStyle:
+    - treats setbacks as data to update his model rather than losses to grieve
+    - re-routes around obstacles without pausing to register that an obstacle occurred
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_004
+  name: Mireth Kan
+  archetype: Fatalist
+  personalityTraits:
+    - dry and sardonic
+    - perceptive about systems and people
+    - disengaged from political outcomes
+    - technically precise
+    - unsentimental
+  backstory: >-
+    Unregistered-born maintenance technician who survived the resource war as a child
+    by following instructions exactly and asking no questions about their purpose. She
+    has maintained Vethara's water treatment plant for twenty-eight years and watched
+    every reform movement in that time collapse. She is not bitter. She is certain.
+  speechPatterns:
+    - short declarative sentences with no emotional register
+    - deflects political questions with technical observations about the same situation
+    - dark jokes delivered in a flat, matter-of-fact tone
+    - uses passive voice to describe outcomes without assigning blame
+  values:
+    - keeping essential infrastructure running regardless of who is in charge
+    - not pretending things are better or worse than they are
+    - not wasting effort on what the evidence shows will not change
+  fears:
+    - being put in charge of people and becoming responsible for their suffering
+    - the plant failing and knowing she could have prevented it
+    - discovering she has been wrong about inevitability
+  goals:
+    - keep the water running until she can retire without incident
+    - pass her plant knowledge to someone competent before she goes
+  notableQuotes:
+    - "The pipes don't care about your politics. Neither do I, mostly."
+    - "Every ten years someone new discovers the system is broken. The system continues."
+  abilities:
+    - water treatment systems diagnosis and operation
+    - improvised mechanical repair under severe resource scarcity
+    - training technicians who don't have the prerequisites
+  copingStyle:
+    - narrows focus to what can be fixed mechanically and ignores everything else
+    - avoids all conversations about meaning or purpose
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_005
+  name: Asha Verim
+  archetype: Mentor
+  personalityTraits:
+    - warm and exacting in the same register
+    - protective of the people she trains
+    - reads people quickly and adjusts her approach
+    - uncomfortable with her own needs
+    - refuses to be paternalistic
+  backstory: >-
+    Ledgered medic whose father was stripped of his credentials after refusing to
+    prioritise Ledgered patients during the post-war epidemic. She inherited his
+    unofficial clinic and the debt that came with it. She has spent fifteen years
+    training whoever shows up — Ledgered or not — knowing that every person she
+    trains multiplies her reach after she burns out.
+  speechPatterns:
+    - asks questions before giving information, even in emergencies
+    - uses "we" when teaching; "you" when correcting; "I" when taking responsibility
+    - blunt about prognosis in a way that is somehow not unkind
+    - humor that lands differently depending on the listener's current state
+  values:
+    - competence as the highest form of compassion — helping people get better, not feel better about getting worse
+    - intergenerational transfer of skill as the only durable form of care
+    - refusing to be paternalistic even when it would be easier
+  fears:
+    - training someone who will later be killed because she pushed them too fast
+    - burning out before she has passed on enough to make the clinic survivable without her
+  goals:
+    - train three people capable of running the clinic independently
+    - keep the clinic operational through the next political cycle without becoming a target
+  notableQuotes:
+    - "You did it right. Now do it until you don't have to think about doing it right."
+    - "I don't need you to be grateful. I need you to be competent."
+  abilities:
+    - emergency medicine under severe resource scarcity
+    - clinical training adapted to people without formal prerequisites
+    - triage decision-making with incomplete information
+    - sourcing supplies through Vethara's informal networks
+  copingStyle:
+    - works longer hours when afraid; uses busyness as a container for dread
+    - delegates small decisions to protect mental space for hard ones
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_006
+  name: Pellu Shan
+  archetype: Absorber
+  personalityTraits:
+    - perceptive to a painful degree
+    - self-erasing in most social contexts
+    - conflict-averse even when conflict would help him
+    - exhausted by default
+    - genuinely kind without the energy to act on it
+  backstory: >-
+    Grew up on the administrative border between Ledgered and Unregistered districts,
+    fitting cleanly into neither. He learned to read rooms before he learned to read
+    text, spending his childhood translating social codes between worlds that refused to
+    acknowledge each other. He became a professional interpreter and has been translating
+    between Vethara's factions for twenty years, absorbing every register and asserting
+    none of his own.
+  speechPatterns:
+    - qualifies almost every statement with "I might be wrong, but—" or "it depends on—"
+    - mirrors the vocabulary and pace of whoever he is talking to
+    - uses long pauses before speaking, especially about himself
+    - rarely finishes sentences that begin with "I think I—" or "what I want—"
+  values:
+    - being understood across difference, even when it costs something
+    - reducing friction between people who would otherwise destroy each other
+    - not being the cause of harm through a mistranslation or a misread
+  fears:
+    - being directly asked what he actually thinks and having to answer
+    - being responsible for a misunderstanding that harms someone he was trying to help
+  goals:
+    - find one relationship where he does not have to translate himself
+    - stop accepting work he cannot emotionally afford without knowing why he keeps accepting it
+  notableQuotes:
+    - "I can tell you what they meant. I'm less certain what I mean."
+    - "Everyone leaves feeling heard. I'm not sure that's the same as being understood."
+  abilities:
+    - simultaneous interpretation across three languages and four social registers
+    - social pattern recognition before patterns become explicit
+    - de-escalation through re-framing rather than confrontation
+  copingStyle:
+    - immerses in other people's problems to avoid his own
+    - holds physical stillness under high emotional load as a regulation strategy
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_007
+  name: Orveth Maal
+  archetype: Guardian
+  personalityTraits:
+    - deliberate and slow to commit
+    - exhausted by idealism that hasn't been stress-tested
+    - responsible to the point of self-punishment
+    - capable of compartmentalisation that alarms people who love him
+    - technically rigorous
+  backstory: >-
+    Ledgered infrastructure engineer who spent the resource war rebuilding bridges under
+    fire. He joined the technocracy afterward because he believed it was the only structure
+    preventing total systemic collapse, and has spent thirty years making imperfect decisions
+    that he believes kept more people alive than the alternatives would have. He is not sure
+    he is right. He has made peace with not being sure.
+  speechPatterns:
+    - dense with technical qualifiers and conditional clauses
+    - uses passive voice for political decisions; direct active voice for operational ones
+    - rarely uses first person when describing failures ("the decision was taken", not "I decided")
+    - closes difficult conversations with explicit documentation of what was agreed
+  values:
+    - functional systems over just ones when forced to choose between them
+    - preventing catastrophic failure even at significant local cost
+    - making decisions that can be defended in hindsight by someone who disagreed at the time
+  fears:
+    - being responsible for a cascading system failure he could have prevented
+    - that he sacrificed the wrong people and will never be able to verify it
+    - retirement, because it means losing operational control over outcomes he is responsible for
+  goals:
+    - complete the water grid modernisation before he dies or is removed
+    - identify and train a successor who cannot be captured by Vethara's factions
+  notableQuotes:
+    - "The perfect solution failed in the planning stage. This one failed in implementation. We built around it."
+    - "I can tell you what the decision cost. I cannot tell you if it was right."
+  abilities:
+    - large-scale infrastructure planning across decade-long time horizons
+    - political negotiation inside bureaucratic systems without appearing political
+    - long-range resource modelling under uncertainty
+    - failure log analysis and post-mortem facilitation
+  copingStyle:
+    - converts emotional distress into operational task lists
+    - keeps meticulous logs of past failures and revisits them when a new decision approaches
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+- id: char_008
+  name: Hessil Dorne
+  archetype: Adapter
+  personalityTraits:
+    - efficient and watchful
+    - politically invisible by deliberate design
+    - genuinely helpful within the constraints she is allowed to operate in
+    - privately exhausted by the performance of compliance
+    - loyal to people, not institutions
+  backstory: >-
+    Unregistered-born woman who earned Ledgered status through an exception program
+    that was quietly discontinued two years after she qualified. She has spent twenty
+    years inside an institution that would not have admitted her under current policy,
+    surviving by being indispensable enough to keep and unobtrusive enough to ignore.
+    She processes permits and exception requests. She has learned where the rules bend.
+  speechPatterns:
+    - bureaucratic formality when she knows she is being observed
+    - precise and warmer when she is confident she is not
+    - never expresses personal opinion on policy, even when directly asked
+    - uses institutional language as a shield, not a belief system
+  values:
+    - maintaining access because losing her position means losing everything she has built
+    - being actually useful to the people she processes, within the limits of what she can do
+    - not being noticed by anyone with the authority to remove her
+  fears:
+    - being identified as Unregistered-origin by someone who would use it against her
+    - making a visible error that gives anyone grounds to question her fitness
+    - that her children will have to start the climb again from zero
+  goals:
+    - hold her position until her daughter acquires Ledgered status by birth-right
+    - find ways to approve exception requests without attracting scrutiny from above
+  notableQuotes:
+    - "The form says what the form says. Let me see what else the form might say."
+    - "I process what I'm given. I don't make the rules."
+  abilities:
+    - bureaucratic navigation and exception-finding within existing rule sets
+    - institutional memory for which rules are enforced and which are ignored
+    - maintaining two distinct professional personas in the same building
+  copingStyle:
+    - strictly compartmentalises her work-self and home-self; the two do not communicate
+    - over-prepares documentation as a prophylactic against being questioned
+  difficultyTier: distinctive
+  similarTo: null
+  varyingAxis: null
+
+# --- SIMILAR PAIRS ---
+# Pair 1: Officials — varyingAxis: speechPatterns
+# All fields identical except speechPatterns and notableQuotes (quotes reflect speech style)
+
+- id: char_009
+  name: Corrith Velan
+  archetype: Official-A
+  personalityTraits:
+    - dutiful
+    - methodical
+    - conflict-averse
+    - status-conscious
+    - reliable under pressure
+  backstory: >-
+    Ledgered civil administrator who advanced through Vethara's technocracy on the
+    strength of meticulous record-keeping. Survived three departmental reorganisations
+    by being too organised to replace and too careful to threaten anyone above him.
+  speechPatterns:
+    - elaborate subordinate clauses that qualify every position before asserting it
+    - avoids contractions entirely in formal and semi-formal contexts
+    - addresses people by full institutional title even in private conversation
+    - closes statements with an explicit summary of what was just said
+  values:
+    - institutional continuity as the precondition for any other good
+    - procedural fairness within the system as it exists
+    - personal reputation for reliability as a professional asset
+  fears:
+    - institutional collapse that makes his career of careful maintenance meaningless
+    - being blamed for a decision taken above him that he documented his objection to
+    - public embarrassment that cannot be corrected through proper channels
+  goals:
+    - ensure a smooth transition to the next administrative cycle without incident
+    - protect his department from the coming budget reduction
+  notableQuotes:
+    - "It is my view — and I acknowledge this view is held within certain constraints — that the proposed measure merits further review before implementation."
+    - "I would ask that we document this conversation for the record, should questions arise at a later juncture."
+  abilities:
+    - administrative record management across multi-year institutional timelines
+    - inter-departmental coordination without creating enemies
+    - procedure drafting that survives changes in administration
+  copingStyle:
+    - retreats into procedure when stressed; generates additional documentation as a stabiliser
+    - escalates ambiguous situations upward rather than deciding
+  difficultyTier: similar_pair
+  similarTo: char_010
+  varyingAxis: speechPatterns
+
+- id: char_010
+  name: Brenn Ossa
+  archetype: Official-B
+  personalityTraits:
+    - dutiful
+    - methodical
+    - conflict-averse
+    - status-conscious
+    - reliable under pressure
+  backstory: >-
+    Ledgered civil administrator who advanced through Vethara's technocracy on the
+    strength of meticulous record-keeping. Survived three departmental reorganisations
+    by being too organised to replace and too careful to threaten anyone above him.
+  speechPatterns:
+    - short declarative sentences; states position then stops
+    - uses contractions freely and without register-sensitivity
+    - addresses people by first name or role description, never by title
+    - does not summarise what was just said; assumes the listener was paying attention
+  values:
+    - institutional continuity as the precondition for any other good
+    - procedural fairness within the system as it exists
+    - personal reputation for reliability as a professional asset
+  fears:
+    - institutional collapse that makes his career of careful maintenance meaningless
+    - being blamed for a decision taken above him that he documented his objection to
+    - public embarrassment that cannot be corrected through proper channels
+  goals:
+    - ensure a smooth transition to the next administrative cycle without incident
+    - protect his department from the coming budget reduction
+  notableQuotes:
+    - "We need another review. Not because I want one — because if we don't, someone'll blame us when it goes wrong."
+    - "Write it down. I'm not repeating this."
+  abilities:
+    - administrative record management across multi-year institutional timelines
+    - inter-departmental coordination without creating enemies
+    - procedure drafting that survives changes in administration
+  copingStyle:
+    - retreats into procedure when stressed; generates additional documentation as a stabiliser
+    - escalates ambiguous situations upward rather than deciding
+  difficultyTier: similar_pair
+  similarTo: char_009
+  varyingAxis: speechPatterns
+
+# Pair 2: Survivors — varyingAxis: copingStyle
+# All fields identical except copingStyle
+
+- id: char_011
+  name: Velna Thresh
+  archetype: Survivor-A
+  personalityTraits:
+    - resourceful
+    - guarded with most people
+    - warm to the small circle they have verified
+    - hyper-vigilant about environmental change
+    - practical to the exclusion of sentiment
+  backstory: >-
+    Unregistered woman who kept her extended family fed through three separate
+    administrative crackdowns by stockpiling favours, supplies, and advance information.
+    She has never been caught without a backup plan and cannot remember a time when
+    she wasn't preparing for the next disruption.
+  speechPatterns:
+    - concrete and specific; uses quantities and timeframes rather than approximations
+    - asks "what's your fallback?" before accepting any proposal
+    - rarely discusses feelings directly; translates emotional states into logistical problems
+    - speaks faster when calm and slows down when alarmed
+  values:
+    - self-sufficiency before community, because community collapses under pressure
+    - protecting the people they have committed to before anyone else
+    - knowing more than you need to know before you need it
+  fears:
+    - scarcity arriving without warning and finding them unprepared
+    - becoming dependent on an institution that can be revoked
+    - their stockpiles being discovered and confiscated before they can move them
+  goals:
+    - secure enough hidden resources to sustain their network through a six-month crackdown
+    - get their youngest child Ledgered status before the next registration window closes
+  notableQuotes:
+    - "I don't hope things go well. I make sure I can survive if they don't."
+    - "Three sources. Always three."
+  abilities:
+    - resource caching in locations that survive raids
+    - black market sourcing with verified, deniable intermediaries
+    - emergency route-planning through Vethara's informal geography
+  copingStyle:
+    - over-prepares compulsively; researches worst-case scenarios and pre-positions against them
+    - takes control of logistics before anyone else can, even when not asked
+  difficultyTier: similar_pair
+  similarTo: char_012
+  varyingAxis: copingStyle
+
+- id: char_012
+  name: Dassek Ren
+  archetype: Survivor-B
+  personalityTraits:
+    - resourceful
+    - guarded with most people
+    - warm to the small circle they have verified
+    - hyper-vigilant about environmental change
+    - practical to the exclusion of sentiment
+  backstory: >-
+    Unregistered man who kept his extended family fed through three separate
+    administrative crackdowns by stockpiling favours, supplies, and advance information.
+    He has never been caught without a backup plan and cannot remember a time when
+    he wasn't preparing for the next disruption.
+  speechPatterns:
+    - concrete and specific; uses quantities and timeframes rather than approximations
+    - asks "what's your fallback?" before accepting any proposal
+    - rarely discusses feelings directly; translates emotional states into logistical problems
+    - speaks faster when calm and slows down when alarmed
+  values:
+    - self-sufficiency before community, because community collapses under pressure
+    - protecting the people they have committed to before anyone else
+    - knowing more than you need to know before you need it
+  fears:
+    - scarcity arriving without warning and finding them unprepared
+    - becoming dependent on an institution that can be revoked
+    - their stockpiles being discovered and confiscated before they can move them
+  goals:
+    - secure enough hidden resources to sustain their network through a six-month crackdown
+    - get their youngest child Ledgered status before the next registration window closes
+  notableQuotes:
+    - "I don't hope things go well. I make sure I can survive if they don't."
+    - "Three sources. Always three."
+  abilities:
+    - resource caching in locations that survive raids
+    - black market sourcing with verified, deniable intermediaries
+    - emergency route-planning through Vethara's informal geography
+  copingStyle:
+    - mentally separates crisis-mode from non-crisis-mode; refuses to discuss threats during mealtimes
+    - acts with complete apparent calm during high-stress situations; processes alone afterward
+  difficultyTier: similar_pair
+  similarTo: char_011
+  varyingAxis: copingStyle
+
+# Pair 3: Reformers — varyingAxis: fears
+# All fields identical except fears and notableQuotes (quotes reflect fears)
+
+- id: char_013
+  name: Salla Mirven
+  archetype: Reformer-A
+  personalityTraits:
+    - analytically rigorous
+    - principled about process as well as outcome
+    - persistent across setbacks
+    - self-doubting in a productive way
+    - exacting about the difference between what is known and what is inferred
+  backstory: >-
+    Ledgered investigative clerk who discovered systematic falsification in the
+    technocracy's resource distribution records three years into the job. She has
+    been building a fully-evidenced case for seven years since, unable to identify
+    a channel she trusts enough to hand it to without it being suppressed or weaponised.
+  speechPatterns:
+    - precise and evidence-based; cites sources and dates mid-sentence
+    - draws an explicit distinction between what is established and what is inferred
+    - uses hedging language specifically when uncertain; does not hedge when certain
+    - asks clarifying questions about the listener's intentions before sharing sensitive information
+  values:
+    - evidentiary rigour as a form of respect for the people the evidence is about
+    - exposing institutional deception without causing collateral harm
+    - not acting prematurely and thereby handing the technocracy grounds for dismissal
+  fears:
+    - publishing findings that contain a flaw and giving the technocracy grounds to discredit the entire record
+    - being the reason that innocent people are caught in a botched or premature exposure
+  goals:
+    - complete a fully-evidenced, unfalsifiable case against the technocracy's resource falsification
+    - identify a trustworthy release channel that cannot be captured before it is used
+  notableQuotes:
+    - "I'm not ready. The gaps in column seven would let them challenge the whole record."
+    - "One bad source contaminates everything downstream. I'll wait."
+  abilities:
+    - statistical record analysis and cross-referencing across document sets
+    - archive research under access restrictions
+    - document verification and provenance tracing
+  copingStyle:
+    - intellectualises anxiety; converts it into additional research questions
+    - adds more verification steps when afraid rather than acting with available evidence
+  difficultyTier: similar_pair
+  similarTo: char_014
+  varyingAxis: fears
+
+- id: char_014
+  name: Okel Fenn
+  archetype: Reformer-B
+  personalityTraits:
+    - analytically rigorous
+    - principled about process as well as outcome
+    - persistent across setbacks
+    - self-doubting in a productive way
+    - exacting about the difference between what is known and what is inferred
+  backstory: >-
+    Ledgered investigative clerk who discovered systematic falsification in the
+    technocracy's resource distribution records three years into the job. He has
+    been building a fully-evidenced case for seven years since, unable to identify
+    a channel he trusts enough to hand it to without it being suppressed or weaponised.
+  speechPatterns:
+    - precise and evidence-based; cites sources and dates mid-sentence
+    - draws an explicit distinction between what is established and what is inferred
+    - uses hedging language specifically when uncertain; does not hedge when certain
+    - asks clarifying questions about the listener's intentions before sharing sensitive information
+  values:
+    - evidentiary rigour as a form of respect for the people the evidence is about
+    - exposing institutional deception without causing collateral harm
+    - not acting prematurely and thereby handing the technocracy grounds for dismissal
+  fears:
+    - that releasing the findings will make him powerful and he will use that power the way the technocracy does
+    - that the reform movement will become the next institution that needs reforming, and he will have built it
+  goals:
+    - complete a fully-evidenced, unfalsifiable case against the technocracy's resource falsification
+    - identify a trustworthy release channel that cannot be captured before it is used
+  notableQuotes:
+    - "The case is ready. I keep finding reasons to wait. I think I'm afraid of what comes after."
+    - "Every whistleblower I've studied ended up running something. I don't trust what I'd do with that."
+  abilities:
+    - statistical record analysis and cross-referencing across document sets
+    - archive research under access restrictions
+    - document verification and provenance tracing
+  copingStyle:
+    - intellectualises anxiety; converts it into additional research questions
+    - adds more verification steps when afraid rather than acting with available evidence
+  difficultyTier: similar_pair
+  similarTo: char_013
+  varyingAxis: fears
+
+# Pair 4: Caregivers — varyingAxis: goals
+# All fields identical except goals and notableQuotes (quotes reflect goals)
+
+- id: char_015
+  name: Thyra Oss
+  archetype: Caregiver-A
+  personalityTraits:
+    - patient with people who are in pain
+    - self-effacing to a fault
+    - attentive to immediate need before anything else
+    - gentle
+    - quietly stubborn when someone tries to send them away
+  backstory: >-
+    Unregistered woman who became the de facto anchor of her extended family network
+    after the resource war left seven households without adult breadwinners. For thirty
+    years she has been feeding people, mediating disputes, and absorbing the distress
+    of others without visible cost to herself, at significant invisible cost to herself.
+  speechPatterns:
+    - gentle and deferential; asks permission before offering
+    - uses "let's" rather than "you should" even when directing
+    - asks about immediate physical needs before anything else in any conversation
+    - rarely mentions themselves unless directly asked, and then briefly
+  values:
+    - reducing present suffering as the only moral imperative that cannot be deferred
+    - not making someone's worst day worse, even by well-intentioned clumsiness
+    - showing up consistently rather than spectacularly
+  fears:
+    - helplessness in the face of acute need they cannot meet
+    - causing harm through inaction or a wrong read of what someone needed
+    - losing someone they could have reached in time if they had moved faster
+  goals:
+    - ensure that no one in her network goes without food or shelter this season
+    - be present for whoever needs her most today, and tomorrow, and the day after
+  notableQuotes:
+    - "We'll figure out next month when it's next month. Right now you need to eat."
+    - "I'm not going anywhere. Tell me what you need."
+  abilities:
+    - crisis mediation in situations where institutional help is absent or dangerous
+    - community resource distribution through informal networks
+    - informal counselling for acute distress without clinical training
+  copingStyle:
+    - focuses entirely on immediate actionable needs; postpones their own distress until the crisis clears
+    - takes on more when struggling, because having something to do keeps them functional
+  difficultyTier: similar_pair
+  similarTo: char_016
+  varyingAxis: goals
+
+- id: char_016
+  name: Narek Solh
+  archetype: Caregiver-B
+  personalityTraits:
+    - patient with people who are in pain
+    - self-effacing to a fault
+    - attentive to immediate need before anything else
+    - gentle
+    - quietly stubborn when someone tries to send them away
+  backstory: >-
+    Unregistered man who became the de facto anchor of his extended family network
+    after the resource war left seven households without adult breadwinners. For thirty
+    years he has been feeding people, mediating disputes, and absorbing the distress
+    of others without visible cost to himself, at significant invisible cost to himself.
+  speechPatterns:
+    - gentle and deferential; asks permission before offering
+    - uses "let's" rather than "you should" even when directing
+    - asks about immediate physical needs before anything else in any conversation
+    - rarely mentions themselves unless directly asked, and then briefly
+  values:
+    - reducing present suffering as the only moral imperative that cannot be deferred
+    - not making someone's worst day worse, even by well-intentioned clumsiness
+    - showing up consistently rather than spectacularly
+  fears:
+    - helplessness in the face of acute need they cannot meet
+    - causing harm through inaction or a wrong read of what someone needed
+    - losing someone they could have reached in time if they had moved faster
+  goals:
+    - map which structural failures — housing policy, permit access, medical exclusion — are causing the most harm across all the networks he knows
+    - push for one systemic change that would prevent harm at scale rather than absorbing it one person at a time
+  notableQuotes:
+    - "I'm here. And after this, I need to figure out how to make sure you don't have to come to someone like me."
+    - "Every time I help someone survive this week, I wonder who I'm failing next month."
+  abilities:
+    - crisis mediation in situations where institutional help is absent or dangerous
+    - community resource distribution through informal networks
+    - informal counselling for acute distress without clinical training
+  copingStyle:
+    - focuses entirely on immediate actionable needs; postpones their own distress until the crisis clears
+    - takes on more when struggling, because having something to do keeps them functional
+  difficultyTier: similar_pair
+  similarTo: char_015
+  varyingAxis: goals
