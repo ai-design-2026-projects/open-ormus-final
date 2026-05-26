@@ -40,22 +40,33 @@ describe("EmotionSchema", () => {
 });
 
 describe("parseEmotionBlock", () => {
-  test("extracts emotion from valid XML block", () => {
-    const text = `<emotion>{"emotion":"Fear","intensity":"high","subtext":"Hiding something"}</emotion>`;
+  test("extracts emotion from <|emotion|> block", () => {
+    const text = `<|emotion|>{"emotion":"Fear","intensity":"high","subtext":"Hiding something"}<|emotion|>`;
     const result = parseEmotionBlock(text);
     expect(result).toEqual({ emotion: "Fear", intensity: "high", subtext: "Hiding something" });
   });
 
-  test("returns null for missing emotion block", () => {
+  test("extracts emotion when surrounded by other text", () => {
+    const text = `<|reasoning|>some thoughts<|reasoning|>\n<|emotion|>{"emotion":"Joy","intensity":"low","subtext":""}<|emotion|>Hello there.`;
+    const result = parseEmotionBlock(text);
+    expect(result).toEqual({ emotion: "Joy", intensity: "low", subtext: "" });
+  });
+
+  test("returns null when no <|emotion|> block present", () => {
     expect(parseEmotionBlock("Just some text.")).toBeNull();
   });
 
+  test("returns null for old <emotion> XML format", () => {
+    const text = `<emotion>{"emotion":"Fear","intensity":"high","subtext":"Hiding something"}</emotion>`;
+    expect(parseEmotionBlock(text)).toBeNull();
+  });
+
   test("returns null for malformed JSON inside block", () => {
-    expect(parseEmotionBlock("<emotion>{bad json}</emotion>")).toBeNull();
+    expect(parseEmotionBlock("<|emotion|>{bad json}<|emotion|>")).toBeNull();
   });
 
   test("returns null if emotion value is invalid", () => {
-    const text = `<emotion>{"emotion":"Neutral","intensity":"low","subtext":""}</emotion>`;
+    const text = `<|emotion|>{"emotion":"Neutral","intensity":"low","subtext":""}<|emotion|>`;
     expect(parseEmotionBlock(text)).toBeNull();
   });
 });

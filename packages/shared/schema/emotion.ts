@@ -11,7 +11,7 @@ export const EmotionSchema = z.object({
 export type Emotion = z.infer<typeof EmotionSchema>;
 
 export function parseEmotionBlock(text: string): Emotion | null {
-  const match = text.match(/<emotion>([\s\S]*?)<\/emotion>/);
+  const match = text.match(/<\|emotion\|>([\s\S]*?)<\|emotion\|>/);
   if (!match?.[1]) return null;
   try {
     return EmotionSchema.parse(JSON.parse(match[1]));
