@@ -4,5 +4,3 @@ model_list:
       model: os.environ/LITELLM_MODEL
       api_key: os.environ/LITELLM_API_KEY
 
-general_settings:
-  drop_params: true  # ignore params unsupported by the provider (e.g. top_k)

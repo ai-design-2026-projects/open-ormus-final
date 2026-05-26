@@ -1,9 +1,12 @@
 // frontend/lib/conversation/next.ts
+import OpenAI from "openai";
+import type { ChatCompletionCreateParamsNonStreaming, ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import { prisma } from "@/lib/prisma";
 import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
 import { buildCharacterPrompt, buildReasoningSystemPrompt, buildReasoningUserMessage } from "@/lib/prompts";
 import { CharacterSearchResultSchema, parseEmotionBlock, type Emotion } from "@open-ormus/shared";
 import { buildHistoryLine } from "./parse-turn";
+import { buildCharacterMessages } from "./build-messages";
 
 export class ConversationError extends Error {
   constructor(
@@ -21,9 +24,6 @@ export type TurnEvent =
   | { type: "thinking_done" };
 
 const FALLBACK_EMOTION: Emotion = { emotion: "Joy", intensity: "low", subtext: "" };
-
-type LiteLLMDelta = { type?: string; text?: string };
-type LiteLLMEvent = { type: string; delta?: LiteLLMDelta };
 
 // Yields TurnEvent items: thinking/thinking_done bracket the reasoning call,
 // then token events stream the character's spoken message.
@@ -98,180 +98,132 @@ export async function* generateNextTurnStream(
           .join("\n")
       : "(The scene has just begun — no lines have been spoken yet.)";
 
-  const baseUrl = process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000";
-  const apiKey = process.env["ANTHROPIC_API_KEY"] ?? "";
+  const client = new OpenAI({
+    baseURL: `${process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000"}/v1`,
+    apiKey: process.env["ANTHROPIC_API_KEY"] ?? "",
+  });
+
+  // Headers forwarded by LiteLLM to the downstream provider (OpenRouter).
+  // extra_body.extra_headers is the LiteLLM mechanism for provider header passthrough.
+  const openrouterHeaders = {
+    "HTTP-Referer": "https://openormus.app",
+    "X-Title": "OpenOrmus",
+    "x-session-id": conversationId,
+  };
 
   // ── Call 1: reasoning (non-streaming) ──────────────────────────────────────
   yield { type: "thinking" };
 
-  const reasoningResponse = await fetch(`${baseUrl}/v1/messages`, {
-    method: "POST",
-    signal: signal ?? null,
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 256,
-      stream: false,
-      system: buildReasoningSystemPrompt(),
-      messages: [
-        {
-          role: "user",
-          content: buildReasoningUserMessage(sheet, historyText, nextParticipant.character.name),
-        },
-      ],
-    }),
-  });
-
-  if (!reasoningResponse.ok) {
-    const text = await reasoningResponse.text();
-    throw new ConversationError("LITELLM_ERROR", `LiteLLM reasoning error: ${text}`);
+  let reasoning = "";
+  try {
+    const reasoningCompletion = await client.chat.completions.create(
+      {
+        model,
+        max_tokens: 256,
+        messages: [
+          { role: "system", content: buildReasoningSystemPrompt() },
+          { role: "user", content: buildReasoningUserMessage(sheet, historyText, nextParticipant.character.name) },
+        ],
+        extra_headers: openrouterHeaders,
+      } as ChatCompletionCreateParamsNonStreaming,
+      { signal },
+    );
+    reasoning = reasoningCompletion.choices[0]?.message.content ?? "";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ConversationError("LITELLM_ERROR", `Reasoning error: ${msg}`);
   }
-
-  const reasoningCompletion = (await reasoningResponse.json()) as {
-    content?: { type: string; text: string }[];
-  };
-  const reasoning = reasoningCompletion.content?.find((b) => b.type === "text")?.text ?? "";
 
   yield { type: "thinking_done" };
 
   // ── Call 2: content (streaming) ─────────────────────────────────────────────
-  const contentSystemPrompt = reasoning
-    ? `${systemPrompt}\n\n[Your private thoughts before this response — use as context, do not repeat or quote]\n${reasoning}`
-    : systemPrompt;
-
-  const contentUserMessage = `Conversation so far:\n${historyText}\n\nNow continue as ${nextParticipant.character.name}. Write only their next line.`;
-
-  const response = await fetch(`${baseUrl}/v1/messages`, {
-    method: "POST",
-    signal: signal ?? null,
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Accept": "text/event-stream",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 512,
-      stream: true,
-      system: contentSystemPrompt,
-      messages: [{ role: "user", content: contentUserMessage }],
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new ConversationError("LITELLM_ERROR", `LiteLLM error: ${text}`);
-  }
+  const contentMessages = buildCharacterMessages(
+    conversation.messages,
+    nextParticipant.characterId,
+    nextParticipant.character.name,
+    reasoning,
+  );
 
   let content = "";
-  const contentType = response.headers.get("content-type") ?? "";
-  console.log(`[generateNextTurnStream] content-type: "${contentType}"`);
-
   let parsedEmotion: Emotion | null = null;
 
-  if (!contentType.includes("text/event-stream")) {
-    console.log("[generateNextTurnStream] path: JSON (no streaming from LiteLLM)");
-    const completion = (await response.json()) as {
-      content?: { type: string; text: string }[];
-    };
-    const rawContent = completion.content?.find((b) => b.type === "text")?.text ?? "";
-    parsedEmotion = parseEmotionBlock(rawContent);
-    onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
-    const dialogueMatch = rawContent.match(/<dialogue>([\s\S]*?)<\/dialogue>/);
-    content = dialogueMatch?.[1]?.trim() ?? rawContent;
-    if (content) yield { type: "token", text: content };
-  } else {
-    console.log("[generateNextTurnStream] path: SSE streaming");
-    if (!response.body) throw new ConversationError("LITELLM_ERROR", "LiteLLM response body is null");
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
+  try {
+    const stream = await client.chat.completions.create(
+      {
+        model,
+        max_tokens: 512,
+        stream: true,
+        messages: [
+          { role: "system" as const, content: systemPrompt },
+          ...contentMessages,
+        ],
+        extra_headers: openrouterHeaders,
+      } as ChatCompletionCreateParamsStreaming,
+      { signal },
+    );
 
-    // Two-phase parser state
+    // Two-phase parser: buffer until emotion block resolved, then stream dialogue tokens
     let rawBuffer = "";
     let parserState: "buffering" | "awaiting_open" | "dialogue" = "buffering";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    for await (const chunk of stream) {
+      const token = chunk.choices[0]?.delta.content;
+      if (!token) continue;
 
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
+      rawBuffer += token;
 
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") continue;
-
-        let parsed: unknown;
-        try { parsed = JSON.parse(data); } catch { continue; }
-        if (typeof parsed !== "object" || parsed === null) continue;
-
-        const obj = parsed as Record<string, unknown>;
-        let token: string | undefined;
-
-        if (obj["type"] === "content_block_delta") {
-          const event = parsed as LiteLLMEvent;
-          if (event.delta?.type === "text_delta" && typeof event.delta.text === "string") {
-            token = event.delta.text;
-          }
-        } else {
-          const choices = obj["choices"] as Array<{ delta?: { content?: string } }> | undefined;
-          const t = choices?.[0]?.delta?.content;
-          if (typeof t === "string" && t) token = t;
-        }
-
-        if (!token) continue;
-        rawBuffer += token;
-
-        if (parserState === "buffering") {
-          const emotionEndIdx = rawBuffer.indexOf("</emotion>");
-          if (emotionEndIdx !== -1) {
-            parsedEmotion = parseEmotionBlock(rawBuffer.slice(0, emotionEndIdx + 10));
-            onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
-            const rest = rawBuffer.slice(emotionEndIdx + 10);
-            const dialogueOpenIdx = rest.indexOf("<dialogue>");
-            if (dialogueOpenIdx !== -1) {
-              parserState = "dialogue";
-              const initial = rest.slice(dialogueOpenIdx + 10);
-              if (initial) { content += initial; yield { type: "token", text: initial }; }
-            } else {
-              parserState = "awaiting_open";
-            }
-          } else if (rawBuffer.length > 200) {
-            onEmotion?.(FALLBACK_EMOTION);
-            parserState = "dialogue";
-            content += rawBuffer;
-            yield { type: "token", text: rawBuffer };
-          }
-        } else if (parserState === "awaiting_open") {
-          const dialogueOpenIdx = rawBuffer.indexOf("<dialogue>");
+      if (parserState === "buffering") {
+        const emotionEndIdx = rawBuffer.indexOf("</emotion>");
+        const dialogueDirectIdx = rawBuffer.indexOf("<dialogue>");
+        if (emotionEndIdx !== -1) {
+          parsedEmotion = parseEmotionBlock(rawBuffer.slice(0, emotionEndIdx + 10));
+          onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
+          const rest = rawBuffer.slice(emotionEndIdx + 10);
+          const dialogueOpenIdx = rest.indexOf("<dialogue>");
           if (dialogueOpenIdx !== -1) {
             parserState = "dialogue";
-            const initial = rawBuffer.slice(dialogueOpenIdx + 10);
+            const initial = rest.slice(dialogueOpenIdx + 10);
             if (initial) { content += initial; yield { type: "token", text: initial }; }
+          } else {
+            parserState = "awaiting_open";
           }
-        } else if (parserState === "dialogue") {
-          content += token;
-          yield { type: "token", text: token };
+        } else if (dialogueDirectIdx !== -1) {
+          // Model omitted </emotion> — extract emotion from everything before <dialogue>
+          parsedEmotion = parseEmotionBlock(rawBuffer.slice(0, dialogueDirectIdx) + "</emotion>");
+          onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
+          parserState = "dialogue";
+          const initial = rawBuffer.slice(dialogueDirectIdx + 10);
+          if (initial) { content += initial; yield { type: "token", text: initial }; }
+        } else if (rawBuffer.length > 200) {
+          onEmotion?.(FALLBACK_EMOTION);
+          parserState = "dialogue";
+          content += rawBuffer;
+          yield { type: "token", text: rawBuffer };
         }
+      } else if (parserState === "awaiting_open") {
+        const dialogueOpenIdx = rawBuffer.indexOf("<dialogue>");
+        if (dialogueOpenIdx !== -1) {
+          parserState = "dialogue";
+          const initial = rawBuffer.slice(dialogueOpenIdx + 10);
+          if (initial) { content += initial; yield { type: "token", text: initial }; }
+        }
+      } else if (parserState === "dialogue") {
+        content += token;
+        yield { type: "token", text: token };
       }
     }
 
     if (parsedEmotion === null) onEmotion?.(FALLBACK_EMOTION);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ConversationError("LITELLM_ERROR", `Content stream error: ${msg}`);
   }
 
   // Strip </dialogue> closing tag that may have been streamed into content
   content = content.replace(/<\/dialogue>[\s\S]*$/, "").trim();
 
   if (!content) {
-    console.error(`[generateNextTurnStream] empty content from LiteLLM (content-type: ${contentType})`);
+    console.error(`[generateNextTurnStream] empty content from LLM`);
   }
 
   const emotionToSave = parsedEmotion ?? FALLBACK_EMOTION;
