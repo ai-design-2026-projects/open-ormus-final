@@ -29,7 +29,7 @@ export function EmotionDot({ emotion, intensity, subtext, showLabel = false }: E
   );
 
   if (!showLabel) {
-    return <span title={subtext}>{dot}</span>;
+    return <span title={subtext || undefined}>{dot}</span>;
   }
 
   return (

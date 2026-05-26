@@ -76,3 +76,43 @@ describe("buildCharacterPrompt", () => {
     expect(idx("## Instructions")).toBeLessThan(idx("## Scene"));
   });
 });
+
+describe("buildCharacterPrompt — cast and format", () => {
+  test("includes Scene Cast section when other participants provided", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.", ["Jesse Pinkman", "Hank Schrader"]);
+    expect(result).toContain("## Scene Cast");
+    expect(result).toContain("Jesse Pinkman");
+    expect(result).toContain("Hank Schrader");
+  });
+
+  test("omits Scene Cast section when no other participants", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.", []);
+    expect(result).not.toContain("## Scene Cast");
+  });
+
+  test("omits Scene Cast section when param is omitted (default)", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).not.toContain("## Scene Cast");
+  });
+
+  test("output format uses <|reasoning|> tags", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).toContain("<|reasoning|>");
+  });
+
+  test("output format uses <|emotion|> tags", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).toContain("<|emotion|>");
+  });
+
+  test("output format does not reference <dialogue> or </dialogue>", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).not.toContain("<dialogue>");
+    expect(result).not.toContain("</dialogue>");
+  });
+
+  test("reasoning block instruction emphasises privacy", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).toContain("private");
+  });
+});

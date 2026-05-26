@@ -1,11 +1,10 @@
 // frontend/lib/conversation/next.ts
 import OpenAI from "openai";
-import type { ChatCompletionCreateParamsNonStreaming, ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+import type { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import { prisma } from "@/lib/prisma";
 import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
-import { buildCharacterPrompt, buildReasoningSystemPrompt, buildReasoningUserMessage } from "@/lib/prompts";
+import { buildCharacterPrompt } from "@/lib/prompts";
 import { CharacterSearchResultSchema, parseEmotionBlock, type Emotion } from "@open-ormus/shared";
-import { buildHistoryLine } from "./parse-turn";
 import { buildCharacterMessages } from "./build-messages";
 
 export class ConversationError extends Error {
@@ -24,10 +23,12 @@ export type TurnEvent =
   | { type: "thinking_done" };
 
 const FALLBACK_EMOTION: Emotion = { emotion: "Joy", intensity: "low", subtext: "" };
+const REASONING_TAG = "<|reasoning|>";
+const EMOTION_TAG = "<|emotion|>";
 
-// Yields TurnEvent items: thinking/thinking_done bracket the reasoning call,
-// then token events stream the character's spoken message.
-// Saves the completed message (content + reasoning) to DB before returning.
+// Yields TurnEvent items: thinking/thinking_done bracket the reasoning+emotion
+// parsing phase, then token events stream the character's dialogue.
+// Saves the completed message (content + extracted reasoning + emotion) to DB.
 // Throws ConversationError on any failure — no message is saved on error.
 export async function* generateNextTurnStream(
   conversationId: string,
@@ -57,7 +58,7 @@ export async function* generateNextTurnStream(
 
   let nextParticipant: (typeof conversation.participants)[number];
 
-  if (conversation.participants.length >= 3) {
+  if (conversation.turnStrategy === "ORCHESTRATOR") {
     const characterId = await selectNextSpeakerWithOrchestrator(
       conversation.participants,
       conversation.messages,
@@ -81,146 +82,136 @@ export async function* generateNextTurnStream(
   }
 
   const sheet = CharacterSearchResultSchema.parse(nextParticipant.character.sheet);
-  const systemPrompt = buildCharacterPrompt(sheet, conversation.context);
 
-  const historyText =
-    conversation.messages.length > 0
-      ? conversation.messages
-          .map((m) =>
-            buildHistoryLine(
-              m.character.name,
-              m.content,
-              m.emotion,
-              m.intensity,
-              m.subtext,
-            ),
-          )
-          .join("\n")
-      : "(The scene has just begun — no lines have been spoken yet.)";
+  const otherNames = conversation.participants
+    .filter((p) => p.characterId !== nextParticipant.characterId)
+    .map((p) => p.character.name);
+
+  const systemPrompt = buildCharacterPrompt(sheet, conversation.context, otherNames);
 
   const client = new OpenAI({
     baseURL: `${process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000"}/v1`,
     apiKey: process.env["ANTHROPIC_API_KEY"] ?? "",
   });
 
-  // Headers forwarded by LiteLLM to the downstream provider (OpenRouter).
-  // extra_body.extra_headers is the LiteLLM mechanism for provider header passthrough.
   const openrouterHeaders = {
     "HTTP-Referer": "https://openormus.app",
     "X-Title": "OpenOrmus",
     "x-session-id": conversationId,
   };
 
-  // ── Call 1: reasoning (non-streaming) ──────────────────────────────────────
-  yield { type: "thinking" };
-
-  let reasoning = "";
-  try {
-    const reasoningCompletion = await client.chat.completions.create(
-      {
-        model,
-        max_tokens: 256,
-        messages: [
-          { role: "system", content: buildReasoningSystemPrompt() },
-          { role: "user", content: buildReasoningUserMessage(sheet, historyText, nextParticipant.character.name) },
-        ],
-        extra_headers: openrouterHeaders,
-      } as ChatCompletionCreateParamsNonStreaming,
-      { signal },
-    );
-    reasoning = reasoningCompletion.choices[0]?.message.content ?? "";
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new ConversationError("LITELLM_ERROR", `Reasoning error: ${msg}`);
-  }
-
-  yield { type: "thinking_done" };
-
-  // ── Call 2: content (streaming) ─────────────────────────────────────────────
   const contentMessages = buildCharacterMessages(
     conversation.messages,
     nextParticipant.characterId,
     nextParticipant.character.name,
-    reasoning,
   );
 
   let content = "";
+  let reasoningText = "";
   let parsedEmotion: Emotion | null = null;
+
+  yield { type: "thinking" };
 
   try {
     const stream = await client.chat.completions.create(
       {
         model,
-        max_tokens: 512,
+        max_tokens: 768,
         stream: true,
         messages: [
           { role: "system" as const, content: systemPrompt },
           ...contentMessages,
         ],
         extra_headers: openrouterHeaders,
+        extra_body: { reasoning: { effort: "none" } },
       } as ChatCompletionCreateParamsStreaming,
       { signal },
     );
 
-    // Two-phase parser: buffer until emotion block resolved, then stream dialogue tokens
     let rawBuffer = "";
-    let parserState: "buffering" | "awaiting_open" | "dialogue" = "buffering";
+    let parserState:
+      | "pre_reasoning"
+      | "in_reasoning"
+      | "pre_emotion"
+      | "in_emotion"
+      | "dialogue" = "pre_reasoning";
 
     for await (const chunk of stream) {
       const token = chunk.choices[0]?.delta.content;
       if (!token) continue;
 
-      rawBuffer += token;
-
-      if (parserState === "buffering") {
-        const emotionEndIdx = rawBuffer.indexOf("</emotion>");
-        const dialogueDirectIdx = rawBuffer.indexOf("<dialogue>");
-        if (emotionEndIdx !== -1) {
-          parsedEmotion = parseEmotionBlock(rawBuffer.slice(0, emotionEndIdx + 10));
-          onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
-          const rest = rawBuffer.slice(emotionEndIdx + 10);
-          const dialogueOpenIdx = rest.indexOf("<dialogue>");
-          if (dialogueOpenIdx !== -1) {
-            parserState = "dialogue";
-            const initial = rest.slice(dialogueOpenIdx + 10);
-            if (initial) { content += initial; yield { type: "token", text: initial }; }
-          } else {
-            parserState = "awaiting_open";
-          }
-        } else if (dialogueDirectIdx !== -1) {
-          // Model omitted </emotion> — extract emotion from everything before <dialogue>
-          parsedEmotion = parseEmotionBlock(rawBuffer.slice(0, dialogueDirectIdx) + "</emotion>");
-          onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
-          parserState = "dialogue";
-          const initial = rawBuffer.slice(dialogueDirectIdx + 10);
-          if (initial) { content += initial; yield { type: "token", text: initial }; }
-        } else if (rawBuffer.length > 200) {
-          onEmotion?.(FALLBACK_EMOTION);
-          parserState = "dialogue";
-          content += rawBuffer;
-          yield { type: "token", text: rawBuffer };
-        }
-      } else if (parserState === "awaiting_open") {
-        const dialogueOpenIdx = rawBuffer.indexOf("<dialogue>");
-        if (dialogueOpenIdx !== -1) {
-          parserState = "dialogue";
-          const initial = rawBuffer.slice(dialogueOpenIdx + 10);
-          if (initial) { content += initial; yield { type: "token", text: initial }; }
-        }
-      } else if (parserState === "dialogue") {
+      // Dialogue tokens stream directly — no buffering needed.
+      if (parserState === "dialogue") {
         content += token;
         yield { type: "token", text: token };
+        continue;
+      }
+
+      rawBuffer += token;
+
+      if (parserState === "pre_reasoning") {
+        const idx = rawBuffer.indexOf(REASONING_TAG);
+        if (idx !== -1) {
+          rawBuffer = rawBuffer.slice(idx + REASONING_TAG.length);
+          parserState = "in_reasoning";
+        } else if (rawBuffer.length > 300) {
+          // Model skipped reasoning block — look for emotion directly.
+          const emoIdx = rawBuffer.indexOf(EMOTION_TAG);
+          if (emoIdx !== -1) {
+            rawBuffer = rawBuffer.slice(emoIdx + EMOTION_TAG.length);
+            parserState = "in_emotion";
+          }
+        }
+      }
+
+      if (parserState === "in_reasoning") {
+        const idx = rawBuffer.indexOf(REASONING_TAG);
+        if (idx !== -1) {
+          reasoningText = rawBuffer.slice(0, idx).trim();
+          rawBuffer = rawBuffer.slice(idx + REASONING_TAG.length);
+          parserState = "pre_emotion";
+        }
+      }
+
+      if (parserState === "pre_emotion") {
+        const idx = rawBuffer.indexOf(EMOTION_TAG);
+        if (idx !== -1) {
+          rawBuffer = rawBuffer.slice(idx + EMOTION_TAG.length);
+          parserState = "in_emotion";
+        }
+      }
+
+      if (parserState === "in_emotion") {
+        const idx = rawBuffer.indexOf(EMOTION_TAG);
+        if (idx !== -1) {
+          const emotionJson = rawBuffer.slice(0, idx);
+          const rest = rawBuffer.slice(idx + EMOTION_TAG.length);
+          rawBuffer = "";
+          parsedEmotion = parseEmotionBlock(`${EMOTION_TAG}${emotionJson}${EMOTION_TAG}`);
+          onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
+          parserState = "dialogue";
+          yield { type: "thinking_done" };
+          if (rest) {
+            content += rest;
+            yield { type: "token", text: rest };
+          }
+        }
       }
     }
 
-    if (parsedEmotion === null) onEmotion?.(FALLBACK_EMOTION);
+    // Flush any remaining buffered content if the parser never reached dialogue state.
+    if (parserState !== "dialogue" && rawBuffer) {
+      content += rawBuffer;
+    }
+
+    if (parsedEmotion === null) {
+      onEmotion?.(FALLBACK_EMOTION);
+      yield { type: "thinking_done" };
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new ConversationError("LITELLM_ERROR", `Content stream error: ${msg}`);
   }
-
-  // Strip </dialogue> closing tag that may have been streamed into content
-  content = content.replace(/<\/dialogue>[\s\S]*$/, "").trim();
 
   if (!content) {
     console.error(`[generateNextTurnStream] empty content from LLM`);
@@ -233,7 +224,7 @@ export async function* generateNextTurnStream(
       conversationId,
       characterId: nextParticipant.characterId,
       content,
-      reasoning: reasoning || null,
+      reasoning: reasoningText || null,
       emotion: emotionToSave.emotion,
       intensity: emotionToSave.intensity,
       subtext: emotionToSave.subtext,

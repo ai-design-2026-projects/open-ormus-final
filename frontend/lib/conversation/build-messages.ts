@@ -11,6 +11,7 @@ type ConversationMessage = {
   emotion: string;
   intensity: string;
   subtext: string;
+  reasoning: string | null;
 };
 
 const SCENE_START = "(The scene has just begun — no lines have been spoken yet.)";
@@ -21,14 +22,13 @@ const SCENE_START = "(The scene has just begun — no lines have been spoken yet
  *
  * The speaking character's own prior lines become `assistant` turns.
  * All other characters' lines between them are bundled into `user` turns.
- * Private reasoning is injected into the final (always-new) user message only —
- * it never appears in historical turns and is invisible to other characters.
+ * Each character's reasoning is visible only in their own assistant turns —
+ * it is never included in user turns, so other characters cannot see it.
  */
 export function buildCharacterMessages(
   messages: ConversationMessage[],
   speakingCharacterId: string,
   speakingCharacterName: string,
-  reasoning: string,
 ): ConversationTurn[] {
   const result: ConversationTurn[] = [];
   let pendingOthers: string[] = [];
@@ -38,14 +38,20 @@ export function buildCharacterMessages(
       const userContent =
         pendingOthers.length > 0 ? pendingOthers.join("\n") : SCENE_START;
       result.push({ role: "user", content: userContent });
+
       const emotionJson = JSON.stringify({
         emotion: msg.emotion,
         intensity: msg.intensity,
         subtext: msg.subtext,
       });
+      const emotionBlock = `<|emotion|>${emotionJson}<|emotion|>`;
+      const reasoningPrefix = msg.reasoning
+        ? `<|reasoning|>${msg.reasoning}<|reasoning|>\n`
+        : "";
+
       result.push({
         role: "assistant",
-        content: `<emotion>${emotionJson}</emotion>\n<dialogue>${msg.content}</dialogue>`,
+        content: `${reasoningPrefix}${emotionBlock}${msg.content}`,
       });
       pendingOthers = [];
     } else {
@@ -63,9 +69,6 @@ export function buildCharacterMessages(
 
   const hasPriorAssistantTurn = result.some((m) => m.role === "assistant");
 
-  // When the speaking character has spoken before and multiple other-character lines
-  // are pending, flush them as their own user turn so each group is clearly separated.
-  // In all other cases (0 or 1 pending, or first appearance) fold them into the trigger.
   if (hasPriorAssistantTurn && pendingOthers.length >= 2) {
     result.push({ role: "user", content: pendingOthers.join("\n") });
     pendingOthers = [];
@@ -75,12 +78,7 @@ export function buildCharacterMessages(
     pendingOthers.length > 0 ? pendingOthers.join("\n") : SCENE_START;
 
   const continuePrompt = `Continue as ${speakingCharacterName}. Write only their next line.`;
-
-  const triggerContent = reasoning
-    ? `[Your private thoughts before this response — use as context, do not repeat or quote]\n${reasoning}\n\n${contextLines}\n\n${continuePrompt}`
-    : `${contextLines}\n\n${continuePrompt}`;
-
-  result.push({ role: "user", content: triggerContent });
+  result.push({ role: "user", content: `${contextLines}\n\n${continuePrompt}` });
 
   return result;
 }
