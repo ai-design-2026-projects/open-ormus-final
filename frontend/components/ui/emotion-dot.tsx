@@ -13,18 +13,31 @@ interface EmotionDotProps {
   emotion: string;
   intensity: "low" | "medium" | "high";
   subtext?: string;
+  showLabel?: boolean;
 }
 
-export function EmotionDot({ emotion, intensity, subtext }: EmotionDotProps) {
+export function EmotionDot({ emotion, intensity, subtext, showLabel = false }: EmotionDotProps) {
   const color = EMOTION_COLOR[emotion] ?? "var(--ink-mute)";
   const sizeClass = intensity === "low" ? "size-2 opacity-60" : "size-3";
   const ringClass = intensity === "high" ? "shadow-glow animate-pulse" : "";
 
-  return (
+  const dot = (
     <span
-      title={subtext}
       className={`rounded-full inline-block shrink-0 ${sizeClass} ${ringClass}`}
       style={{ background: color }}
     />
+  );
+
+  if (!showLabel) {
+    return <span title={subtext}>{dot}</span>;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {dot}
+      <span className="text-xs" style={{ color: "var(--ink-mute)" }}>
+        {emotion}{subtext ? ` · "${subtext}"` : ""}
+      </span>
+    </span>
   );
 }

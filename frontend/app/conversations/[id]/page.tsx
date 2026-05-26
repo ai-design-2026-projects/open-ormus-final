@@ -325,6 +325,7 @@ export default function ConversationPage() {
                     emotion={m.emotion}
                     intensity={m.intensity as "low" | "medium" | "high"}
                     subtext={m.subtext}
+                    showLabel
                   />
                   <span className="text-xs" style={{ color: "var(--ink-faint)" }}>
                     {new Date(m.createdAt).toLocaleTimeString()}
@@ -350,6 +351,7 @@ export default function ConversationPage() {
                     emotion={streamingEmotion.emotion}
                     intensity={streamingEmotion.intensity as "low" | "medium" | "high"}
                     subtext={streamingEmotion.subtext}
+                    showLabel
                   />
                 )}
               </div>
