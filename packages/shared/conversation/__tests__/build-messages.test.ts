@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { buildCharacterMessages } from "../conversation/build-messages";
+import { buildCharacterMessages } from "../build-messages";
 
 type Msg = {
   characterId: string;

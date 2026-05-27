@@ -24,3 +24,6 @@ bun-debug.log*
 .claude/worktrees/
 .serena/
 .agents/
+
+# Evaluation results (generated at runtime)
+evaluation/results/

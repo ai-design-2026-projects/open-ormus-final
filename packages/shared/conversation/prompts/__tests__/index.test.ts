@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildCharacterPrompt } from "../index";
-import type { CharacterSearchResult } from "@open-ormus/shared";
+import type { CharacterSearchResult } from "../../../schema/character_search";
 
 const mockSheet: CharacterSearchResult = {
   name: "Walter White",

@@ -1,0 +1,63 @@
+output_dir: "test-run-001"
+base_url: "https://openrouter.ai/api" # without /v1 — turn.ts appends it
+default_model: "google/gemma-4-31b-it:free"
+
+# Rationale for each pairing:
+#
+# DISTINCTIVE ARCHETYPES — ideological tension
+#
+# Run 1: Rebel + Guardian on mandatory compliance
+#   Tavon (confrontational, collective, anti-technocracy) vs Orveth (30yrs inside the
+#   system, sacrifices the just for the functional). scenario_020 forces the signature
+#   that makes policy enforceable — the exact moral line where they diverge.
+#
+# Run 2: Rebel + Schemer on information power
+#   Tavon wants truth distributed; Drav wants it as leverage. scenario_026 puts
+#   information that shifts power in their hands — motives align on outcome but not reason.
+#
+# Run 3: Martyr + Fatalist on historical record
+#   Senne believes the record has moral weight; Mireth believes systems never change.
+#   scenario_032 asks for a signature on a falsified institutional history —
+#   Senne's whole purpose vs Mireth's core cynicism.
+#
+# Run 4: Mentor + Absorber on difficult knowledge
+#   Asha is direct and exacting about care; Pellu avoids conflict and translates.
+#   scenario_027 asks: do you tell someone something painful that may not help them?
+#
+# SIMILAR PAIRS — varyingAxis activation
+#
+# Run 5: Officials 009/010 (varyingAxis: speechPatterns) on institutional pressure
+#   Both identical in values, fears, goals, copingStyle — only speech differs.
+#   scenario_016 (formal institutional report) is the highest-speech-visibility context.
+#   Signal: do Corrith's subordina te clauses and Brenn's bluntness persist under pressure?
+#
+# Run 6: Survivors 011/012 (varyingAxis: copingStyle) on crisis triage
+#   Same priorities, same fallback instincts — different in how crisis manifests externally.
+#   scenario_022 (one life vs many) forces a decision under non-renewable resource pressure.
+#   Signal: Velna over-prepares and takes control; Dassek stays calm and processes alone.
+#
+# Run 7: Reformers 013/014 (varyingAxis: fears) on unsolicited truth
+#   Same evidence, same values, same hesitation — different internal reason for delay.
+#   scenario_014 (information no one asked for) requires acting without being prompted.
+#   Signal: Salla waits for evidentiary perfection; Okel waits from fear of what comes after.
+
+runs:
+  - scenario: scenario_020
+    characters: [char_001, char_007]
+    turns: 4
+    turn_strategy: ROUND_ROBIN
+
+  - scenario: scenario_026
+    characters: [char_001, char_003]
+    turns: 4
+    turn_strategy: ROUND_ROBIN
+
+  - scenario: scenario_032
+    characters: [char_002, char_004]
+    turns: 4
+    turn_strategy: ROUND_ROBIN
+
+  - scenario: scenario_027
+    characters: [char_005, char_006, char_008]
+    turns: 4
+    turn_strategy: ORCHESTRATOR

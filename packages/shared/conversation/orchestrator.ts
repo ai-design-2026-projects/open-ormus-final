@@ -1,4 +1,5 @@
-import { createLLMClient } from "@/lib/llm-client";
+import OpenAI from "openai";
+import type { TurnConfig } from "./types";
 
 type OrchestratorParticipant = {
   characterId: string;
@@ -12,12 +13,11 @@ type OrchestratorMessage = {
 
 export async function selectNextSpeakerWithOrchestrator(
   participants: OrchestratorParticipant[],
-  messages: OrchestratorMessage[]
+  messages: OrchestratorMessage[],
+  config: TurnConfig
 ): Promise<string> {
-  const model = process.env["CONVERSATION_MODEL"];
-
-  if (!model) {
-    console.error("[orchestrator] CONVERSATION_MODEL env var not set");
+  if (!config.model) {
+    console.error("[orchestrator] model not set in TurnConfig");
     return fallback(participants, messages);
   }
 
@@ -47,9 +47,13 @@ export async function selectNextSpeakerWithOrchestrator(
   ].join("\n");
 
   try {
-    const client = createLLMClient();
+    const client = new OpenAI({
+      baseURL: `${config.baseURL}/v1`,
+      apiKey: config.apiKey,
+    });
+
     const response = await client.chat.completions.create({
-      model,
+      model: config.model,
       max_tokens: 64,
       messages: [
         {

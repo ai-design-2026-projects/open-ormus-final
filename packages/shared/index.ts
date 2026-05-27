@@ -75,3 +75,14 @@ export {
   type Emotion,
   parseEmotionBlock,
 } from "./schema/emotion";
+export { generateTurn, ConversationError } from "./conversation/turn";
+export {
+  type TurnParticipant,
+  type TurnMessage,
+  type TurnConfig,
+  type TurnResult,
+  type TurnEvent,
+} from "./conversation/types";
+export { buildCharacterPrompt } from "./conversation/prompts/index";
+export { buildCharacterMessages } from "./conversation/build-messages";
+export { selectNextSpeakerWithOrchestrator } from "./conversation/orchestrator";
