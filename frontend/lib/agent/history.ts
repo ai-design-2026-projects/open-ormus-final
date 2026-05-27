@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 import { Prisma } from "@/lib/generated/prisma/client";
-import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 export type AgentSessionSummary = {
   id: string;
@@ -46,14 +46,14 @@ export async function appendTurns(
 }
 
 /**
- * Loads all turns for a session as Claude SDK MessageParam objects.
- * Tool calls stored in JSON are rehydrated into content arrays.
+ * Loads all turns for a session as OpenAI SDK ChatCompletionMessageParam objects.
+ * Tool calls stored in JSON are rehydrated into tool_calls arrays.
  */
 export async function getSessionMessages(
   prisma: PrismaClient,
   sessionId: string,
   userId: string,
-): Promise<MessageParam[]> {
+): Promise<ChatCompletionMessageParam[]> {
   const session = await prisma.agentSession.findFirst({
     where: { id: sessionId, userId },
     include: { turns: { orderBy: { createdAt: "asc" } } },
@@ -61,16 +61,23 @@ export async function getSessionMessages(
 
   if (!session) return [];
 
-  return session.turns.map((turn) => {
+  const result: ChatCompletionMessageParam[] = [];
+
+  for (const turn of session.turns) {
     if (turn.role === "user") {
-      return { role: "user" as const, content: turn.content };
+      result.push({ role: "user", content: turn.content });
+      continue;
     }
-    const blocks = turn.toolCalls as unknown;
-    if (Array.isArray(blocks) && blocks.length > 0) {
-      return { role: "assistant" as const, content: blocks as MessageParam["content"] };
+    // Assistant turn: rehydrate tool_calls + tool result messages if stored
+    const stored = turn.toolCalls as unknown;
+    if (Array.isArray(stored) && stored.length > 0) {
+      result.push({ role: "assistant", content: turn.content ?? null, tool_calls: stored as ChatCompletionMessageParam[] & [] } as ChatCompletionMessageParam);
+    } else {
+      result.push({ role: "assistant", content: turn.content });
     }
-    return { role: "assistant" as const, content: turn.content };
-  });
+  }
+
+  return result;
 }
 
 /** Returns summaries of all agent sessions for the given user, newest first. */
