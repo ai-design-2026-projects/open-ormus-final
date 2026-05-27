@@ -3,6 +3,8 @@ import type {
   ChatCompletionMessageParam,
   ChatCompletionFunctionTool,
 } from "openai/resources/chat/completions";
+import { createLLMClient } from "@/lib/llm-client";
+import type { AnthropicTool } from "./types";
 import { encodeChunk } from "./stream";
 import type { McpSession } from "./mcp_bridge";
 import { buildMcpTools, callMcpTool } from "./mcp_bridge";
@@ -17,12 +19,6 @@ import {
 } from "./tools/exa_research";
 import { handleWizard, wizardTool } from "./tools/wizard";
 import { AGENT_SYSTEM_PROMPT } from "./prompt";
-
-type AnthropicTool = {
-  name: string;
-  description?: string;
-  input_schema: { type: string; properties?: Record<string, unknown>; required?: string[] };
-};
 
 function toOpenAITool(t: AnthropicTool): ChatCompletionFunctionTool {
   const fn: ChatCompletionFunctionTool["function"] = {
@@ -49,10 +45,7 @@ export async function runAgentLoop(
   mcpSession: McpSession,
   onChunk: (data: Uint8Array) => void,
 ): Promise<{ messages: ChatCompletionMessageParam[]; assistantText: string; toolCallsJson: unknown }> {
-  const client = new OpenAI({
-    baseURL: process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000",
-    apiKey: process.env["ANTHROPIC_API_KEY"] ?? "local",
-  });
+  const client = createLLMClient();
 
   const send = (chunk: Parameters<typeof encodeChunk>[0]) => {
     onChunk(encodeChunk(chunk));

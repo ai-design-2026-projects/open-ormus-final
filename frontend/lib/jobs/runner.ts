@@ -111,13 +111,13 @@ async function runTurns(
           }
           // Yield to event loop so Node.js can flush the HTTP write buffer
           // before processing the next token. Without this, tokens from the
-          // same LiteLLM TCP chunk are emitted synchronously and bundled into
+          // same provider TCP chunk are emitted synchronously and bundled into
           // a single HTTP chunk — the client receives them as one block.
           await new Promise<void>((r) => setTimeout(r, 0));
         }
       } catch (err) {
         if (isAbortError(err)) {
-          // Mid-turn cancel: LiteLLM fetch was aborted. Partial message is not
+          // Mid-turn cancel: LLM fetch was aborted. Partial message is not
           // saved (prisma.message.create in the generator never runs).
           cancelledJobs.delete(jobId);
           await prisma.conversationJob.update({

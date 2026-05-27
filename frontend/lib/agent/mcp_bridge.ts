@@ -1,4 +1,4 @@
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { AnthropicTool } from "./types";
 
 const MCP_URL = process.env["MCP_SERVER_URL"] ?? "http://localhost:3001/mcp";
 
@@ -105,7 +105,7 @@ export async function callMcpTool(
 }
 
 /** Tool definitions for the six MCP tools, in Anthropic Tool format. */
-export function buildMcpTools(): Tool[] {
+export function buildMcpTools(): AnthropicTool[] {
   return [
     {
       name: "mcp__openormus__character_list",

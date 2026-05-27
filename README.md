@@ -30,7 +30,7 @@ Two tracks: production chat (live SSE streaming) and evaluation (offline batch w
 - **Database:** PostgreSQL 15+ (hosted on Supabase)
 - **ORM:** Prisma 7.8 — schema at `prisma/schema.prisma`, consumed by both workspaces
 - **Auth:** Supabase Auth (`@supabase/ssr`) for users; short-lived JWT for frontend → MCP calls
-- **LLM routing:** LiteLLM proxy at `http://localhost:4000` — config at `litellm_config.yaml`, started with `bun run dev:llm`
+- **LLM:** OpenAI SDK pointed at any OpenAI-compatible provider via `LLM_BASE_URL`
 - **MCP transport:** `StreamableHTTP` from `@modelcontextprotocol/sdk ^1.29`
 - **Validation:** Zod — schemas defined once in `packages/shared/`, imported everywhere
 
@@ -43,7 +43,7 @@ Two tracks: production chat (live SSE streaming) and evaluation (offline batch w
 | Bun           | ≥ 1.2   | Primary package manager and runtime     |
 | Node          | ≥ 20    | Required only for Prisma CLI migrations |
 | PostgreSQL    | 15+     | Local instance or a Supabase project    |
-| LiteLLM proxy | any     | Install via `uv tool install 'litellm[proxy]'`, then `bun run dev:llm` |
+| LLM provider  | any     | Any OpenAI-compatible API (e.g. Ollama, OpenRouter, OpenAI). Set `LLM_BASE_URL` + `LLM_API_KEY` in `.env.local` |
 
 ---
 
@@ -65,11 +65,9 @@ ln -sf ../.env.local frontend/.env.local
 | `MCP_PORT`                             | No          | MCP server port (default: `3001`)                                                                                     |
 | `MCP_AUTH_DISABLED`                    | No          | Set to `"true"` in local dev to skip JWT validation between frontend and MCP server                                   |
 | `JWT_SECRET`                           | Conditional | Required when `MCP_AUTH_DISABLED` is not set. Signs the short-lived tokens issued by `/api/auth/tool-token`           |
-| `ANTHROPIC_BASE_URL`                   | Yes         | LiteLLM proxy URL — `http://localhost:4000` for local dev                                                             |
-| `ANTHROPIC_API_KEY`                    | Yes         | Any non-empty string in local dev (LiteLLM doesn't validate it without a master key)                                  |
-| `CONVERSATION_MODEL`                   | Yes         | Model alias sent to LiteLLM — must match `model_name` in `litellm_config.yaml` (default: `default`)                  |
-| `LITELLM_MODEL`                        | Yes         | Actual model string routed by LiteLLM, e.g. `gemini/gemini-2.5-flash-lite`, `anthropic/claude-3-5-haiku-20241022`    |
-| `LITELLM_API_KEY`                      | Yes         | API key for the provider set in `LITELLM_MODEL`                                                                       |
+| `LLM_BASE_URL`                         | Yes         | OpenAI-compatible provider URL, e.g. `http://localhost:11434/v1` (Ollama) or `https://openrouter.ai/api/v1`          |
+| `LLM_API_KEY`                          | Yes         | API key for the provider at `LLM_BASE_URL`                                                                            |
+| `CONVERSATION_MODEL`                   | Yes         | Model name passed directly to the provider, e.g. `gemini/gemini-2.5-flash-lite`                                      |
 
 > **Note on `MCP_AUTH_DISABLED`:** When set to `"true"`, the MCP server accepts tool calls without a valid JWT. Never enable this in production.
 
@@ -89,14 +87,10 @@ ln -sf ../.env.local frontend/.env.local
 # 3. Run database migrations
 bun run prisma:migrate:dev
 
-# 4. Start the LiteLLM proxy (port 4000) — separate terminal
-#    Install first if needed: uv tool install 'litellm[proxy]'
-bun run dev:llm
-
-# 5. Start the frontend (Next.js on :3000) — separate terminal
+# 4. Start the frontend (Next.js on :3000) — separate terminal
 bun run dev:frontend
 
-# 6. Start the MCP server (Express on :3001) — separate terminal
+# 5. Start the MCP server (Express on :3001) — separate terminal
 bun run dev:mcp
 ```
 
@@ -112,8 +106,6 @@ After setup, open [http://localhost:3000](http://localhost:3000).
 | ---------------------- | --------------------------------------------------------- |
 | `bun run dev:frontend` | Start the Next.js dev server on port 3000 with hot reload |
 | `bun run dev:mcp`      | Start the MCP server on port 3001 with watch mode         |
-| `bun run dev:llm`      | Start the LiteLLM proxy on port 4000                      |
-| `bun run dev:llm:stop` | Kill the LiteLLM process on port 4000                     |
 
 ### Build & Production
 

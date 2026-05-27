@@ -1,6 +1,6 @@
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { AnthropicTool } from "../types";
 
-export const wizardTool: Tool = {
+export const wizardTool: AnthropicTool = {
   name: "start_character_wizard",
   description:
     "Start the step-by-step wizard to create a custom original character from scratch. " +

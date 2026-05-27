@@ -1,6 +1,6 @@
 // frontend/lib/conversation/next.ts
-import OpenAI from "openai";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+import { createLLMClient } from "@/lib/llm-client";
 import { prisma } from "@/lib/prisma";
 import { selectNextSpeakerWithOrchestrator } from "@/lib/orchestrator";
 import { buildCharacterPrompt } from "@/lib/prompts";
@@ -89,10 +89,7 @@ export async function* generateNextTurnStream(
 
   const systemPrompt = buildCharacterPrompt(sheet, conversation.context, otherNames);
 
-  const client = new OpenAI({
-    baseURL: `${process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000"}/v1`,
-    apiKey: process.env["ANTHROPIC_API_KEY"] ?? "",
-  });
+  const client = createLLMClient();
 
   const openrouterHeaders = {
     "HTTP-Referer": "https://openormus.app",

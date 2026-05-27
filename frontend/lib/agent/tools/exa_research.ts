@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { AnthropicTool } from "../types";
 import {
   characterBasicsHandler,
   characterDetailsHandler,
@@ -13,7 +13,7 @@ import type {
 
 // ─── Show research (unchanged) ────────────────────────────────────────────────
 
-export const researchShowTool: Tool = {
+export const researchShowTool: AnthropicTool = {
   name: "research_show_online",
   description:
     "Look up a TV series, film, or book by title using Exa. " +
@@ -45,7 +45,7 @@ export async function handleShowResearch(args: {
 
 // ─── Character basics (step 1 of 2) ──────────────────────────────────────────
 
-export const researchCharacterBasicsTool: Tool = {
+export const researchCharacterBasicsTool: AnthropicTool = {
   name: "research_character_basics",
   description:
     "Research the basic identity of a fictional character using Exa. " +
@@ -88,7 +88,7 @@ export const CharacterDetailsResearchInputSchema = z.object({
 });
 export type CharacterDetailsResearchInput = z.infer<typeof CharacterDetailsResearchInputSchema>;
 
-export const researchCharacterDetailsTool: Tool = {
+export const researchCharacterDetailsTool: AnthropicTool = {
   name: "research_character_details",
   description:
     "Research the full personality, backstory, and connections of a confirmed fictional character. " +

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
+import { createLLMClient } from "@/lib/llm-client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { generateToolToken } from "@/lib/agent/token";
@@ -89,20 +89,22 @@ export async function POST(request: Request) {
 
 async function autoTitle(sessionId: string, firstMessage: string): Promise<void> {
   try {
-    const client = new Anthropic({
-      baseURL: process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000",
-      apiKey: process.env["ANTHROPIC_API_KEY"] ?? "local",
-    });
-    const response = await client.messages.create({
+    const client = createLLMClient();
+    const response = await client.chat.completions.create({
       model: process.env["CONVERSATION_MODEL"] ?? "default",
       max_tokens: 20,
-      system:
-        "Generate a 3-6 word title for a chat session. Reply with ONLY the title, no punctuation.",
-      messages: [{ role: "user", content: firstMessage }],
+      messages: [
+        {
+          role: "system",
+          content:
+            "Generate a 3-6 word title for a chat session. Reply with ONLY the title, no punctuation.",
+        },
+        { role: "user", content: firstMessage },
+      ],
     });
-    const titleBlock = response.content[0];
-    if (titleBlock?.type === "text") {
-      await setSessionTitle(prisma, sessionId, titleBlock.text.slice(0, 100));
+    const text = response.choices[0]?.message.content ?? "";
+    if (text) {
+      await setSessionTitle(prisma, sessionId, text.slice(0, 100));
     }
   } catch (err) {
     console.error("autoTitle failed:", err);

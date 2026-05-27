@@ -4,7 +4,7 @@
 
 OpenOrmus is a web app for creating fictional characters, simulating multi-character scenes, and
 evaluating LLM behavioural fidelity. The central design is a **single tool registry** consumed by
-three channels: traditional UI, an internal AI assistant (LiteLLM-backed chat loop), and an external
+three channels: traditional UI, an internal AI assistant (OpenAI SDK chat loop), and an external
 MCP server. Two-track architecture: production chat (live SSE) and evaluation (offline batch,
 separate judge model).
 
@@ -19,8 +19,7 @@ packages/shared/    Zod schemas, tool registry types, prompt templates (shared b
 prisma/             Centralised schema.prisma + migrations (User, Character, Conversation, …)
 docs/               Internal docs and skill files
 .env.example        Required env vars — copy to .env.local before starting
-litellm_config.yaml LiteLLM proxy config (model aliases, providers)
-scripts/            Dev helper scripts (dev-llm.sh, test-mcp.sh)
+scripts/            Dev helper scripts (test-mcp.sh)
 ```
 
 ---
@@ -32,15 +31,13 @@ scripts/            Dev helper scripts (dev-llm.sh, test-mcp.sh)
 - **Bun ≥ 1.2** — package manager and runtime (`bun install`, `bun run`)
 - **Node ≥ 20** — needed only by tooling that has no Bun binary (Prisma CLI migrations)
 - **PostgreSQL 15+** locally, or a Supabase project with `DATABASE_URL` set
-- **LiteLLM proxy on `http://localhost:4000`** — runs *outside* this repo (see §7); all LLM calls
-  route through it via `ANTHROPIC_BASE_URL`. Start with `bun run dev:llm`.
+- **LLM provider** — any OpenAI-compatible API at `LLM_BASE_URL` (see §7); set `LLM_BASE_URL` and `LLM_API_KEY` in `.env.local`.
 
 **Bootstrap**
 
 ```bash
 bun install                                    # install all workspaces
-cp .env.example .env.local                     # fill in DATABASE_URL, DIRECT_URL, secrets
-cp litellm.env.example litellm.env.local       # fill in LITELLM_MODEL and LITELLM_API_KEY
+cp .env.example .env.local                     # fill in DATABASE_URL, DIRECT_URL, LLM_BASE_URL, LLM_API_KEY
 ln -sf ../.env.local frontend/.env.local       # frontend reads from root source of truth
 ln -sf ../.env.local mcp_server/.env.local     # mcp_server reads from root source of truth
 bun run prisma:migrate:dev                     # run DB migrations
@@ -54,10 +51,7 @@ bun run dev:mcp                                # start MCP server on :3001
 .env.local           ← single source of truth (gitignored)
 frontend/.env.local  ← symlink → ../.env.local
 mcp_server/.env.local← symlink → ../.env.local
-litellm.env.local    ← LiteLLM only: LITELLM_MODEL + LITELLM_API_KEY (gitignored)
 ```
-
-LiteLLM runs in an isolated env scope — it never sees `DATABASE_URL` or app secrets.
 
 ---
 
@@ -67,7 +61,6 @@ LiteLLM runs in an isolated env scope — it never sees `DATABASE_URL` or app se
 | ---- | ---- |
 | Frontend dev server | `bun run dev:frontend` |
 | MCP server dev (watch) | `bun run dev:mcp` |
-| LiteLLM proxy (dev) | `bun run dev:llm` |
 | Build frontend | `bun run build` |
 | Type-check (all)   | `bun run typecheck` |
 | Prisma migrate (dev) | `bun run prisma:migrate:dev` |
@@ -85,7 +78,7 @@ LiteLLM runs in an isolated env scope — it never sees `DATABASE_URL` or app se
         frontend ─────┘      │      └────── mcp_server
         (Next.js)            │              (Express + MCP SDK)
                     /api/chat/stream
-                  (chat loop → LiteLLM)
+                  (chat loop → LLM provider)
                      │
                      └──► POST http://localhost:3001/mcp  (JWT-authed tool calls)
 ```
@@ -131,10 +124,9 @@ LiteLLM runs in an isolated env scope — it never sees `DATABASE_URL` or app se
 - Singleton client: `lib/prisma.ts` (frontend), `src/db.ts` (mcp_server). Never `new PrismaClient()` ad hoc.
 - `Character.sheet` is JSONB (`Json` type in Prisma) — do not normalise it into relational columns.
 
-### LLM — LiteLLM proxy
-- Frontend calls LiteLLM directly via HTTP: `ANTHROPIC_BASE_URL=http://localhost:4000`.
-  `ANTHROPIC_API_KEY` is the LiteLLM master key, not a direct Anthropic key.
-- **Never hardcode a model name** — pass model as an argument (`CONVERSATION_MODEL` env); LiteLLM config decides routing.
+### LLM — OpenAI-compatible provider
+- Frontend calls the provider directly via the OpenAI SDK: `LLM_BASE_URL` is the provider endpoint (any OpenAI-compatible URL), `LLM_API_KEY` is the provider key.
+- **Never hardcode a model name** — pass model as an argument (`CONVERSATION_MODEL` env).
 - Every LLM call must be logged: `model`, `prompt_hash`, `temperature_ms`, `latency_ms`, `userId`.
 
 ### MCP Server
@@ -162,11 +154,10 @@ LiteLLM runs in an isolated env scope — it never sees `DATABASE_URL` or app se
 
 ## 7. External Services (not managed by this repo)
 
-**LiteLLM proxy**
-Runs at `http://localhost:4000` and is *not* part of this repo. It accepts requests in Anthropic
-API shape and routes them to the configured provider by model name. The frontend sends all
-LLM traffic here via `ANTHROPIC_BASE_URL`. If LiteLLM is unavailable the chat handler must fail fast
-with a clear error — no silent retries that bill the wrong provider.
+**LLM provider**
+Any OpenAI-compatible API reachable at `LLM_BASE_URL`. The frontend sends all LLM traffic directly
+to this endpoint via the OpenAI SDK. If the provider is unavailable the chat handler must fail fast
+with a clear error — no silent retries.
 
 **Supabase**
 PostgreSQL + Auth + (optionally) Storage. The repo stores only connection strings in `.env.local`.
@@ -202,7 +193,7 @@ log the failure to `stderr` — never swallow it silently.
 | Don't | Do instead |
 | ---- | ---- |
 | Add a new dependency without asking | State the alternative and rationale; wait for approval |
-| Hardcode a model name in source (`"claude-opus-4-7"`) | Accept model as an argument; LiteLLM routes it |
+| Hardcode a model name in source (`"claude-opus-4-7"`) | Accept model as an argument via `CONVERSATION_MODEL` env |
 | Hardcode MCP tool IDs as string literals in `allowedTools` | Derive from the shared registry: `toolIds(toolRegistry)` |
 | Import Prisma in Next.js middleware (runs on Edge runtime) | Keep all Prisma in Node-runtime route handlers / Server Components |
 | Call `supabase.auth.getSession()` server-side | Use `supabase.auth.getUser()` — see §6 Supabase Auth |
@@ -217,7 +208,6 @@ log the failure to `stderr` — never swallow it silently.
 
 - `README.md` — project overview and quick start
 - `.env.example` — canonical list of required environment variables
-- `litellm_config.yaml` — LiteLLM proxy routing config (model aliases, providers)
 
 ---
 
@@ -236,7 +226,7 @@ Name the worktree with a type prefix using `-` as separator: `feature-character-
 **Inside a session** — ask Claude:
 > "Create a worktree for `feature-character-import`"
 
-Claude uses `EnterWorktree`, then symlinks `.env.local` and `litellm.env.local` from the root worktree and runs project setup.
+Claude uses `EnterWorktree`, then symlinks `.env.local` from the root worktree and runs project setup.
 
 **From the CLI** — start an isolated session directly:
 ```bash
@@ -248,7 +238,6 @@ After entering, run setup manually:
 ```bash
 ROOT="$(git worktree list --porcelain | head -1 | awk '{print $2}')"
 ln -sf "$ROOT/.env.local" .env.local
-ln -sf "$ROOT/litellm.env.local" litellm.env.local
 ln -sf ../.env.local frontend/.env.local
 ln -sf ../.env.local mcp_server/.env.local
 bun install && bun run prisma:generate

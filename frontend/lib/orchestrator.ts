@@ -1,4 +1,4 @@
-// frontend/lib/orchestrator.ts
+import { createLLMClient } from "@/lib/llm-client";
 
 type OrchestratorParticipant = {
   characterId: string;
@@ -15,8 +15,6 @@ export async function selectNextSpeakerWithOrchestrator(
   messages: OrchestratorMessage[]
 ): Promise<string> {
   const model = process.env["CONVERSATION_MODEL"];
-  const baseUrl = process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000";
-  const apiKey = process.env["ANTHROPIC_API_KEY"] ?? "";
 
   if (!model) {
     console.error("[orchestrator] CONVERSATION_MODEL env var not set");
@@ -49,36 +47,24 @@ export async function selectNextSpeakerWithOrchestrator(
   ].join("\n");
 
   try {
-    const response = await fetch(`${baseUrl}/v1/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 64,
-        system:
-          "You are a conversation director for a multi-character roleplay scene. " +
-          "Given the characters and conversation history below, decide which character " +
-          "should speak next to make the conversation feel natural and engaging. " +
-          "Reply with only the characterId of the chosen character, nothing else.",
-        messages: [{ role: "user", content: userMessage }],
-      }),
+    const client = createLLMClient();
+    const response = await client.chat.completions.create({
+      model,
+      max_tokens: 64,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a conversation director for a multi-character roleplay scene. " +
+            "Given the characters and conversation history below, decide which character " +
+            "should speak next to make the conversation feel natural and engaging. " +
+            "Reply with only the characterId of the chosen character, nothing else.",
+        },
+        { role: "user", content: userMessage },
+      ],
     });
 
-    if (!response.ok) {
-      console.error(`[orchestrator] LiteLLM error: ${response.status}`);
-      return fallback(participants, messages);
-    }
-
-    const completion = (await response.json()) as {
-      content: { type: string; text: string }[];
-    };
-
-    const chosen =
-      completion.content.find((b) => b.type === "text")?.text?.trim() ?? "";
+    const chosen = (response.choices[0]?.message.content ?? "").trim();
 
     if (participants.some((p) => p.characterId === chosen)) {
       return chosen;

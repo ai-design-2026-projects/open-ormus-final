@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
+import { createLLMClient } from "@/lib/llm-client";
 import { createHash } from "crypto";
 import { ImproveContextInputSchema, CharacterSearchResultSchema } from "@open-ormus/shared";
 
@@ -55,10 +55,7 @@ export async function POST(request: Request) {
       ? `Characters in this scene:\n${characterLines.join("\n")}\n\nScene context draft:\n${draft}`
       : `Scene context draft:\n${draft}`;
 
-  const client = new Anthropic({
-    baseURL: process.env["ANTHROPIC_BASE_URL"] ?? "http://localhost:4000",
-    apiKey: process.env["ANTHROPIC_API_KEY"] ?? "local",
-  });
+  const client = createLLMClient();
   const model = process.env["CONVERSATION_MODEL"];
   if (!model) {
     return NextResponse.json({ error: "CONVERSATION_MODEL env var not set" }, { status: 500 });
@@ -69,15 +66,16 @@ export async function POST(request: Request) {
   let llmError: string | null = null;
 
   try {
-    const response = await client.messages.create({
+    const response = await client.chat.completions.create({
       model,
       max_tokens: 1024,
       temperature: 1,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
     });
-    const textBlock = response.content.find((b) => b.type === "text");
-    improved = textBlock?.type === "text" ? textBlock.text.trim() : "";
+    improved = (response.choices[0]?.message.content ?? "").trim();
   } catch (err) {
     llmError = String(err);
   } finally {
