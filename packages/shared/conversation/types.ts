@@ -29,6 +29,7 @@ export type TurnConfig = {
   model: string;
   baseURL: string;
   apiKey: string;
+  temperature?: number;
 };
 
 export type TurnResult = {

@@ -86,6 +86,7 @@ export async function* generateTurn(
         model: config.model,
         max_tokens: 768,
         stream: true,
+        temperature: config.temperature,
         messages: [
           { role: "system" as const, content: systemPrompt },
           ...contentMessages,

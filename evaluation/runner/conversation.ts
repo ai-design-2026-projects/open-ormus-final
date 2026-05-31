@@ -6,6 +6,8 @@ import type {
   TurnResult,
 } from "../../packages/shared/conversation/types";
 import type { CharacterRecord, ValidatedRun } from "./config";
+import type { AliasMap } from "../judge/alias";
+import { realNameToAlias } from "../judge/alias";
 
 // ---- Output types ----
 
@@ -39,13 +41,13 @@ export type ConversationResult = {
 
 // ---- Participant builder ----
 
-function buildParticipant(char: CharacterRecord): TurnParticipant {
+function buildParticipant(char: CharacterRecord, alias: string): TurnParticipant {
   return {
     characterId: char.id,
     character: {
-      name: char.name,
+      name: alias,
       sheet: {
-        name: char.name,
+        name: alias,
         imageUrl: null,
         shortDescription: char.archetype,
         firstAppearanceDate: "2025-01-01",
@@ -74,9 +76,12 @@ export async function runConversation(
   run: ValidatedRun,
   baseUrl: string,
   apiKey: string,
+  aliasMap: AliasMap,
 ): Promise<ConversationResult> {
   const started_at = new Date().toISOString();
-  const participants: TurnParticipant[] = run.characters.map(buildParticipant);
+  const participants: TurnParticipant[] = run.characters.map((char) =>
+    buildParticipant(char, realNameToAlias(aliasMap, char.name))
+  );
   const messages: TurnMessage[] = [];
 
   // Combine scenario context + initial_prompt — identical to how production uses context
@@ -86,6 +91,7 @@ export async function runConversation(
     model: run.model,
     baseURL: baseUrl,
     apiKey,
+    temperature: 0,
   };
 
   const resultMessages: ConversationMessage[] = [];
@@ -135,7 +141,7 @@ export async function runConversation(
       scenario_title: run.scenario.title,
       scenario_context: run.scenario.context,
       initial_prompt: run.scenario.initial_prompt,
-      characters: run.characters.map((c) => ({ id: c.id, name: c.name, archetype: c.archetype })),
+      characters: run.characters.map((c) => ({ id: c.id, name: realNameToAlias(aliasMap, c.name), archetype: c.archetype })),
       model: run.model,
       turn_strategy: run.turn_strategy,
       turns_requested: run.turns,
@@ -150,7 +156,7 @@ export async function runConversation(
       scenario_title: run.scenario.title,
       scenario_context: run.scenario.context,
       initial_prompt: run.scenario.initial_prompt,
-      characters: run.characters.map((c) => ({ id: c.id, name: c.name, archetype: c.archetype })),
+      characters: run.characters.map((c) => ({ id: c.id, name: realNameToAlias(aliasMap, c.name), archetype: c.archetype })),
       model: run.model,
       turn_strategy: run.turn_strategy,
       turns_requested: run.turns,

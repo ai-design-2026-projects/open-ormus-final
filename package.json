@@ -20,6 +20,7 @@
     "prisma:studio": "bun run --cwd packages/shared prisma studio"
   },
   "dependencies": {
+    "openai": "^6.39.0",
     "yaml": "^2.7.0",
     "zod": "^4.4.3"
   },

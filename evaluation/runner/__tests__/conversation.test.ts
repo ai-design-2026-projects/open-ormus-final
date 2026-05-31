@@ -23,6 +23,7 @@ mock.module("../../../packages/shared/conversation/turn", () => ({
 
 import { runConversation } from "../conversation";
 import type { ValidatedRun } from "../config";
+import { buildAliasMap } from "../../judge/alias";
 
 const mockRun: ValidatedRun = {
   index: 1,
@@ -77,25 +78,27 @@ const mockRun: ValidatedRun = {
   turn_strategy: "ROUND_ROBIN",
 };
 
+const aliasMap = buildAliasMap(["Tavon Rell", "Senne Vorhal"]);
+
 describe("runConversation", () => {
   beforeEach(() => {
     mockGenerateTurn.mockClear();
   });
 
   it("calls generateTurn once per turn", async () => {
-    await runConversation(mockRun, "http://localhost:4000", "test-key");
+    await runConversation(mockRun, "http://localhost:4000", "test-key", aliasMap);
     expect(mockGenerateTurn.mock.calls.length).toBe(2);
   });
 
   it("concatenates context and initial_prompt", async () => {
-    await runConversation(mockRun, "http://localhost:4000", "test-key");
+    await runConversation(mockRun, "http://localhost:4000", "test-key", aliasMap);
     const firstCall = mockGenerateTurn.mock.calls[0];
     const input = firstCall?.[0] as { context: string };
     expect(input.context).toBe("Two characters meet.\n\nThey look at each other.");
   });
 
   it("returns correct metadata on success", async () => {
-    const result = await runConversation(mockRun, "http://localhost:4000", "test-key");
+    const result = await runConversation(mockRun, "http://localhost:4000", "test-key", aliasMap);
     expect(result.run_index).toBe(1);
     expect(result.scenario_id).toBe("scenario_001");
     expect(result.turns_requested).toBe(2);
@@ -109,7 +112,7 @@ describe("runConversation", () => {
       // unreachable yield to satisfy generator type
       yield { type: "thinking" as const };
     });
-    const result = await runConversation(mockRun, "http://localhost:4000", "test-key");
+    const result = await runConversation(mockRun, "http://localhost:4000", "test-key", aliasMap);
     expect(result.error).toContain("LITELLM_ERROR");
     expect(result.messages).toHaveLength(0);
     expect(result.failed_at).toBeDefined();
@@ -131,7 +134,7 @@ describe("runConversation", () => {
       throw new Error("LITELLM_ERROR: timeout on turn 2");
       yield { type: "thinking" as const };
     });
-    const result = await runConversation(mockRun, "http://localhost:4000", "test-key");
+    const result = await runConversation(mockRun, "http://localhost:4000", "test-key", aliasMap);
     // Per spec: failure record has messages: [] even if some turns succeeded
     expect(result.error).toContain("LITELLM_ERROR");
     expect(result.messages).toHaveLength(0);

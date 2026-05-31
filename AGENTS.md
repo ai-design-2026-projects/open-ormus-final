@@ -226,7 +226,7 @@ Name the worktree with a type prefix using `-` as separator: `feature-character-
 **Inside a session** — ask Claude:
 > "Create a worktree for `feature-character-import`"
 
-Claude uses `EnterWorktree`, then symlinks `.env.local` from the root worktree and runs project setup.
+Claude uses `EnterWorktree`, then symlinks env files from the main repo and runs project setup.
 
 **From the CLI** — start an isolated session directly:
 ```bash
@@ -237,9 +237,9 @@ claude --worktree feature-character-import
 After entering, run setup manually:
 ```bash
 ROOT="$(git worktree list --porcelain | head -1 | awk '{print $2}')"
-ln -sf "$ROOT/.env.local" .env.local
+ln -sf "$ROOT/.env" .env.local
 ln -sf ../.env.local frontend/.env.local
-ln -sf ../.env.local mcp_server/.env.local
+ln -sf "$ROOT/mcp_server/.env" mcp_server/.env
 bun install && bun run prisma:generate
 ```
 

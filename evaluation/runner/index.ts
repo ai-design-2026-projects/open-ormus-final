@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { loadConfig } from "./config";
 import { runConversation } from "./conversation";
 import { initOutputDir, writeConversation } from "./writer";
+import { buildAliasMap } from "../judge/alias";
 
 export async function runEvaluation(configPath: string): Promise<void> {
   // loadConfig validates everything upfront — throws on any error
@@ -19,7 +20,8 @@ export async function runEvaluation(configPath: string): Promise<void> {
     const label = `[${run.index}/${total}] ${run.scenario.id} · ${run.characters.map((c) => c.id).join(" + ")} · ${run.turns} turns`;
     process.stdout.write(`${label}… `);
 
-    const result = await runConversation(run, config.baseUrl, apiKey);
+    const aliasMap = buildAliasMap(run.characters.map((c) => c.name));
+    const result = await runConversation(run, config.baseUrl, apiKey, aliasMap);
 
     try {
       writeConversation(convsDir, run.index, result);
@@ -36,8 +38,6 @@ export async function runEvaluation(configPath: string): Promise<void> {
     } else {
       console.log("✓");
     }
-
-    // TODO: judge(result)
   }
 
   console.log(`\n${total - failed}/${total} completed${failed > 0 ? `, ${failed} failed` : ""}.`);
