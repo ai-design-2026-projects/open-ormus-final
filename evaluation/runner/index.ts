@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { rmSync } from "node:fs";
 import { loadConfig } from "./config";
 import { runConversation } from "./conversation";
 import { initOutputDir, writeConversation } from "./writer";
@@ -11,36 +12,38 @@ export async function runEvaluation(configPath: string): Promise<void> {
   const apiKey = process.env["LLM_API_KEY"]!; // already validated by loadConfig
   const resultsBase = join(process.cwd(), "evaluation", "results");
   const runDir = initOutputDir(resultsBase, config.outputDir, config.rawConfigText);
-  const convsDir = join(runDir, "conversations");
 
-  const total = config.runs.length;
-  let failed = 0;
+  try {
+    const convsDir = join(runDir, "conversations");
+    const total = config.runs.length;
+    const MAX_ATTEMPTS = 3;
 
-  for (const run of config.runs) {
-    const label = `[${run.index}/${total}] ${run.scenario.id} · ${run.characters.map((c) => c.id).join(" + ")} · ${run.turns} turns`;
-    process.stdout.write(`${label}… `);
+    for (const run of config.runs) {
+      const label = `[${run.index}/${total}] ${run.scenario.id} · ${run.characters.map((c) => c.id).join(" + ")} · ${run.turns} turns`;
+      process.stdout.write(`${label}… `);
 
-    const aliasMap = buildAliasMap(run.characters.map((c) => c.name));
-    const result = await runConversation(run, config.baseUrl, apiKey, aliasMap);
+      const aliasMap = buildAliasMap(run.characters.map((c) => c.name));
 
-    try {
-      writeConversation(convsDir, run.index, result);
-    } catch (writeErr) {
-      failed++;
-      const msg = writeErr instanceof Error ? writeErr.message : String(writeErr);
-      console.log(`✗ write error: ${msg}`);
-      continue;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const result = await runConversation(run, config.baseUrl, apiKey, aliasMap);
+          writeConversation(convsDir, run.index, result);
+          console.log("✓");
+          break;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (attempt < MAX_ATTEMPTS) {
+            process.stdout.write(`✗ attempt ${attempt}/${MAX_ATTEMPTS} (${msg}) — retrying… `);
+          } else {
+            throw new Error(`${label} failed after ${MAX_ATTEMPTS} attempts: ${msg}`);
+          }
+        }
+      }
     }
-
-    if (result.error) {
-      failed++;
-      console.log(`✗ ${result.error}`);
-    } else {
-      console.log("✓");
-    }
+    console.log(`\nCompleted.`);
+  } catch (err) {
+    rmSync(runDir, { recursive: true, force: true });
+    console.error(`\nDataset generation failed — removed incomplete directory: ${runDir}`);
+    throw err;
   }
-
-  console.log(`\n${total - failed}/${total} completed${failed > 0 ? `, ${failed} failed` : ""}.`);
-
-  if (failed > 0) process.exit(1);
 }

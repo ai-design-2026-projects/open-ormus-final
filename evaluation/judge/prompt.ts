@@ -2,21 +2,28 @@ import type { CharacterRecord, ScenarioRecord } from "../runner/config";
 import type { ConversationMessage } from "../runner/conversation";
 
 export function buildJudgeSystemPrompt(): string {
-  return `You are an expert evaluator assessing how faithfully a language model portrayed fictional characters.
+  return `You are a behavioral analyst. Your task is to match anonymous aliases to fictional characters by identifying whose behavioral signature each alias displays in a conversation.
 
-You will be given:
-1. A list of character personality profiles (without any names or aliases)
-2. A list of real character names (not linked to any profile)
-3. A conversation transcript using anonymised alias names
-4. The scenario context and opening prompt
+You will receive: a scenario, a conversation transcript using alias names, character profiles (unlabelled, shuffled), a list of real names, and the aliases to assign.
 
-Your task: match each alias in the conversation to one of the real character names by identifying which character profile best matches each alias's behaviour in the conversation.
+Read the transcript first and form impressions of each alias before reading the profiles.
 
-Base your assessment solely on the content of the conversation — how each alias speaks, reasons, and reacts — compared against the personality profiles provided.
+Match evidence in this order:
 
-You must assign every alias in the transcript to exactly one real character name. No two aliases can be assigned to the same real character name.
+  Tier 1 — EXACT LANGUAGE: Does any alias use a phrase that appears verbatim or near-verbatim in a character's notable quotes? An exact match is near-conclusive evidence on its own.
 
-Respond using the required JSON schema. For each assignment, provide at least one specific reason drawn from the conversation.`;
+  Tier 2 — SPEECH SIGNATURE: How does each alias construct sentences? Look for: pronoun choice (I / we / one), sentence length and rhythm, use of qualifications or subordinate clauses, rhetorical devices, vocabulary register.
+
+  Tier 3 — VALUE IN ACTION: What does each alias choose, refuse, or defend in this specific scenario? Match to the character's values, goals, and fears that are activated by the situation.
+
+Constraints:
+  - Each alias maps to exactly one real character name. No shared assignments.
+  - If two profiles seem equally plausible for one alias, assign by elimination: the stronger match elsewhere resolves the tie.
+
+For each assignment provide 1–3 reasons. Each reason must follow this format:
+  "[exact quote or paraphrase from transcript]" → matches [profile field]: [specific value from that field]
+
+Do not write vague summaries ("seems confrontational"). Every reason must be grounded in a specific line from the transcript and a specific field in a profile.`;
 }
 
 export function buildJudgeUserMessage(
@@ -27,53 +34,53 @@ export function buildJudgeUserMessage(
 ): string {
   const parts: string[] = [];
 
-  parts.push("## Character Profiles\n");
-  parts.push(
-    "The following profiles describe the characters in this conversation. " +
-    "They are presented in shuffled order with no name or alias labels.\n",
-  );
-
-  const shuffled = deterministicShuffle(characters, scenario.id);
-  shuffled.forEach((char, i) => {
-    parts.push(`### Profile ${i + 1}`);
-    parts.push(`**Archetype:** ${char.archetype}`);
-    parts.push(`**Personality traits:** ${char.personalityTraits.join(", ")}`);
-    parts.push(`**Backstory:** ${char.backstory}`);
-    parts.push(`**Speech patterns:** ${char.speechPatterns.join("; ")}`);
-    parts.push(`**Values:** ${char.values.join(", ")}`);
-    parts.push(`**Fears:** ${char.fears.join(", ")}`);
-    parts.push(`**Goals:** ${char.goals.join(", ")}`);
-    parts.push(`**Notable quotes:** ${char.notableQuotes.map((q) => `"${q}"`).join(", ")}`);
-    parts.push(`**Coping style:** ${char.copingStyle.join("; ")}`);
-    parts.push("");
-  });
-
-  parts.push("## Real Character Names\n");
-  parts.push(
-    "The following are the real names of the characters. " +
-    "They are NOT presented in the same order as the profiles above.\n",
-  );
-  parts.push(characters.map((c) => `- ${c.name}`).join("\n"));
-  parts.push("");
-
+  // Scenario first — establishes context before transcript
   parts.push("## Scenario\n");
+  parts.push(`**Title:** ${scenario.title}`);
   parts.push(`**Context:** ${scenario.context}`);
   parts.push(`**Opening prompt:** ${scenario.initial_prompt}`);
   parts.push("");
 
+  // Transcript second — read dialogue before loading profiles
   parts.push("## Conversation Transcript\n");
-  parts.push(
-    "The following conversation uses alias names. Identify which real character each alias represents.\n",
-  );
+  parts.push("Read the following exchanges carefully. Note each alias's language, framing, and choices before proceeding.\n");
   for (const msg of messages) {
     parts.push(`**${msg.character_name}**: ${msg.content}`);
   }
   parts.push("");
 
-  parts.push("## Aliases to Assign\n");
+  // Profiles third — ordered by observability in short dialogue, no abilities field
+  parts.push("## Character Profiles\n");
   parts.push(
-    "Assign each of the following aliases to one of the real character names listed above:\n",
+    "The following profiles describe the characters in this conversation. " +
+    "Presented in shuffled order with no name or alias labels. " +
+    "Fields are ordered from most to least directly observable in dialogue.\n",
   );
+
+  const shuffled = deterministicShuffle(characters, scenario.id);
+  shuffled.forEach((char, i) => {
+    parts.push(`### Profile ${i + 1}`);
+    parts.push(`**Speech patterns:** ${char.speechPatterns.join("; ")}`);
+    parts.push(`**Notable quotes:** ${char.notableQuotes.map((q) => `"${q}"`).join(" | ")}`);
+    parts.push(`**Personality traits:** ${char.personalityTraits.join(", ")}`);
+    parts.push(`**Values:** ${char.values.join(", ")}`);
+    parts.push(`**Goals:** ${char.goals.join(", ")}`);
+    parts.push(`**Fears:** ${char.fears.join(", ")}`);
+    parts.push(`**Coping style:** ${char.copingStyle.join("; ")}`);
+    parts.push(`**Archetype:** ${char.archetype}`);
+    parts.push(`**Backstory:** ${char.backstory}`);
+    parts.push("");
+  });
+
+  // Real names — deliberately not linked to profiles
+  parts.push("## Real Character Names\n");
+  parts.push("The following are the real names of the characters in the transcript. Not listed in the same order as the profiles above.\n");
+  parts.push(characters.map((c) => `- ${c.name}`).join("\n"));
+  parts.push("");
+
+  // Assignment task last
+  parts.push("## Aliases to Assign\n");
+  parts.push("Assign each alias to one real character name. Provide 1–3 reasons per assignment in the required format.\n");
   parts.push(Object.keys(aliasMap).map((alias) => `- ${alias}`).join("\n"));
 
   return parts.join("\n");

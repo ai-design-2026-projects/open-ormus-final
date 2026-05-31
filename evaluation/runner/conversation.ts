@@ -33,9 +33,7 @@ export type ConversationResult = {
   turn_strategy: string;
   turns_requested: number;
   started_at: string;
-  completed_at?: string;
-  failed_at?: string;
-  error?: string;
+  completed_at: string;
   messages: ConversationMessage[];
 };
 
@@ -96,77 +94,56 @@ export async function runConversation(
 
   const resultMessages: ConversationMessage[] = [];
 
-  try {
-    for (let i = 0; i < run.turns; i++) {
-      const gen = generateTurn(
-        { participants, messages, context, turnStrategy: run.turn_strategy },
-        config,
-      );
+  for (let i = 0; i < run.turns; i++) {
+    const gen = generateTurn(
+      { participants, messages, context, turnStrategy: run.turn_strategy },
+      config,
+    );
 
-      let turnResult: TurnResult;
-      while (true) {
-        const { value, done } = await gen.next();
-        if (done) {
-          turnResult = value as TurnResult;
-          break;
-        }
+    let turnResult: TurnResult;
+    while (true) {
+      const { value, done } = await gen.next();
+      if (done) {
+        turnResult = value as TurnResult;
+        break;
       }
-
-      const msg: TurnMessage = {
-        characterId: turnResult!.characterId,
-        character: { name: turnResult!.characterName },
-        content: turnResult!.content,
-        emotion: turnResult!.emotion.emotion,
-        intensity: turnResult!.emotion.intensity,
-        subtext: turnResult!.emotion.subtext ?? "",
-        reasoning: turnResult!.reasoning,
-      };
-      messages.push(msg);
-
-      resultMessages.push({
-        turn: i + 1,
-        character_id: turnResult!.characterId,
-        character_name: turnResult!.characterName,
-        emotion: turnResult!.emotion.emotion,
-        intensity: turnResult!.emotion.intensity,
-        subtext: turnResult!.emotion.subtext ?? "",
-        reasoning: turnResult!.reasoning,
-        content: turnResult!.content,
-      });
     }
 
-    return {
-      run_index: run.index,
-      scenario_id: run.scenario.id,
-      scenario_title: run.scenario.title,
-      scenario_context: run.scenario.context,
-      initial_prompt: run.scenario.initial_prompt,
-      characters: run.characters.map((c) => ({ id: c.id, name: realNameToAlias(aliasMap, c.name), archetype: c.archetype })),
-      model: run.model,
-      turn_strategy: run.turn_strategy,
-      turns_requested: run.turns,
-      started_at,
-      completed_at: new Date().toISOString(),
-      messages: resultMessages,
+    const msg: TurnMessage = {
+      characterId: turnResult!.characterId,
+      character: { name: turnResult!.characterName },
+      content: turnResult!.content,
+      emotion: turnResult!.emotion.emotion,
+      intensity: turnResult!.emotion.intensity,
+      subtext: turnResult!.emotion.subtext ?? "",
+      reasoning: turnResult!.reasoning,
     };
-  } catch (err) {
-    return {
-      run_index: run.index,
-      scenario_id: run.scenario.id,
-      scenario_title: run.scenario.title,
-      scenario_context: run.scenario.context,
-      initial_prompt: run.scenario.initial_prompt,
-      characters: run.characters.map((c) => ({ id: c.id, name: realNameToAlias(aliasMap, c.name), archetype: c.archetype })),
-      model: run.model,
-      turn_strategy: run.turn_strategy,
-      turns_requested: run.turns,
-      started_at,
-      failed_at: new Date().toISOString(),
-      error: err instanceof Error ? err.message : String(err),
-      // Per design spec: failure records have messages: [] — partial results are not preserved.
-      // If a run fails mid-way, all messages from completed turns are discarded.
-      // The output file documents the error and the run can be re-attempted by re-running with the same config.
-      messages: [],
-    };
+    messages.push(msg);
+
+    resultMessages.push({
+      turn: i + 1,
+      character_id: turnResult!.characterId,
+      character_name: turnResult!.characterName,
+      emotion: turnResult!.emotion.emotion,
+      intensity: turnResult!.emotion.intensity,
+      subtext: turnResult!.emotion.subtext ?? "",
+      reasoning: turnResult!.reasoning,
+      content: turnResult!.content,
+    });
   }
+
+  return {
+    run_index: run.index,
+    scenario_id: run.scenario.id,
+    scenario_title: run.scenario.title,
+    scenario_context: run.scenario.context,
+    initial_prompt: run.scenario.initial_prompt,
+    characters: run.characters.map((c) => ({ id: c.id, name: realNameToAlias(aliasMap, c.name), archetype: c.archetype })),
+    model: run.model,
+    turn_strategy: run.turn_strategy,
+    turns_requested: run.turns,
+    started_at,
+    completed_at: new Date().toISOString(),
+    messages: resultMessages,
+  };
 }

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { loadJudgeConfig } from "./config";
@@ -21,57 +21,59 @@ export async function runJudgingPass(configPath: string): Promise<void> {
 
   const judgeRunDir = initJudgeOutputDir(config.datasetDir, config.outputName, config.rawConfigText);
 
-  const conversationsDir = join(config.datasetDir, "conversations");
-  const files = readdirSync(conversationsDir)
-    .filter((f) => f.endsWith(".yaml"))
-    .sort();
+  try {
+    const conversationsDir = join(config.datasetDir, "conversations");
+    const files = readdirSync(conversationsDir)
+      .filter((f) => f.endsWith(".yaml"))
+      .sort();
 
-  if (files.length === 0) {
-    throw new Error(`No conversation YAML files found in ${conversationsDir}`);
-  }
-
-  const guessingResults: GuessingScenarioResult[] = [];
-  const total = files.length;
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]!;
-    const raw = readFileSync(join(conversationsDir, file), "utf-8");
-    const result = parseYaml(raw) as ConversationResult;
-
-    if (result.error) {
-      console.log(`[${i + 1}/${total}] ${file} — skipped (conversation failed: ${result.error})`);
-      continue;
+    if (files.length === 0) {
+      throw new Error(`No conversation YAML files found in ${conversationsDir}`);
     }
 
-    const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
-    if (!scenario) {
-      throw new Error(`Scenario "${result.scenario_id}" not found in dataset (from ${file})`);
+    const guessingResults: GuessingScenarioResult[] = [];
+    const total = files.length;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]!;
+      const raw = readFileSync(join(conversationsDir, file), "utf-8");
+      const result = parseYaml(raw) as ConversationResult;
+
+      const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
+      if (!scenario) {
+        throw new Error(`Scenario "${result.scenario_id}" not found in dataset (from ${file})`);
+      }
+
+      const convCharIds = result.characters.map((c) => c.id);
+      const characters = convCharIds.map((id) => {
+        const found = ALL_CHARACTERS.find((c) => c.id === id);
+        if (!found) throw new Error(`Character "${id}" not found in dataset (from ${file})`);
+        return found;
+      });
+
+      const aliasMap = reconstructAliasMap(result.characters, ALL_CHARACTERS);
+
+      console.log(`[${i + 1}/${total}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`);
+
+      const guessingResult = await runJudges(
+        result,
+        aliasMap,
+        characters,
+        scenario,
+        config.judges,
+        config.baseUrl,
+        apiKey,
+      );
+
+      guessingResults.push(guessingResult);
     }
 
-    const convCharIds = result.characters.map((c) => c.id);
-    const characters = convCharIds.map((id) => {
-      const found = ALL_CHARACTERS.find((c) => c.id === id);
-      if (!found) throw new Error(`Character "${id}" not found in dataset (from ${file})`);
-      return found;
-    });
-
-    const aliasMap = reconstructAliasMap(result.characters, ALL_CHARACTERS);
-
-    console.log(`[${i + 1}/${total}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`);
-
-    const guessingResult = await runJudges(
-      result,
-      aliasMap,
-      characters,
-      scenario,
-      config.judges,
-      config.baseUrl,
-      apiKey,
-    );
-
-    guessingResults.push(guessingResult);
+    writeGuessingResult(judgeRunDir, guessingResults);
+    console.log(`\nDone. Results written to ${judgeRunDir}/guessing_result.yaml`);
+  } catch (err) {
+    rmSync(judgeRunDir, { recursive: true, force: true });
+    try { rmdirSync(join(judgeRunDir, "..")); } catch { /* not empty — leave it */ }
+    console.error(`\nJudging failed — removed incomplete directory: ${judgeRunDir}`);
+    throw err;
   }
-
-  writeGuessingResult(judgeRunDir, guessingResults);
-  console.log(`\nDone. Results written to ${judgeRunDir}/guessing_result.yaml`);
 }

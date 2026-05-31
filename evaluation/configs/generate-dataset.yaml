@@ -1,6 +1,10 @@
-output_dir: "test-run-001"
-base_url: "https://openrouter.ai/api" # without /v1 — turn.ts appends it
-default_model: "google/gemma-4-31b-it:free"
+# Dataset generation config
+# Run: bun evaluation/generate_dataset.ts evaluation/configs/generate-dataset.yaml
+# Required env vars: LLM_API_KEY, LLM_BASE_URL
+
+output_dir: "dataset-001"
+base_url: "https://openrouter.ai/api"
+default_model: "xiaomi/mimo-v2-flash"
 
 # Rationale for each pairing:
 #
@@ -29,7 +33,7 @@ default_model: "google/gemma-4-31b-it:free"
 # Run 5: Officials 009/010 (varyingAxis: speechPatterns) on institutional pressure
 #   Both identical in values, fears, goals, copingStyle — only speech differs.
 #   scenario_016 (formal institutional report) is the highest-speech-visibility context.
-#   Signal: do Corrith's subordina te clauses and Brenn's bluntness persist under pressure?
+#   Signal: do Corrith's subordinate clauses and Brenn's bluntness persist under pressure?
 #
 # Run 6: Survivors 011/012 (varyingAxis: copingStyle) on crisis triage
 #   Same priorities, same fallback instincts — different in how crisis manifests externally.

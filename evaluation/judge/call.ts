@@ -36,8 +36,20 @@ export async function callJudge(
         throw new Error(`${judgeLabel} returned empty content on attempt ${attempt}`);
       }
 
-      const parsed: unknown = JSON.parse(raw);
-      return JudgeOutputSchema.parse(parsed);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error(`JSON parse failed. Raw response:\n${raw}`);
+      }
+
+      try {
+        return JudgeOutputSchema.parse(parsed);
+      } catch (zodErr) {
+        throw new Error(
+          `Schema validation failed. Model returned:\n${raw}\nErrors: ${zodErr instanceof Error ? zodErr.message : String(zodErr)}`
+        );
+      }
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
