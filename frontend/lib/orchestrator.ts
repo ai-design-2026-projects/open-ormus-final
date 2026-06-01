@@ -1,16 +1,14 @@
 import { createLLMClient } from "@/lib/llm-client";
 import { logLlmUsage } from "@/lib/llm-usage";
 import { LlmUsageSource } from "@/lib/generated/prisma/client";
+import {
+  buildOrchestratorSystemPrompt,
+  buildOrchestratorMessages,
+  type OrchestratorParticipant,
+  type OrchestratorMessage,
+} from "@/lib/conversation/build-orchestrator-messages";
 
-type OrchestratorParticipant = {
-  characterId: string;
-  character: { name: string; sheet: unknown };
-};
-
-type OrchestratorMessage = {
-  character: { name: string };
-  content: string;
-};
+export type { OrchestratorParticipant, OrchestratorMessage };
 
 export async function selectNextSpeakerWithOrchestrator(
   participants: OrchestratorParticipant[],
@@ -25,30 +23,8 @@ export async function selectNextSpeakerWithOrchestrator(
     return fallback(participants, messages);
   }
 
-  const charactersList = participants
-    .map(
-      (p) =>
-        `- id: ${p.characterId} | Name: ${p.character.name}` +
-        (p.character.sheet != null
-          ? ` | Character sheet: ${JSON.stringify(p.character.sheet)}`
-          : "")
-    )
-    .join("\n");
-
-  const historyText =
-    messages.length > 0
-      ? messages.map((m) => `[${m.character.name}]: ${m.content}`).join("\n")
-      : "(The scene has just begun — no lines have been spoken yet.)";
-
-  const userMessage = [
-    "Characters:",
-    charactersList,
-    "",
-    "Conversation so far:",
-    historyText,
-    "",
-    "Which character should speak next? Reply with their characterId only.",
-  ].join("\n");
+  const systemPrompt = buildOrchestratorSystemPrompt(participants);
+  const turnMessages = buildOrchestratorMessages(messages);
 
   const client = createLLMClient();
   const startTime = Date.now();
@@ -58,21 +34,13 @@ export async function selectNextSpeakerWithOrchestrator(
   let generationId: string;
 
   try {
-    const { data, response: httpResponse } = await client.chat.completions.create({
-      model,
-      max_tokens: 64,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a conversation director for a multi-character roleplay scene. " +
-            "Given the characters and conversation history below, decide which character " +
-            "should speak next to make the conversation feel natural and engaging. " +
-            "Reply with only the characterId of the chosen character, nothing else.",
-        },
-        { role: "user", content: userMessage },
-      ],
-    }).withResponse();
+    const { data, response: httpResponse } = await client.chat.completions
+      .create({
+        model,
+        max_tokens: 64,
+        messages: [{ role: "system", content: systemPrompt }, ...turnMessages],
+      })
+      .withResponse();
     response = data;
     generationId = httpResponse.headers.get("x-generation-id") ?? data.id;
   } catch (err) {
@@ -109,8 +77,10 @@ function fallback(
   participants: OrchestratorParticipant[],
   messages: OrchestratorMessage[],
 ): string {
-  if (participants.length === 0) throw new Error("[orchestrator] fallback called with empty participants");
+  if (participants.length === 0)
+    throw new Error("[orchestrator] fallback called with empty participants");
   const p = participants[messages.length % participants.length];
-  if (p === undefined) throw new Error("[orchestrator] fallback index out of range");
+  if (p === undefined)
+    throw new Error("[orchestrator] fallback index out of range");
   return p.characterId;
 }
