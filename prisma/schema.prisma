@@ -13,15 +13,18 @@ datasource db {
 }
 
 model User {
-  id         String      @id @db.Uuid
-  email      String      @unique
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
-  characters Character[]
-  conversations Conversation[]
-  agentSessions AgentSession[]
+  id          String      @id @db.Uuid
+  email       String      @unique
+  displayName String      @default("") @map("display_name")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  characters       Character[]
+  conversations    Conversation[]
+  agentSessions    AgentSession[]
   conversationJobs ConversationJob[]
-  llmUsages        LlmUsage[]
+  llmUsages         LlmUsage[]
+  authoredMessages  Message[]        @relation("MessageAuthor")
+  characterPictures CharacterPicture[]
 
   @@map("users")
 }
@@ -38,6 +41,7 @@ model Character {
   user                     User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
+  pictures                 CharacterPicture[]
 
   @@map("characters")
 }
@@ -61,23 +65,24 @@ model Conversation {
 }
 
 model ConversationParticipant {
-  id             String   @id @default(uuid()) @db.Uuid
-  conversationId String   @db.Uuid @map("conversation_id")
-  characterId    String   @db.Uuid @map("character_id")
-  turnOrder      Int      @map("turn_order")
+  id                String   @id @default(uuid()) @db.Uuid
+  conversationId    String   @db.Uuid @map("conversation_id")
+  characterId       String?  @db.Uuid @map("character_id")
+  isUserParticipant Boolean  @default(false) @map("is_user_participant")
+  turnOrder         Int      @map("turn_order")
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  character    Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character    Character?   @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, turnOrder])
-  @@unique([conversationId, characterId])
   @@map("conversation_participants")
 }
 
 model Message {
   id             String   @id @default(uuid()) @db.Uuid
   conversationId String   @db.Uuid @map("conversation_id")
-  characterId    String   @db.Uuid @map("character_id")
+  characterId    String?  @db.Uuid @map("character_id")
+  authorUserId   String?  @db.Uuid @map("author_user_id")
   content        String
   reasoning      String?
   emotion        String   @default("Joy")
@@ -86,7 +91,8 @@ model Message {
   createdAt      DateTime @default(now()) @map("created_at")
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  character    Character    @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  character    Character?   @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  authorUser   User?        @relation("MessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
   @@index([conversationId])
   @@map("messages")
@@ -175,4 +181,20 @@ model LlmUsage {
   @@index([agentSessionId])
   @@index([userId])
   @@map("llm_usages")
+}
+
+model CharacterPicture {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid @map("user_id")
+  characterId String    @db.Uuid @map("character_id")
+  size        Int
+  url         String
+  storagePath String    @map("storage_path")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, size])
+  @@index([userId])
+  @@map("character_pictures")
 }
