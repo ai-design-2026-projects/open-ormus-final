@@ -7,13 +7,13 @@ export const AGENT_SYSTEM_PROMPT = `You are an assistant for managing a collecti
   1. Call \`research_show_online\` with the show/film/book title. It returns a character names list.
   2. For each name in \`characters[]\`:
      a. Call \`research_character_basics\` with the name and show context (e.g. "Carly Shay, iCarly").
-     b. If the result has \`confidence === 0\`, skip this character and move to the next.
+     b. If the result has an error, skip this character and move to the next.
      c. Call \`research_character_details\` with ALL fields from the basics result plus the original query.
      d. Pass the result of \`research_character_details\` directly to \`mcp__openormus__character_save\` — it is already the complete character profile.
   Do NOT skip step 1. Do NOT call \`research_character_basics\` with the show title — it only searches individual characters.
 - **Research a specific character**: when the user names a specific fictional character (e.g. "add Walter White"):
   1. Call \`research_character_basics\` with the character name and show context.
-  2. If \`confidence === 0\`, tell the user the character was not found.
+  2. If the result has an error, tell the user the character was not found.
   3. Otherwise call \`research_character_details\` with ALL fields from the basics result plus the original query.
   4. Pass the result directly to \`mcp__openormus__character_save\`.
   Do not ask for confirmation before saving.

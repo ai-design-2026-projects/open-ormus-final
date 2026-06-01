@@ -12,7 +12,6 @@ const flatCharacter = {
   imageUrl: null,
   shortDescription: "Chemistry teacher turned drug lord.",
   firstAppearanceDate: "2008-01-20",
-  confidence: 3 as const,
   // personality fields (flat — matches PERSONALITY_OUTPUT_SCHEMA)
   personalityTraits: ["intelligent", "prideful"],
   backstory: "High school chemistry teacher diagnosed with cancer.",
@@ -38,7 +37,6 @@ const mockNotFound = {
   answer: async () => ({
     answer: {
       ...flatCharacter,
-      confidence: 0,
       name: "",
       shortDescription: "",
     },
@@ -52,7 +50,6 @@ describe("characterBasicsHandler", () => {
     const result = await characterBasicsHandler({ query: "Walter White" }, mockSuccess);
     if ("error" in result) throw new Error(`unexpected error: ${result.error}`);
     expect(result.name).toBe("Walter White");
-    expect(result.confidence).toBe(3);
     expect(result.shortDescription).toBe("Chemistry teacher turned drug lord.");
   });
 
@@ -61,7 +58,7 @@ describe("characterBasicsHandler", () => {
     expect(result).toEqual({ error: "search_failed" });
   });
 
-  test("returns character_not_found when confidence is 0", async () => {
+  test("returns character_not_found when name is empty string", async () => {
     const result = await characterBasicsHandler({ query: "x" }, mockNotFound);
     expect(result).toEqual({ error: "character_not_found" });
   });
@@ -185,7 +182,6 @@ describe("characterSearchHandler", () => {
     if ("error" in result) throw new Error(`unexpected error: ${result.error}`);
     // root-level basics
     expect(result.name).toBe("Walter White");
-    expect(result.confidence).toBe(3);
     expect(result.imageUrl).toBeNull();
     expect(result.shortDescription).toBe("Chemistry teacher turned drug lord.");
     // nested personality
@@ -201,7 +197,7 @@ describe("characterSearchHandler", () => {
     expect(result).toEqual({ error: "search_failed" });
   });
 
-  test("returns character_not_found when confidence is 0", async () => {
+  test("returns character_not_found when name is empty string", async () => {
     const result = await characterSearchHandler({ query: "x" }, mockNotFound);
     expect(result).toEqual({ error: "character_not_found" });
   });

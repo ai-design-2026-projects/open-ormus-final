@@ -7,7 +7,6 @@ const mockSheet: CharacterSearchResult = {
   imageUrl: null,
   shortDescription: "A 50-year-old high school chemistry teacher, lean and intense, with a shaved head and a goatee.",
   firstAppearanceDate: "2008-01-20",
-  confidence: 3,
   personality: {
     personalityTraits: ["methodical", "prideful", "brilliant"],
     backstory: "A chemistry genius who turned to manufacturing methamphetamine after a terminal cancer diagnosis.",

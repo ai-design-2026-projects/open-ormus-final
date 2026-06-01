@@ -49,10 +49,10 @@ export const researchCharacterBasicsTool: AnthropicTool = {
   name: "research_character_basics",
   description:
     "Research the basic identity of a fictional character using Exa. " +
-    "Returns name, shortDescription, firstAppearanceDate, imageUrl, and confidence (0–3). " +
+    "Returns name, shortDescription, firstAppearanceDate, and imageUrl. " +
     "Call this FIRST when researching any character. " +
-    "If confidence is 0, the character was not found — stop and inform the user. " +
-    "If confidence > 0, call research_character_details next with the returned name and shortDescription.",
+    "If the result has an error, the character was not found — stop and inform the user. " +
+    "Otherwise call research_character_details with ALL fields from this result plus the original query.",
   input_schema: {
     type: "object" as const,
     properties: {
@@ -83,8 +83,7 @@ export const CharacterDetailsResearchInputSchema = z.object({
   name: z.string().min(1),
   imageUrl: z.string().nullable(),
   shortDescription: z.string(),
-  firstAppearanceDate: z.string(),
-  confidence: z.number().int().min(1).max(3) as z.ZodType<1 | 2 | 3>,
+  firstAppearanceDate: z.string().nullable(),
 });
 export type CharacterDetailsResearchInput = z.infer<typeof CharacterDetailsResearchInputSchema>;
 
@@ -114,17 +113,11 @@ export const researchCharacterDetailsTool: AnthropicTool = {
         description: "shortDescription from research_character_basics.",
       },
       firstAppearanceDate: {
-        type: "string",
+        type: ["string", "null"] as unknown as "string",
         description: "firstAppearanceDate from research_character_basics.",
       },
-      confidence: {
-        type: "integer",
-        minimum: 1,
-        maximum: 3,
-        description: "confidence from research_character_basics.",
-      },
     },
-    required: ["query", "name", "imageUrl", "shortDescription", "firstAppearanceDate", "confidence"],
+    required: ["query", "name", "imageUrl", "shortDescription", "firstAppearanceDate"],
   },
 };
 
@@ -142,7 +135,6 @@ export async function handleCharacterDetailsResearch(
     imageUrl: args.imageUrl,
     shortDescription: args.shortDescription,
     firstAppearanceDate: args.firstAppearanceDate,
-    confidence: args.confidence,
     personality: result,
   };
 }

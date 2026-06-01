@@ -6,7 +6,6 @@ const mockSheet = {
   imageUrl: null,
   shortDescription: "Friendly neighborhood superhero",
   firstAppearanceDate: "1962-08-10",
-  confidence: 3,
   personality: {
     personalityTraits: ["brave", "witty"],
     backstory: "Bitten by a radioactive spider",

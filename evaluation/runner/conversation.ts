@@ -49,7 +49,6 @@ function buildParticipant(char: CharacterRecord, alias: string): TurnParticipant
         imageUrl: null,
         shortDescription: char.archetype,
         firstAppearanceDate: "2025-01-01",
-        confidence: 3,
         personality: {
           personalityTraits: char.personalityTraits,
           backstory: char.backstory,

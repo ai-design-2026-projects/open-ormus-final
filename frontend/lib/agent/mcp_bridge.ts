@@ -121,8 +121,7 @@ export function buildMcpTools(): AnthropicTool[] {
           name: { type: "string" },
           imageUrl: { type: "string", description: "Portrait URL or null" },
           shortDescription: { type: "string" },
-          firstAppearanceDate: { type: "string", description: "ISO date string" },
-          confidence: { type: "number", description: "Research confidence 0–3" },
+          firstAppearanceDate: { type: ["string", "null"] as unknown as "string", description: "ISO date string or null" },
           personality: {
             type: "object",
             description: "CharacterPersonality object",
@@ -145,7 +144,7 @@ export function buildMcpTools(): AnthropicTool[] {
             ],
           },
         },
-        required: ["name", "imageUrl", "shortDescription", "firstAppearanceDate", "confidence", "personality"],
+        required: ["name", "imageUrl", "shortDescription", "firstAppearanceDate", "personality"],
       },
     },
     {

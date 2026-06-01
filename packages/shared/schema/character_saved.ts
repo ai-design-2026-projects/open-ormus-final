@@ -16,8 +16,7 @@ export const CharacterSaveInputShape = {
   name: z.string().min(1),
   imageUrl: z.string().nullable(),
   shortDescription: z.string(),
-  firstAppearanceDate: z.string(),
-  confidence: z.number().int().min(0).max(3) as z.ZodType<0 | 1 | 2 | 3>,
+  firstAppearanceDate: z.string().nullable(),
   personality: CharacterPersonalitySchema,
 } as const;
 

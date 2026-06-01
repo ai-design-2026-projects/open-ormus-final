@@ -13,8 +13,7 @@ export const CharacterBasicsSchema = z.object({
   name: z.string(),
   imageUrl: z.string().nullable(),
   shortDescription: z.string(),
-  firstAppearanceDate: z.string(),
-  confidence: z.number().int().min(0).max(3) as z.ZodType<0 | 1 | 2 | 3>,
+  firstAppearanceDate: z.string().nullable(),
 });
 export type CharacterBasics = z.infer<typeof CharacterBasicsSchema>;
 
@@ -49,8 +48,7 @@ const CharacterSearchResultShape = {
   name: z.string(),
   imageUrl: z.string().nullable(),
   shortDescription: z.string(),
-  firstAppearanceDate: z.string(),
-  confidence: z.number().int().min(0).max(3) as z.ZodType<0 | 1 | 2 | 3>,
+  firstAppearanceDate: z.string().nullable(),
   personality: CharacterPersonalitySchema,
 } as const;
 

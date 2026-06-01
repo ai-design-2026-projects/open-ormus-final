@@ -5,7 +5,6 @@ const mockSheet = {
   imageUrl: null,
   shortDescription: "Legendary king",
   firstAppearanceDate: "500 AD",
-  confidence: 3,
   personality: {
     personalityTraits: ["brave"],
     backstory: "Born of nobility",

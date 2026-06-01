@@ -9,7 +9,6 @@ const mockCharacterCreate = mock(async () => ({
     imageUrl: null,
     shortDescription: "Legendary king",
     firstAppearanceDate: "500 AD",
-    confidence: 3,
     personality: {
       personalityTraits: ["brave"],
       backstory: "Born of nobility",
@@ -41,7 +40,6 @@ const validInput = {
   imageUrl: null as string | null,
   shortDescription: "Legendary king",
   firstAppearanceDate: "500 AD",
-  confidence: 3 as 0 | 1 | 2 | 3,
   personality: {
     personalityTraits: ["brave"],
     backstory: "Born of nobility",
@@ -68,7 +66,6 @@ describe("characterSaveHandler", () => {
     );
     expect(result.id).toBe("00000000-0000-0000-0000-000000000099");
     expect(result.name).toBe("Arthur");
-    expect(result.sheet.confidence).toBe(3);
     expect(result.createdAt).toBeTruthy();
   });
 

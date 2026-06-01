@@ -45,16 +45,15 @@ function parseAnswer(raw: unknown): unknown {
 const BASICS_OUTPUT_SCHEMA = {
   type: "object",
   properties: {
-    name: { type: "string" },
+    name: { type: "string", description: "Empty string if character not identifiable" },
     imageUrl: { type: ["string", "null"] },
     shortDescription: { type: "string", description: "1–2 sentences" },
     firstAppearanceDate: {
-      type: "string",
-      description: 'ISO 8601 date, e.g. "2017-05-02"; "0000-01-01" if unknown',
+      type: ["string", "null"],
+      description: 'ISO 8601 date, e.g. "2017-05-02"; null if unknown',
     },
-    confidence: { type: "integer", minimum: 0, maximum: 3 },
   },
-  required: ["name", "imageUrl", "shortDescription", "firstAppearanceDate", "confidence"],
+  required: ["name", "imageUrl", "shortDescription", "firstAppearanceDate"],
 } as const;
 
 const PERSONALITY_OUTPUT_SCHEMA = {
@@ -128,13 +127,7 @@ const ConnectionsPartSchema = z.object({
 
 const BASICS_SYSTEM_PROMPT = `You are a fictional character analyst. Given a search query identifying a fictional character (e.g. "Berlin, Money Heist"), populate the basic identity fields.
 
-Confidence scale:
-- 3: complete data from multiple consistent sources
-- 2: partial data or minor inconsistencies across sources
-- 1: sparse data, heavy inference required
-- 0: character not identifiable from the query
-
-If confidence is 0, set all string fields to "" and imageUrl to null.`;
+If the character is not identifiable from the query, return name as an empty string and imageUrl as null. If the first appearance date is unknown, return null for firstAppearanceDate.`;
 
 const PERSONALITY_SYSTEM_PROMPT = `You are a fictional character analyst. Populate the personality fields for the identified character. Draw from canonical sources. Be specific and detailed.`;
 
@@ -169,7 +162,7 @@ export async function characterBasicsHandler(
       console.error("[characterBasicsHandler] schema validation failed:", validation.error.format());
       return { error: "parse_failed" };
     }
-    if (validation.data.confidence === 0) return { error: "character_not_found" };
+    if (!validation.data.name) return { error: "character_not_found" };
     return validation.data;
   } catch {
     return { error: "search_failed" };
@@ -251,7 +244,6 @@ export async function characterSearchHandler(
     imageUrl: basics.imageUrl,
     shortDescription: basics.shortDescription,
     firstAppearanceDate: basics.firstAppearanceDate,
-    confidence: basics.confidence,
     personality: details,
   };
 

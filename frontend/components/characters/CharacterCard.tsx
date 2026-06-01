@@ -9,20 +9,6 @@ interface Props {
   onDelete: (c: SavedCharacterRecord) => void;
 }
 
-const CONFIDENCE_LABEL: Record<number, string> = {
-  0: "Unknown",
-  1: "Low",
-  2: "Medium",
-  3: "High",
-};
-
-const CONFIDENCE_COLOR: Record<number, string> = {
-  0: "bg-zinc-100 text-zinc-500",
-  1: "bg-yellow-100 text-yellow-700",
-  2: "bg-blue-100 text-blue-700",
-  3: "bg-green-100 text-green-700",
-};
-
 export function CharacterCard({ character, onView, onEdit, onDelete }: Props) {
   const { sheet } = character;
 
@@ -41,14 +27,7 @@ export function CharacterCard({ character, onView, onEdit, onDelete }: Props) {
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-zinc-900 truncate">{character.name}</h3>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-medium ${CONFIDENCE_COLOR[sheet.confidence]}`}
-            >
-              {CONFIDENCE_LABEL[sheet.confidence]}
-            </span>
-          </div>
+          <h3 className="font-semibold text-zinc-900 truncate">{character.name}</h3>
           <p className="text-sm text-zinc-500 mt-1 line-clamp-2">{sheet.shortDescription}</p>
         </div>
       </div>

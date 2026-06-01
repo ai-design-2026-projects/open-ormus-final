@@ -18,7 +18,6 @@ type FormState = {
   shortDescription: string;
   imageUrl: string;
   firstAppearanceDate: string;
-  confidence: 0 | 1 | 2 | 3;
   personalityTraits: string[];
   backstory: string;
   speechPatterns: string[];
@@ -38,7 +37,6 @@ function emptyForm(): FormState {
     shortDescription: "",
     imageUrl: "",
     firstAppearanceDate: "",
-    confidence: 3,
     personalityTraits: [],
     backstory: "",
     speechPatterns: [],
@@ -60,8 +58,7 @@ function fromRecord(record: SavedCharacterRecord): FormState {
     name: sheet.name,
     shortDescription: sheet.shortDescription,
     imageUrl: sheet.imageUrl ?? "",
-    firstAppearanceDate: sheet.firstAppearanceDate,
-    confidence: sheet.confidence,
+    firstAppearanceDate: sheet.firstAppearanceDate ?? "",
     personalityTraits: p.personalityTraits,
     backstory: p.backstory,
     speechPatterns: p.speechPatterns,
@@ -88,8 +85,7 @@ function fromSearchResult(result: CharacterSearchResult): FormState {
     name: result.name,
     shortDescription: result.shortDescription,
     imageUrl: result.imageUrl ?? "",
-    firstAppearanceDate: result.firstAppearanceDate,
-    confidence: result.confidence,
+    firstAppearanceDate: result.firstAppearanceDate ?? "",
     personalityTraits: p.personalityTraits,
     backstory: p.backstory,
     speechPatterns: p.speechPatterns,
@@ -126,8 +122,7 @@ function toSaveInput(state: FormState): CharacterSaveInput {
     name: state.name,
     shortDescription: state.shortDescription,
     imageUrl: state.imageUrl.trim() || null,
-    firstAppearanceDate: state.firstAppearanceDate,
-    confidence: state.confidence,
+    firstAppearanceDate: state.firstAppearanceDate.trim() || null,
     personality,
   };
 }
@@ -461,23 +456,6 @@ export function CharacterFormWizard({
                       placeholder="e.g. 2013-09-22 or 0000-01-01 if unknown"
                       className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">
-                      Confidence
-                    </label>
-                    <select
-                      value={form.confidence}
-                      onChange={(e) =>
-                        set("confidence", Number(e.target.value) as 0 | 1 | 2 | 3)
-                      }
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400 bg-white"
-                    >
-                      <option value={0}>0 — Unknown</option>
-                      <option value={1}>1 — Low</option>
-                      <option value={2}>2 — Medium</option>
-                      <option value={3}>3 — High</option>
-                    </select>
                   </div>
                 </>
               )}

@@ -26,7 +26,6 @@ const validSheet = {
   imageUrl: null,
   shortDescription: "Legendary king",
   firstAppearanceDate: "500 AD",
-  confidence: 3 as const,
   personality: validPersonality,
 };
 
@@ -34,19 +33,12 @@ describe("CharacterSaveInputSchema", () => {
   test("parses valid save input", () => {
     const result = CharacterSaveInputSchema.parse(validSheet);
     expect(result.name).toBe("Arthur");
-    expect(result.confidence).toBe(3);
     expect(result.personality.personalityTraits).toEqual(["brave", "cunning"]);
   });
 
   test("rejects empty name", () => {
     expect(() =>
       CharacterSaveInputSchema.parse({ ...validSheet, name: "" })
-    ).toThrow();
-  });
-
-  test("rejects confidence out of range", () => {
-    expect(() =>
-      CharacterSaveInputSchema.parse({ ...validSheet, confidence: 4 })
     ).toThrow();
   });
 

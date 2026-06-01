@@ -13,9 +13,6 @@ function SheetField({ title, pct, flagged = false, children }: SheetFieldProps) 
       <header className="flex items-center justify-between px-4 py-3 border-b border-hair bg-surface-sunk gap-4">
         <h3 className="t-h6 m-0">{title}</h3>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="font-mono text-[11px]" style={{ color: flagged ? "var(--signal-warn)" : "var(--ink-mute)" }}>
-            {Math.round(pct * 100)}% confidence
-          </span>
           <div className="w-24 h-1 bg-surface-sunk rounded-full overflow-hidden">
             <div
               className="h-full rounded-full"

@@ -24,7 +24,7 @@ export function handleWizard(): string {
       "6) What are their main goals and their deepest fears? " +
       "7) (Optional) Name any key relationships — the user can say 'none' or 'skip'. " +
       "After collecting all answers, call mcp__openormus__character_save with the assembled sheet. " +
-      "Set confidence to 1 (manually created). Set firstAppearanceDate to '0000-01-01' if not known. " +
+      "Set firstAppearanceDate to null if not known. " +
       "Set imageUrl to null.",
   });
 }

@@ -5,7 +5,6 @@ const validSheet = {
   imageUrl: "https://example.com/arthur.jpg",
   shortDescription: "Updated description",
   firstAppearanceDate: "500 AD",
-  confidence: 2 as const,
   personality: {
     personalityTraits: ["wise"],
     backstory: "Changed backstory",
@@ -64,7 +63,6 @@ describe("characterUpdateHandler", () => {
     );
     if ("error" in result) throw new Error("expected success");
     expect(result.name).toBe("Arthur Updated");
-    expect(result.sheet.confidence).toBe(2);
     expect(result.archivedAt).toBeNull();
   });
 
