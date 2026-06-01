@@ -1,5 +1,8 @@
 "use client";
 
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 interface Props {
   characterName: string;
   onConfirm: () => void;
@@ -9,33 +12,35 @@ interface Props {
 export function DeleteConfirmDialog({ characterName, onConfirm, onCancel }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-panel/60 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6"
+        className="bg-surface-2 border border-hair rounded-[var(--r-xl)] shadow-[var(--shadow-3)] p-7 w-full max-w-sm mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-zinc-900">Delete character</h2>
-        <p className="text-sm text-zinc-500 mt-2">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="t-h6">Delete character</h2>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onCancel}
+            className="text-ink-mute hover:text-ink transition-colors duration-[120ms] -mr-1"
+          >
+            <X className="size-4" strokeWidth={1.5} />
+          </button>
+        </div>
+        <p className="t-body-s text-ink-dim mb-6">
           Are you sure you want to delete <strong>{characterName}</strong>? This cannot be
           undone.
         </p>
-        <div className="flex gap-3 mt-6 justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
-          >
+        <div className="flex gap-3 justify-end">
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-          >
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm}>
             Delete
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useReducer, useCallback } from "react";
 import { SessionSidebar } from "./session-sidebar";
 import { MessageThread, type ChatMessage, type MessageBlock } from "./message-thread";
 import { ChatInput } from "./chat-input";
+import { AppNav } from "@/components/app-shell/AppNav";
 import type { AgentSessionSummary } from "@/lib/agent/history";
 import type { StreamChunk } from "@/lib/agent/stream";
 
@@ -196,32 +197,34 @@ export function ChatView({ initialSessions }: ChatViewProps) {
   }, []);
 
   return (
-    <div className="flex h-screen bg-background">
-      <SessionSidebar
-        sessions={state.sessions}
-        activeSessionId={state.sessionId}
-        onSelect={loadSession}
-        onNew={() => dispatch({ type: "NEW_SESSION" })}
-      />
-      <div className="flex flex-col flex-1 min-w-0">
-        <header className="border-b border-border px-4 py-3 flex items-center gap-2 shrink-0">
-          <h1 className="text-sm font-semibold">OpenOrmus Assistant</h1>
+    <div className="flex flex-col h-screen bg-background">
+      <AppNav />
+      <div className="flex flex-1 min-h-0">
+        <SessionSidebar
+          sessions={state.sessions}
+          activeSessionId={state.sessionId}
+          onSelect={loadSession}
+          onNew={() => dispatch({ type: "NEW_SESSION" })}
+        />
+        <div className="flex flex-col flex-1 min-w-0">
           {state.isStreaming && (
-            <span className="text-xs text-muted-foreground animate-pulse">
-              Thinking…
-            </span>
+            <div className="px-4 py-1 border-b border-border shrink-0">
+              <span className="text-xs text-muted-foreground animate-pulse">
+                Thinking…
+              </span>
+            </div>
           )}
-        </header>
-        {state.messages.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">
-              Ask me to list, search, add, or edit your characters — or start a scene.
-            </p>
-          </div>
-        ) : (
-          <MessageThread messages={state.messages} isStreaming={state.isStreaming} />
-        )}
-        <ChatInput onSend={handleSend} disabled={state.isStreaming} />
+          {state.messages.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground text-sm">
+                Ask me to list, search, add, or edit your characters — or start a scene.
+              </p>
+            </div>
+          ) : (
+            <MessageThread messages={state.messages} isStreaming={state.isStreaming} />
+          )}
+          <ChatInput onSend={handleSend} disabled={state.isStreaming} />
+        </div>
       </div>
     </div>
   );
