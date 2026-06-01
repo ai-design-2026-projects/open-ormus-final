@@ -1,5 +1,6 @@
-import OpenAI from "openai";
-import type { TurnConfig } from "./types";
+import { createLLMClient } from "@/lib/llm-client";
+import { logLlmUsage } from "@/lib/llm-usage";
+import { LlmUsageSource } from "@/lib/generated/prisma/client";
 
 type OrchestratorParticipant = {
   characterId: string;
@@ -14,10 +15,13 @@ type OrchestratorMessage = {
 export async function selectNextSpeakerWithOrchestrator(
   participants: OrchestratorParticipant[],
   messages: OrchestratorMessage[],
-  config: TurnConfig
+  conversationId: string,
+  userId: string,
 ): Promise<string> {
-  if (!config.model) {
-    console.error("[orchestrator] model not set in TurnConfig");
+  const model = process.env["CONVERSATION_MODEL"];
+
+  if (!model) {
+    console.error("[orchestrator] CONVERSATION_MODEL env var not set");
     return fallback(participants, messages);
   }
 
@@ -46,14 +50,16 @@ export async function selectNextSpeakerWithOrchestrator(
     "Which character should speak next? Reply with their characterId only.",
   ].join("\n");
 
-  try {
-    const client = new OpenAI({
-      baseURL: `${config.baseURL}/v1`,
-      apiKey: config.apiKey,
-    });
+  const client = createLLMClient();
+  const startTime = Date.now();
 
-    const response = await client.chat.completions.create({
-      model: config.model,
+  type CompletionResponse = Awaited<ReturnType<typeof client.chat.completions.create>>;
+  let response: CompletionResponse;
+  let generationId: string;
+
+  try {
+    const { data, response: httpResponse } = await client.chat.completions.create({
+      model,
       max_tokens: 64,
       messages: [
         {
@@ -66,25 +72,42 @@ export async function selectNextSpeakerWithOrchestrator(
         },
         { role: "user", content: userMessage },
       ],
-    });
-
-    const chosen = (response.choices[0]?.message.content ?? "").trim();
-
-    if (participants.some((p) => p.characterId === chosen)) {
-      return chosen;
-    }
-
-    console.error(`[orchestrator] Invalid characterId returned: "${chosen}"`);
-    return fallback(participants, messages);
+    }).withResponse();
+    response = data;
+    generationId = httpResponse.headers.get("x-generation-id") ?? data.id;
   } catch (err) {
     console.error("[orchestrator] Error:", err);
     return fallback(participants, messages);
   }
+
+  const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens;
+  const reasoningTokens = response.usage?.completion_tokens_details?.reasoning_tokens;
+  await logLlmUsage(
+    { source: LlmUsageSource.ORCHESTRATOR, conversationId, userId },
+    {
+      generationId,
+      model,
+      inputTokens: response.usage?.prompt_tokens ?? 0,
+      outputTokens: response.usage?.completion_tokens ?? 0,
+      ...(cachedTokens !== undefined ? { cachedTokens } : {}),
+      ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+      latencyMs: Date.now() - startTime,
+    },
+  );
+
+  const chosen = (response.choices[0]?.message.content ?? "").trim();
+
+  if (participants.some((p) => p.characterId === chosen)) {
+    return chosen;
+  }
+
+  console.error(`[orchestrator] Invalid characterId returned: "${chosen}"`);
+  return fallback(participants, messages);
 }
 
 function fallback(
   participants: OrchestratorParticipant[],
-  messages: OrchestratorMessage[]
+  messages: OrchestratorMessage[],
 ): string {
   if (participants.length === 0) throw new Error("[orchestrator] fallback called with empty participants");
   const p = participants[messages.length % participants.length];

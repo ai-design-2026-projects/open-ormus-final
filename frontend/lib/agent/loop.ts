@@ -1,10 +1,13 @@
-import OpenAI from "openai";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionFunctionTool,
+  ChatCompletionMessageFunctionToolCall,
 } from "openai/resources/chat/completions";
+import type { CompletionUsage } from "openai/resources";
 import { createLLMClient } from "@/lib/llm-client";
 import type { AnthropicTool } from "./types";
+import { logLlmUsage, type UsageContext } from "@/lib/llm-usage";
+import { LlmUsageSource } from "@/lib/generated/prisma/client";
 import { encodeChunk } from "./stream";
 import type { McpSession } from "./mcp_bridge";
 import { buildMcpTools, callMcpTool } from "./mcp_bridge";
@@ -44,6 +47,7 @@ export async function runAgentLoop(
   userMessage: string,
   mcpSession: McpSession,
   onChunk: (data: Uint8Array) => void,
+  ctx: UsageContext = { source: LlmUsageSource.AGENT_SESSION },
 ): Promise<{ messages: ChatCompletionMessageParam[]; assistantText: string; toolCallsJson: unknown }> {
   const client = createLLMClient();
 
@@ -66,38 +70,96 @@ export async function runAgentLoop(
   const tools = anthropicTools.map(toOpenAITool);
 
   let assistantText = "";
-  let lastToolCalls: OpenAI.Chat.Completions.ChatCompletionMessageToolCall[] = [];
+  let lastToolCalls: ChatCompletionMessageFunctionToolCall[] = [];
 
   while (true) {
-    const stream = client.chat.completions.stream({
-      model: process.env["CONVERSATION_MODEL"] ?? "default",
-      max_tokens: 4096,
-      messages: [
-        { role: "system", content: AGENT_SYSTEM_PROMPT },
-        ...messages,
-      ],
-      tools,
-    });
+    const iterStartTime = Date.now();
+    const { data: rawStream, response: llmResponse } = await client.chat.completions.create(
+      {
+        model: process.env["CONVERSATION_MODEL"] ?? "default",
+        max_tokens: 4096,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: [
+          { role: "system", content: AGENT_SYSTEM_PROMPT },
+          ...messages,
+        ],
+        tools,
+      },
+    ).withResponse();
 
-    stream.on("content", (_delta, snapshot) => {
-      const newText = snapshot.slice(assistantText.length);
-      if (newText) {
-        assistantText += newText;
-        send({ type: "text_delta", text: newText });
+    // Prefer the x-generation-id response header for cost tracking — chunk.id
+    // may refer to an internal streaming session ID that differs from what
+    // OpenRouter's /api/v1/generation endpoint indexes.
+    const headerGenerationId = llmResponse.headers.get("x-generation-id");
+    console.log("[loop.ts] x-generation-id header:", headerGenerationId);
+
+    // Accumulate the assistant response from raw streaming chunks.
+    let iterGenerationId = headerGenerationId ?? "";
+    let iterContent = "";
+    let iterFinishReason: string | null = null;
+    let iterUsage: CompletionUsage | null = null;
+    const iterToolCallsMap = new Map<number, ChatCompletionMessageFunctionToolCall>();
+
+    for await (const chunk of rawStream) {
+      if (!iterGenerationId) iterGenerationId = chunk.id;
+      if (chunk.usage) iterUsage = chunk.usage;
+
+      const delta = chunk.choices[0]?.delta;
+      if (!delta) continue;
+
+      if (delta.content) {
+        iterContent += delta.content;
+        send({ type: "text_delta", text: delta.content });
       }
+
+      for (const dtc of delta.tool_calls ?? []) {
+        const idx = dtc.index;
+        if (!iterToolCallsMap.has(idx)) {
+          iterToolCallsMap.set(idx, {
+            id: dtc.id ?? "",
+            type: "function",
+            function: { name: dtc.function?.name ?? "", arguments: "" },
+          });
+        }
+        const tc = iterToolCallsMap.get(idx)!;
+        if (dtc.function?.arguments) tc.function.arguments += dtc.function.arguments;
+      }
+
+      if (chunk.choices[0]?.finish_reason) {
+        iterFinishReason = chunk.choices[0].finish_reason;
+      }
+    }
+
+    assistantText = iterContent;
+
+    const iterCachedTokens = iterUsage?.prompt_tokens_details?.cached_tokens;
+    const iterReasoningTokens = iterUsage?.completion_tokens_details?.reasoning_tokens;
+    await logLlmUsage(ctx, {
+      generationId: iterGenerationId,
+      model: process.env["CONVERSATION_MODEL"] ?? "default",
+      inputTokens: iterUsage?.prompt_tokens ?? 0,
+      outputTokens: iterUsage?.completion_tokens ?? 0,
+      ...(iterCachedTokens !== undefined ? { cachedTokens: iterCachedTokens } : {}),
+      ...(iterReasoningTokens !== undefined ? { reasoningTokens: iterReasoningTokens } : {}),
+      latencyMs: Date.now() - iterStartTime,
     });
 
-    const finalMessage = await stream.finalChatCompletion();
-    const choice = finalMessage.choices[0];
-    if (!choice) break;
+    if (iterFinishReason === null) break;
 
-    const assistantMessage = choice.message;
-    messages.push(assistantMessage as ChatCompletionMessageParam);
+    const toolCalls = Array.from(iterToolCallsMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, tc]) => tc);
 
-    if (choice.finish_reason !== "tool_calls") break;
+    const assistantMessage: ChatCompletionMessageParam = {
+      role: "assistant",
+      content: iterContent || null,
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    };
+    messages.push(assistantMessage);
 
-    const toolCalls = assistantMessage.tool_calls ?? [];
-    lastToolCalls = toolCalls;
+    if (iterFinishReason !== "tool_calls") break;
+
     const toolResults: ChatCompletionMessageParam[] = [];
 
     for (const toolCall of toolCalls) {

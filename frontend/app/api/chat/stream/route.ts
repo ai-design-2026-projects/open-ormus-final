@@ -13,6 +13,8 @@ import {
 } from "@/lib/agent/history";
 import { initMcpSession } from "@/lib/agent/mcp_bridge";
 import { runAgentLoop } from "@/lib/agent/loop";
+import { logLlmUsage } from "@/lib/llm-usage";
+import { LlmUsageSource } from "@/lib/generated/prisma/client";
 
 const RequestSchema = z.object({
   message: z.string().min(1).max(8000),
@@ -56,6 +58,7 @@ export async function POST(request: Request) {
           message,
           mcpSession,
           onChunk,
+          { source: LlmUsageSource.AGENT_SESSION, agentSessionId: sessionId, userId: user.id },
         );
 
         try {
@@ -65,7 +68,7 @@ export async function POST(request: Request) {
         }
 
         if (isFirstTurn) {
-          void autoTitle(sessionId, message);
+          void autoTitle(sessionId, message, user.id);
         }
 
         controller.enqueue(encodeChunk({ type: "done", sessionId }));
@@ -87,11 +90,13 @@ export async function POST(request: Request) {
   });
 }
 
-async function autoTitle(sessionId: string, firstMessage: string): Promise<void> {
+async function autoTitle(sessionId: string, firstMessage: string, userId: string): Promise<void> {
+  const startTime = Date.now();
   try {
     const client = createLLMClient();
+    const model = process.env["CONVERSATION_MODEL"] ?? "default";
     const response = await client.chat.completions.create({
-      model: process.env["CONVERSATION_MODEL"] ?? "default",
+      model,
       max_tokens: 20,
       messages: [
         {
@@ -106,6 +111,20 @@ async function autoTitle(sessionId: string, firstMessage: string): Promise<void>
     if (text) {
       await setSessionTitle(prisma, sessionId, text.slice(0, 100));
     }
+    const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens;
+    const reasoningTokens = response.usage?.completion_tokens_details?.reasoning_tokens;
+    await logLlmUsage(
+      { source: LlmUsageSource.AGENT_SESSION, agentSessionId: sessionId, userId },
+      {
+        generationId: response.id,
+        model,
+        inputTokens: response.usage?.prompt_tokens ?? 0,
+        outputTokens: response.usage?.completion_tokens ?? 0,
+        ...(cachedTokens !== undefined ? { cachedTokens } : {}),
+        ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+        latencyMs: Date.now() - startTime,
+      },
+    );
   } catch (err) {
     console.error("autoTitle failed:", err);
   }

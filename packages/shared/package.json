@@ -9,8 +9,6 @@
   },
   "dependencies": {
     "exa-js": "^2.12.1",
-    "handlebars": "^4.7.9",
-    "openai": "^6.39.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

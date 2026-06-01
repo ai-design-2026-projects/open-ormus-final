@@ -21,6 +21,7 @@ model User {
   conversations Conversation[]
   agentSessions AgentSession[]
   conversationJobs ConversationJob[]
+  llmUsages        LlmUsage[]
 
   @@map("users")
 }
@@ -54,6 +55,7 @@ model Conversation {
   participants ConversationParticipant[]
   messages     Message[]
   jobs         ConversationJob[]
+  llmUsages    LlmUsage[]
 
   @@map("conversations")
 }
@@ -98,7 +100,8 @@ model AgentSession {
   updatedAt DateTime    @updatedAt @map("updated_at")
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  turns AgentTurn[]
+  turns     AgentTurn[]
+  llmUsages LlmUsage[]
 
   @@map("agent_sessions")
 }
@@ -139,4 +142,37 @@ model ConversationJob {
 enum TurnStrategy {
   ORCHESTRATOR
   ROUND_ROBIN
+}
+
+enum LlmUsageSource {
+  CONVERSATION
+  ORCHESTRATOR
+  AGENT_SESSION
+  IMPROVE_CONTEXT
+  OTHER
+}
+
+model LlmUsage {
+  id              String         @id @default(uuid()) @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at")
+  source          LlmUsageSource
+  conversationId  String?        @db.Uuid @map("conversation_id")
+  agentSessionId  String?        @db.Uuid @map("agent_session_id")
+  userId          String?        @db.Uuid @map("user_id")
+  model           String
+  inputTokens     Int            @map("input_tokens")
+  outputTokens    Int            @map("output_tokens")
+  reasoningTokens Int?           @map("reasoning_tokens")
+  cachedTokens    Int?           @map("cached_tokens")
+  costUsd         Float?         @map("cost_usd")
+  latencyMs       Int            @map("latency_ms")
+
+  conversation    Conversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  agentSession    AgentSession?  @relation(fields: [agentSessionId], references: [id], onDelete: SetNull)
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId])
+  @@index([agentSessionId])
+  @@index([userId])
+  @@map("llm_usages")
 }

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { createLLMClient } from "@/lib/llm-client";
 import { createHash } from "crypto";
 import { ImproveContextInputSchema, CharacterSearchResultSchema } from "@open-ormus/shared";
+import { logLlmUsage } from "@/lib/llm-usage";
+import { LlmUsageSource } from "@/lib/generated/prisma/client";
 
 const SYSTEM_PROMPT = `You are a creative writing assistant specializing in fictional scene-setting.
 Your task: improve a scene context description for a roleplay/story simulation.
@@ -64,9 +66,11 @@ export async function POST(request: Request) {
   const start = Date.now();
   let improved = "";
   let llmError: string | null = null;
+  let llmResponse: Awaited<ReturnType<typeof client.chat.completions.create>> | null = null;
+  let llmGenerationId = "";
 
   try {
-    const response = await client.chat.completions.create({
+    const { data, response: httpResponse } = await client.chat.completions.create({
       model,
       max_tokens: 1024,
       temperature: 1,
@@ -74,8 +78,10 @@ export async function POST(request: Request) {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ],
-    });
-    improved = (response.choices[0]?.message.content ?? "").trim();
+    }).withResponse();
+    llmResponse = data;
+    llmGenerationId = httpResponse.headers.get("x-generation-id") ?? data.id;
+    improved = (llmResponse.choices[0]?.message.content ?? "").trim();
   } catch (err) {
     llmError = String(err);
   } finally {
@@ -98,6 +104,21 @@ export async function POST(request: Request) {
   if (llmError != null) {
     return NextResponse.json({ error: "LLM unavailable" }, { status: 502 });
   }
+
+  const cachedTokens = llmResponse!.usage?.prompt_tokens_details?.cached_tokens;
+  const reasoningTokens = llmResponse!.usage?.completion_tokens_details?.reasoning_tokens;
+  await logLlmUsage(
+    { source: LlmUsageSource.IMPROVE_CONTEXT, userId: user.id },
+    {
+      generationId: llmGenerationId,
+      model,
+      inputTokens: llmResponse!.usage?.prompt_tokens ?? 0,
+      outputTokens: llmResponse!.usage?.completion_tokens ?? 0,
+      ...(cachedTokens !== undefined ? { cachedTokens } : {}),
+      ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+      latencyMs: Date.now() - start,
+    },
+  );
 
   if (!improved) {
     return NextResponse.json({ error: "Improvement failed" }, { status: 500 });
