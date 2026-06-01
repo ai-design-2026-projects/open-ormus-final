@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { createLLMClient } from "@/lib/llm-client";
 import { createHash } from "crypto";
-import { ImproveContextInputSchema, CharacterSearchResultSchema } from "@open-ormus/shared";
+import { ImproveContextInputSchema } from "@open-ormus/shared";
 import { logLlmUsage } from "@/lib/llm-usage";
 import { LlmUsageSource } from "@/lib/generated/prisma/client";
 
@@ -14,6 +14,7 @@ Rules:
 - If the input is sparse (fewer than 3 sentences or note-form): expand into a vivid, atmospheric paragraph
 - If the input is a longer draft: polish prose, fix inconsistencies, improve narrative flow
 - Preserve all factual details and character names from the original
+- Do NOT suggest what characters should do, feel, or decide — only improve setting and prose
 - Output ONLY the improved text — no explanation, no preamble, no quotes`;
 
 export async function POST(request: Request) {
@@ -41,16 +42,10 @@ export async function POST(request: Request) {
 
   const characters = await prisma.character.findMany({
     where: { id: { in: characterIds }, userId: user.id },
-    select: { name: true, sheet: true },
+    select: { name: true },
   });
 
-  const characterLines = characters.map((ch) => {
-    const sheetParsed = CharacterSearchResultSchema.safeParse(ch.sheet);
-    if (!sheetParsed.success) return `- ${ch.name}`;
-    const { personalityTraits, backstory } = sheetParsed.data.personality;
-    const traits = personalityTraits.slice(0, 3).join(", ");
-    return `- ${ch.name}: ${traits}. ${backstory}`;
-  });
+  const characterLines = characters.map((ch) => `- ${ch.name}`);
 
   const userMessage =
     characterLines.length > 0
