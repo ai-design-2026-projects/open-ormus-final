@@ -29,6 +29,8 @@ export function buildCharacterMessages(
   messages: ConversationMessage[],
   speakingCharacterId: string,
   speakingCharacterName: string,
+  sceneContext: string,
+  lastSpeakerName: string | null,
 ): ConversationTurn[] {
   const result: ConversationTurn[] = [];
   let pendingOthers: string[] = [];
@@ -77,7 +79,11 @@ export function buildCharacterMessages(
   const contextLines =
     pendingOthers.length > 0 ? pendingOthers.join("\n") : SCENE_START;
 
-  const continuePrompt = `Continue as ${speakingCharacterName}. Write only their next line.`;
+  const engagementCue =
+    lastSpeakerName !== null
+      ? "React to what was just said or address someone directly. "
+      : "";
+  const continuePrompt = `Scene: ${sceneContext}\nContinue as ${speakingCharacterName}. ${engagementCue}Write only their next line.`;
   result.push({ role: "user", content: `${contextLines}\n\n${continuePrompt}` });
 
   return result;

@@ -28,7 +28,7 @@ const msg = (
 
 describe("buildCharacterMessages", () => {
   test("single user message when character has never spoken and no history", () => {
-    const result = buildCharacterMessages([], "a", "Alice");
+    const result = buildCharacterMessages([], "a", "Alice", "Test scene.", null);
     expect(result).toHaveLength(1);
     expect(result[0]!.role).toBe("user");
     expect(result[0]!.content).toContain("Continue as Alice");
@@ -36,7 +36,7 @@ describe("buildCharacterMessages", () => {
 
   test("single user message when character has never spoken and others have", () => {
     const history = [msg("b", "Bob", "Hello"), msg("c", "Carol", "Hi")];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     expect(result).toHaveLength(1);
     expect(result[0]!.role).toBe("user");
     const content = result[0]!.content as string;
@@ -51,7 +51,7 @@ describe("buildCharacterMessages", () => {
       msg("a", "Alice", "My answer."),
       msg("b", "Bob", "Follow-up?"),
     ];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     expect(result).toHaveLength(3);
     expect(result[0]!.role).toBe("user");
     expect(result[1]!.role).toBe("assistant");
@@ -66,7 +66,7 @@ describe("buildCharacterMessages", () => {
       msg("a", "Alice", "My answer.", "I was nervous about this."),
       msg("b", "Bob", "Follow-up?"),
     ];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     const assistantTurn = result.find((m) => m.role === "assistant");
     expect(assistantTurn?.content as string).toContain(
       "<|reasoning|>I was nervous about this.<|reasoning|>",
@@ -80,7 +80,7 @@ describe("buildCharacterMessages", () => {
       msg("a", "Alice", "My answer.", null),
       msg("b", "Bob", "Follow-up?"),
     ];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     const assistantTurn = result.find((m) => m.role === "assistant");
     expect(assistantTurn?.content as string).not.toContain("<|reasoning|>");
     expect(assistantTurn?.content as string).toContain("<|emotion|>");
@@ -93,7 +93,7 @@ describe("buildCharacterMessages", () => {
       msg("c", "Carol", "Hello.", "Carol's private thought"),
       msg("a", "Alice", "Hi there."),
     ];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     // user turns should not contain Carol's reasoning
     const userTurns = result.filter((m) => m.role === "user");
     for (const turn of userTurns) {
@@ -106,7 +106,7 @@ describe("buildCharacterMessages", () => {
       msg("a", "Alice", "I begin."),
       msg("b", "Bob", "Reply."),
     ];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     expect(result[0]!.role).toBe("user");
     expect(result[1]!.role).toBe("assistant");
     expect(result[1]!.content as string).toContain("I begin.");
@@ -120,7 +120,7 @@ describe("buildCharacterMessages", () => {
       msg("b", "Bob", "B line 2"),
       msg("c", "Carol", "C line 1"),
     ];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     expect(result).toHaveLength(4);
     expect(result[2]!.role).toBe("user");
     const bundled = result[2]!.content as string;
@@ -130,7 +130,7 @@ describe("buildCharacterMessages", () => {
 
   test("always ends with a user turn", () => {
     const history = [msg("b", "Bob", "Hey"), msg("a", "Alice", "Hello")];
-    const result = buildCharacterMessages(history, "a", "Alice");
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
     expect(result[result.length - 1]!.role).toBe("user");
   });
 
@@ -141,8 +141,27 @@ describe("buildCharacterMessages", () => {
       [msg("a", "Alice", "First")],
     ];
     for (const history of cases) {
-      const result = buildCharacterMessages(history, "a", "Alice");
+      const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", null);
       expect(result[0]!.role).toBe("user");
     }
+  });
+
+  test("scene context appears in the continuation prompt", () => {
+    const result = buildCharacterMessages([], "a", "Alice", "A rainy street corner.", null);
+    const last = result[result.length - 1]!;
+    expect(last.content).toContain("Scene: A rainy street corner.");
+  });
+
+  test("engagement cue present when lastSpeakerName is not null", () => {
+    const history = [msg("b", "Bob", "Hello there.")];
+    const result = buildCharacterMessages(history, "a", "Alice", "Test scene.", "Bob");
+    const last = result[result.length - 1]!;
+    expect(last.content).toContain("React to what was just said or address someone directly.");
+  });
+
+  test("no engagement cue when lastSpeakerName is null", () => {
+    const result = buildCharacterMessages([], "a", "Alice", "Test scene.", null);
+    const last = result[result.length - 1]!;
+    expect(last.content).not.toContain("React to what was just said");
   });
 });

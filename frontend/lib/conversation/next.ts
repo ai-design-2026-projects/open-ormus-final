@@ -102,10 +102,14 @@ export async function* generateNextTurnStream(
     "x-session-id": conversationId,
   };
 
+  const lastSpeakerName = conversation.messages.at(-1)?.character.name ?? null;
+
   const contentMessages = buildCharacterMessages(
     conversation.messages,
     nextParticipant.characterId,
     nextParticipant.character.name,
+    conversation.context,
+    lastSpeakerName,
   );
 
   let content = "";

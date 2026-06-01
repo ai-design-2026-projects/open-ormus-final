@@ -115,4 +115,22 @@ describe("buildCharacterPrompt — cast and format", () => {
     const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
     expect(result).toContain("private");
   });
+
+  test("includes Engagement section when other participants provided", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.", ["Jesse Pinkman"]);
+    expect(result).toContain("## Engagement");
+    expect(result).toContain("React directly to what the last speaker said");
+  });
+
+  test("omits Engagement section when no other participants", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).not.toContain("## Engagement");
+  });
+
+  test("Engagement appears after Scene Cast and before Scene when participants provided", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.", ["Jesse Pinkman"]);
+    const idx = (s: string) => result.indexOf(s);
+    expect(idx("## Scene Cast")).toBeLessThan(idx("## Engagement"));
+    expect(idx("## Engagement")).toBeLessThan(idx("\n## Scene\n"));
+  });
 });
