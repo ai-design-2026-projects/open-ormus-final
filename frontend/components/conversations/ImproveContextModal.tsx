@@ -1,5 +1,8 @@
 "use client";
 
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 type Props = {
   original: string;
   improved: string;
@@ -9,42 +12,47 @@ type Props = {
 
 export function ImproveContextModal({ original, improved, onAccept, onDiscard }: Props) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]" onClick={onDiscard}>
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-xl mx-4" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold mb-4">Improved scene context</h2>
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">
-              Original
-            </p>
-            <div className="border border-zinc-200 rounded p-3 text-sm text-zinc-600 bg-zinc-50 min-h-[100px] whitespace-pre-wrap">
-              {original}
-            </div>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-panel/60 backdrop-blur-sm"
+      onClick={onDiscard}
+    >
+      <div
+        className="bg-surface-1 border border-hair rounded-[var(--r-xl)] shadow-[var(--shadow-3)] w-full max-w-2xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-7 py-5 border-b border-hair">
+          <h2 className="t-h6">Improved scene context</h2>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onDiscard}
+            className="text-ink-mute hover:text-ink transition-colors duration-[120ms] -mr-1"
+          >
+            <X className="size-4" strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* Two-panel body */}
+        <div className="grid grid-cols-2 gap-0 flex-1 overflow-hidden">
+          <div className="flex flex-col p-6 overflow-y-auto border-r border-hair">
+            <div className="t-meta mb-3">ORIGINAL</div>
+            <p className="text-sm text-ink-dim leading-relaxed whitespace-pre-wrap">{original}</p>
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">
-              Improved
-            </p>
-            <div className="border border-zinc-200 rounded p-3 text-sm text-zinc-800 bg-white min-h-[100px] whitespace-pre-wrap">
-              {improved}
-            </div>
+          <div className="flex flex-col p-6 overflow-y-auto">
+            <div className="t-meta mb-3">IMPROVED</div>
+            <p className="text-sm text-ink-dim leading-relaxed whitespace-pre-wrap">{improved}</p>
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onDiscard}
-            className="px-4 py-2 text-sm rounded border border-zinc-300 hover:bg-zinc-50 transition-colors"
-          >
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-7 py-5 border-t border-hair">
+          <Button type="button" variant="ghost" onClick={onDiscard}>
             Discard
-          </button>
-          <button
-            type="button"
-            onClick={() => onAccept(improved)}
-            className="px-4 py-2 text-sm bg-black text-white rounded hover:bg-zinc-800 transition-colors"
-          >
+          </Button>
+          <Button type="button" variant="default" onClick={() => onAccept(improved)}>
             Accept
-          </button>
+          </Button>
         </div>
       </div>
     </div>

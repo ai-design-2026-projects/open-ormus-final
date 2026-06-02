@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
 
 interface Props {
   onSearch: (query: string) => void;
@@ -15,12 +16,12 @@ export function CharacterSearch({ onSearch }: Props) {
   }, [value, onSearch]);
 
   return (
-    <input
+    <Input
       type="text"
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      placeholder="Search characters…"
-      className="w-full max-w-md px-4 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400 bg-white"
+      placeholder="Filter by name, trait…"
+      className="w-full max-w-md"
     />
   );
 }

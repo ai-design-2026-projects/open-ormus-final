@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { X } from "lucide-react";
 import type { SavedCharacterRecord } from "@open-ormus/shared";
+import { IconButton } from "@/components/ui/icon-button";
+import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
 
 interface Props {
   character: SavedCharacterRecord | null;
@@ -26,10 +30,8 @@ type ConversationItem = {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-t border-zinc-100 pt-4 mt-4">
-      <h4 className="text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-2">
-        {title}
-      </h4>
+    <div className="bg-surface-1 border border-hair rounded-[var(--r-lg)] p-5 shadow-[var(--shadow-inset),var(--shadow-1)] mt-4">
+      <h4 className="t-h6 mb-3">{title}</h4>
       {children}
     </div>
   );
@@ -37,13 +39,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function TagList({ items }: { items: string[] }) {
   if (items.length === 0)
-    return <p className="text-sm text-zinc-400 italic">None</p>;
+    return <p className="t-body-s text-ink-faint italic">None</p>;
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item, i) => (
-        <span key={i} className="text-xs bg-zinc-100 text-zinc-700 px-2 py-1 rounded-full">
-          {item}
-        </span>
+        <Tag key={i} tone="neutral">{item}</Tag>
       ))}
     </div>
   );
@@ -52,13 +52,13 @@ function TagList({ items }: { items: string[] }) {
 function KVList({ entries }: { entries: Record<string, string> }) {
   const pairs = Object.entries(entries);
   if (pairs.length === 0)
-    return <p className="text-sm text-zinc-400 italic">None</p>;
+    return <p className="t-body-s text-ink-faint italic">None</p>;
   return (
     <dl className="space-y-2">
       {pairs.map(([k, v]) => (
         <div key={k}>
-          <dt className="text-xs font-medium text-zinc-500">{k}</dt>
-          <dd className="text-sm text-zinc-700">{v}</dd>
+          <dt className="t-meta text-ink-mute">{k}</dt>
+          <dd className="t-body-s text-ink">{v}</dd>
         </div>
       ))}
     </dl>
@@ -112,51 +112,51 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
   const { sheet } = character;
   const p = sheet.personality;
 
+  const TABS: { value: Tab; label: string }[] = [
+    { value: "sheet", label: "Sheet" },
+    { value: "conversations", label: "Conversations" },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      <div className="flex-1 bg-black/40" />
+    <div className="fixed inset-0 z-40 flex justify-end bg-ink-panel/40 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-xl bg-white h-full overflow-y-auto shadow-xl flex flex-col"
+        className="bg-surface-1 border-l border-hair w-full max-w-xl h-full flex flex-col shadow-[var(--shadow-3)]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sticky header + tab bar */}
-        <div className="sticky top-0 bg-white border-b border-zinc-100 px-6 pt-4 z-10">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-zinc-900">{character.name}</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="text-zinc-400 hover:text-zinc-600 text-2xl leading-none"
-            >
-              &times;
-            </button>
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 bg-surface-2 border-b border-hair px-6 py-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="t-h6">{character.name}</h2>
+            <IconButton variant="ghost" size="sm" aria-label="Close" onClick={onClose}>
+              <X strokeWidth={1.5} className="size-4" />
+            </IconButton>
           </div>
-          <div className="flex -mb-px">
-            {(["sheet", "conversations"] as const).map((tab) => (
+          {/* Tab buttons */}
+          <div className="flex gap-1">
+            {TABS.map((tab) => (
               <button
-                key={tab}
+                key={tab.value}
                 type="button"
-                onClick={() => handleTabChange(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-zinc-400 hover:text-zinc-600"
+                onClick={() => handleTabChange(tab.value)}
+                className={`px-3 py-1.5 text-[12.5px] font-medium rounded-[8px] transition-all duration-[120ms] ${
+                  activeTab === tab.value
+                    ? "bg-surface-1 text-ink shadow-[var(--shadow-1),0_0_0_1px_var(--hair-strong)]"
+                    : "text-ink-mute hover:text-ink"
                 }`}
               >
-                {tab === "sheet" ? "Sheet" : "Conversations"}
+                {tab.label}
               </button>
             ))}
           </div>
         </div>
 
         {/* Tab content */}
-        <div className="px-6 py-4 flex-1">
+        <div className="px-6 py-4 flex-1 overflow-y-auto">
           {activeTab === "sheet" && (
             <>
-              <p className="text-sm text-zinc-600">{sheet.shortDescription}</p>
+              <p className="t-body-s text-ink-dim">{sheet.shortDescription}</p>
               {sheet.firstAppearanceDate && (
-                <p className="text-xs text-zinc-400 mt-1">
+                <p className="t-meta text-ink-faint mt-1">
                   First appearance: {sheet.firstAppearanceDate}
                 </p>
               )}
@@ -166,8 +166,8 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
               </Section>
 
               <Section title="Backstory">
-                <p className="text-sm text-zinc-700 whitespace-pre-wrap">
-                  {p.backstory || <span className="italic text-zinc-400">None</span>}
+                <p className="t-body-s text-ink whitespace-pre-wrap">
+                  {p.backstory || <span className="italic text-ink-faint">None</span>}
                 </p>
               </Section>
 
@@ -189,11 +189,11 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
 
               <Section title="Notable Quotes">
                 {p.notableQuotes.length === 0 ? (
-                  <p className="text-sm text-zinc-400 italic">None</p>
+                  <p className="t-body-s text-ink-faint italic">None</p>
                 ) : (
                   <ul className="space-y-1">
                     {p.notableQuotes.map((q: string, i: number) => (
-                      <li key={i} className="text-sm text-zinc-700 italic">
+                      <li key={i} className="t-body-s text-ink italic">
                         &ldquo;{q}&rdquo;
                       </li>
                     ))}
@@ -222,25 +222,26 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
           {activeTab === "conversations" && (
             <>
               {convsLoading && (
-                <p className="text-sm text-zinc-400 py-4">Loading...</p>
+                <p className="t-body-s text-ink-mute py-4">Loading...</p>
               )}
               {convsError != null && (
                 <div className="py-4">
-                  <p className="text-sm text-red-500 mb-2">{convsError}</p>
-                  <button
+                  <p className="t-body-s text-signal-flag mb-2">{convsError}</p>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => void fetchConversations()}
-                    className="text-xs px-3 py-1.5 border border-zinc-300 rounded hover:bg-zinc-50"
                   >
                     Retry
-                  </button>
+                  </Button>
                 </div>
               )}
               {!convsLoading && convsError === null && conversations !== null && (
                 conversations.length === 0 ? (
-                  <p className="text-sm text-zinc-400 italic py-4">No conversations yet</p>
+                  <p className="t-body-s text-ink-faint italic py-4">No conversations yet</p>
                 ) : (
-                  <ul className="divide-y divide-zinc-100">
+                  <ul className="divide-y divide-hair">
                     {conversations.map((c) => {
                       const others = c.participants
                         .filter((p) => p.characterId !== characterId)
@@ -253,22 +254,22 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
                             className="block group"
                             onClick={onClose}
                           >
-                            <p className="text-sm font-medium text-zinc-900 group-hover:underline">
+                            <p className="t-body-s font-medium text-ink group-hover:underline">
                               {c.title}
                             </p>
                             {others.length > 0 && (
-                              <p className="text-xs text-zinc-400 mt-0.5">
+                              <p className="t-meta text-ink-mute mt-0.5">
                                 with {others.join(", ")}
                               </p>
                             )}
                             {c.lastMessage != null ? (
-                              <p className="text-xs text-zinc-500 mt-0.5 truncate">
+                              <p className="t-meta text-ink-dim mt-0.5 truncate">
                                 {c.lastMessage.characterName}: {c.lastMessage.content}
                               </p>
                             ) : (
-                              <p className="text-xs text-zinc-400 italic mt-0.5">No messages yet</p>
+                              <p className="t-meta text-ink-faint italic mt-0.5">No messages yet</p>
                             )}
-                            <p className="text-xs text-zinc-300 mt-0.5">
+                            <p className="t-meta text-ink-faint mt-0.5">
                               {formatRelativeTime(timestamp)}
                             </p>
                           </Link>

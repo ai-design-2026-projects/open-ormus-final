@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import type {
   CharacterSaveInput,
   CharacterPersonality,
@@ -8,6 +9,10 @@ import type {
   SavedCharacterRecord,
 } from "@open-ormus/shared";
 import { ImportStep } from "./ImportStep";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 // ─── Form State ───────────────────────────────────────────────────────────────
 
@@ -122,9 +127,20 @@ function toSaveInput(state: FormState): CharacterSaveInput {
     name: state.name,
     shortDescription: state.shortDescription,
     imageUrl: state.imageUrl.trim() || null,
-    firstAppearanceDate: state.firstAppearanceDate.trim() || null,
+    firstAppearanceDate: state.firstAppearanceDate,
     personality,
   };
+}
+
+// ─── FieldLabel ────────────────────────────────────────────────────────────────
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="block t-meta text-ink-dim mb-1">
+      {children}
+      {required && <span className="text-signal-flag ml-0.5">*</span>}
+    </label>
+  );
 }
 
 // ─── TagInput ──────────────────────────────────────────────────────────────────
@@ -150,9 +166,9 @@ function TagInput({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      <FieldLabel>{label}</FieldLabel>
       <div className="flex gap-2 mb-2">
-        <input
+        <Input
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -162,31 +178,27 @@ function TagInput({
               add();
             }
           }}
-          className="flex-1 px-3 py-1.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          className="flex-1"
           placeholder="Type and press Enter or Add"
         />
-        <button
-          type="button"
-          onClick={add}
-          className="px-3 py-1.5 text-sm bg-zinc-100 rounded-lg hover:bg-zinc-200 transition-colors"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={add}>
           Add
-        </button>
+        </Button>
       </div>
       {values.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {values.map((v, i) => (
             <span
               key={i}
-              className="flex items-center gap-1 text-xs bg-zinc-100 text-zinc-700 px-2 py-1 rounded-full"
+              className="flex items-center gap-1 t-meta bg-surface-sunk text-ink-dim border border-hair rounded-[6px] px-2 py-1"
             >
               {v}
               <button
                 type="button"
                 onClick={() => onChange(values.filter((_, j) => j !== i))}
-                className="text-zinc-400 hover:text-zinc-600"
+                className="text-ink-faint hover:text-ink-dim"
               >
-                &times;
+                <X className="size-3" />
               </button>
             </span>
           ))}
@@ -214,40 +226,37 @@ function KVEditor({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
+      <FieldLabel>{label}</FieldLabel>
       <div className="space-y-2">
         {pairs.map((pair, i) => (
           <div key={i} className="flex gap-2 items-center">
-            <input
+            <Input
               type="text"
               value={pair.key}
               onChange={(e) => update(i, "key", e.target.value)}
               placeholder="Key"
-              className="w-32 px-3 py-1.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className="w-32"
             />
-            <input
+            <Input
               type="text"
               value={pair.value}
               onChange={(e) => update(i, "value", e.target.value)}
               placeholder="Value"
-              className="flex-1 px-3 py-1.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className="flex-1"
             />
-            <button
-              type="button"
+            <IconButton
+              variant="ghost"
+              size="sm"
+              aria-label="Remove entry"
               onClick={() => remove(i)}
-              className="text-zinc-400 hover:text-red-500 text-lg leading-none"
             >
-              &times;
-            </button>
+              <X className="size-3.5" strokeWidth={1.5} />
+            </IconButton>
           </div>
         ))}
-        <button
-          type="button"
-          onClick={add}
-          className="text-sm text-zinc-500 hover:text-zinc-800 underline"
-        >
+        <Button variant="ghost" size="sm" onClick={add}>
           + Add entry
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -264,6 +273,7 @@ const CREATE_STEPS = ["Import", ...FORM_STEPS] as const;
 interface WizardProps {
   mode: "create" | "edit";
   initialData?: SavedCharacterRecord;
+  initialStep?: number;
   onSubmit: (data: CharacterSaveInput) => Promise<void>;
   onClose: () => void;
 }
@@ -271,10 +281,11 @@ interface WizardProps {
 export function CharacterFormWizard({
   mode,
   initialData,
+  initialStep,
   onSubmit,
   onClose,
 }: WizardProps) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep ?? 0);
   const [form, setForm] = useState<FormState>(() =>
     initialData ? fromRecord(initialData) : emptyForm()
   );
@@ -355,44 +366,39 @@ export function CharacterFormWizard({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-panel/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
+        className="bg-surface-1 border border-hair rounded-[var(--r-xl)] shadow-[var(--shadow-3)] w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-900">
+        <div className="flex items-center justify-between px-7 py-5 border-b border-hair">
+          <h2 className="t-h6">
             {mode === "create" ? "New Character" : "Edit Character"}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600 text-2xl leading-none"
-          >
-            &times;
-          </button>
+          <IconButton variant="ghost" size="sm" aria-label="Close" onClick={onClose}>
+            <X strokeWidth={1.5} className="size-4" />
+          </IconButton>
         </div>
 
         {/* Step indicator */}
-        <div className="px-6 py-3 border-b border-zinc-100 flex gap-6">
+        <div className="px-7 py-3 border-b border-hair flex gap-1 bg-surface-sunk">
           {displaySteps.map((label, i) => (
             <button
               key={label}
               type="button"
-              // Allow clicking on visited form steps; import step (i=0 create) is not re-enterable
               onClick={() => {
                 if (mode === "create" && i === 0) return;
                 if (i <= step) setStep(i);
               }}
-              className={`text-sm font-medium pb-1 border-b-2 transition-colors ${
+              className={`px-3 py-1.5 text-[12.5px] font-medium rounded-[8px] transition-all duration-[120ms] ${
                 i === step
-                  ? "border-zinc-900 text-zinc-900"
+                  ? "bg-ink-panel text-on-ink shadow-[var(--shadow-1)]"
                   : i < step
-                  ? "border-zinc-300 text-zinc-500 cursor-pointer"
-                  : "border-transparent text-zinc-300 cursor-default"
+                  ? "text-ink-dim hover:text-ink cursor-pointer"
+                  : "text-ink-faint cursor-default"
               }`}
             >
               {i + 1}. {label}
@@ -401,7 +407,7 @@ export function CharacterFormWizard({
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
           {/* Import step — create mode only */}
           {isImportStep && (
             <ImportStep onImported={handleImported} />
@@ -413,48 +419,36 @@ export function CharacterFormWizard({
               {formStep === 0 && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">
-                      Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
+                    <FieldLabel required>Name</FieldLabel>
+                    <Input
                       type="text"
                       value={form.name}
                       onChange={(e) => set("name", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">
-                      Short Description
-                    </label>
-                    <textarea
+                    <FieldLabel>Short Description</FieldLabel>
+                    <Textarea
                       value={form.shortDescription}
                       onChange={(e) => set("shortDescription", e.target.value)}
                       rows={3}
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">
-                      Image URL
-                    </label>
-                    <input
+                    <FieldLabel>Image URL</FieldLabel>
+                    <Input
                       type="text"
                       value={form.imageUrl}
                       onChange={(e) => set("imageUrl", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">
-                      First Appearance Date
-                    </label>
-                    <input
+                    <FieldLabel>First Appearance Date</FieldLabel>
+                    <Input
                       type="text"
                       value={form.firstAppearanceDate}
                       onChange={(e) => set("firstAppearanceDate", e.target.value)}
                       placeholder="e.g. 2013-09-22 or 0000-01-01 if unknown"
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
                   </div>
                 </>
@@ -468,14 +462,11 @@ export function CharacterFormWizard({
                     onChange={(v) => set("personalityTraits", v)}
                   />
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">
-                      Backstory
-                    </label>
-                    <textarea
+                    <FieldLabel>Backstory</FieldLabel>
+                    <Textarea
                       value={form.backstory}
                       onChange={(e) => set("backstory", e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
                     />
                   </div>
                   <TagInput
@@ -531,77 +522,74 @@ export function CharacterFormWizard({
                 </>
               )}
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="t-body-s text-signal-flag">{error}</p>}
             </>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between">
+        <div className="border-t border-hair px-7 py-5 flex items-center justify-between">
           {/* Left button */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => (step > 0 ? setStep(step - 1) : onClose())}
-            className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
           >
             {step === 0 ? "Cancel" : "Back"}
-          </button>
+          </Button>
 
           {/* Right area */}
           {isImportStep ? (
             // Import step: offer manual entry escape hatch
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setStep(1)}
-              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
             >
               Enter manually →
-            </button>
+            </Button>
           ) : !isLastFormStep ? (
             // Form steps — not last
-            <button
+            <Button
               type="button"
               onClick={() => setStep(step + 1)}
               disabled={formStep === 0 && !form.name.trim()}
-              className="px-4 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next
-            </button>
+            </Button>
           ) : pendingQueue.length > 0 ? (
             // Last form step with pending queue
             <div className="flex items-center gap-3">
               {queueTotal > 1 && (
-                <span className="text-xs text-zinc-400">
+                <span className="t-meta text-ink-faint">
                   Character {queuePosition} of {queueTotal}
                 </span>
               )}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={handleSkip}
                 disabled={submitting}
-                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-40"
               >
                 Skip
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => void handleSaveAndNext()}
                 disabled={submitting || !form.name.trim()}
-                className="px-4 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? "Saving…" : "Save & Next"}
-              </button>
+              </Button>
             </div>
           ) : (
             // Last form step, no queue — normal save
-            <button
+            <Button
               type="button"
               onClick={() => void handleSubmit()}
               disabled={submitting || !form.name.trim()}
-              className="px-4 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {submitting ? "Saving…" : mode === "create" ? "Create" : "Save Changes"}
-            </button>
+            </Button>
           )}
         </div>
       </div>

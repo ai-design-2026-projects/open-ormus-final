@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Loader2, X, AlertTriangle } from "lucide-react";
 import type { CharacterSearchResult, ShowResult } from "@open-ormus/shared";
+import { Segmented } from "@/components/ui/segmented";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type ImportTab = "collection" | "character";
 
@@ -15,6 +19,11 @@ type FetchStatus = {
 interface ImportStepProps {
   onImported: (results: CharacterSearchResult[]) => void;
 }
+
+const TAB_OPTIONS = [
+  { value: "collection", label: "By Collection" },
+  { value: "character", label: "By Character" },
+] as const;
 
 export function ImportStep({ onImported }: ImportStepProps) {
   const [tab, setTab] = useState<ImportTab>("collection");
@@ -170,29 +179,18 @@ export function ImportStep({ onImported }: ImportStepProps) {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-zinc-200">
-        {(["collection", "character"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
-                ? "border-zinc-900 text-zinc-900"
-                : "border-transparent text-zinc-400 hover:text-zinc-600"
-            }`}
-          >
-            {t === "collection" ? "By Collection" : "By Character"}
-          </button>
-        ))}
-      </div>
+      {/* Tab switcher */}
+      <Segmented
+        value={tab}
+        onValueChange={(v) => setTab(v as ImportTab)}
+        options={TAB_OPTIONS}
+      />
 
       {/* ── By Collection ── */}
       {tab === "collection" && (
         <div className="space-y-4">
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={collectionQuery}
               onChange={(e) => setCollectionQuery(e.target.value)}
@@ -203,20 +201,25 @@ export function ImportStep({ onImported }: ImportStepProps) {
                 }
               }}
               placeholder="e.g. Money Heist, Breaking Bad…"
-              className="flex-1 px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className="flex-1"
             />
-            <button
+            <Button
               type="button"
               onClick={() => void searchCollection()}
               disabled={collectionLoading || !collectionQuery.trim()}
-              className="px-4 py-2 text-sm bg-zinc-900 text-white rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {collectionLoading ? "Searching…" : "Search"}
-            </button>
+              {collectionLoading ? (
+                <><Loader2 className="size-4 animate-spin" /> Searching…</>
+              ) : (
+                "Search"
+              )}
+            </Button>
           </div>
 
           {collectionError && (
-            <p className="text-sm text-red-600">{collectionError}</p>
+            <p className="t-body-s text-signal-flag flex items-center gap-1.5">
+              <AlertTriangle className="size-3.5" /> {collectionError}
+            </p>
           )}
 
           {/* Show results (before selection) */}
@@ -227,18 +230,18 @@ export function ImportStep({ onImported }: ImportStepProps) {
                   key={show.title}
                   type="button"
                   onClick={() => selectShow(show)}
-                  className="w-full text-left p-3 rounded-lg border border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 transition-colors"
+                  className="w-full text-left p-3 rounded-[var(--r-lg)] border border-hair bg-surface-1 hover:border-hair-strong hover:bg-surface-2 transition-colors shadow-[var(--shadow-inset),var(--shadow-1)]"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-zinc-900">{show.title}</span>
+                    <span className="t-body-s font-medium text-ink">{show.title}</span>
                     {show.year !== null && (
-                      <span className="text-xs text-zinc-400">{show.year}</span>
+                      <span className="t-meta text-ink-faint">{show.year}</span>
                     )}
                     {show.genre !== null && (
-                      <span className="text-xs text-zinc-400">· {show.genre}</span>
+                      <span className="t-meta text-ink-faint">· {show.genre}</span>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                  <p className="t-meta text-ink-mute mt-0.5 line-clamp-2">
                     {show.description}
                   </p>
                 </button>
@@ -250,20 +253,20 @@ export function ImportStep({ onImported }: ImportStepProps) {
           {selectedShow && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-900">
+                <span className="t-body-s font-medium text-ink">
                   {selectedShow.title}
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setSelectedShow(null);
                     setFetchStatuses([]);
                     setCheckedChars(new Set());
                   }}
-                  className="text-xs text-zinc-400 hover:text-zinc-600 underline"
                 >
                   Change
-                </button>
+                </Button>
               </div>
 
               {fetchStatuses.length === 0 ? (
@@ -272,26 +275,25 @@ export function ImportStep({ onImported }: ImportStepProps) {
                     {selectedShow.characters.map((name) => (
                       <label
                         key={name}
-                        className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer"
+                        className="flex items-center gap-2 t-body-s text-ink cursor-pointer"
                       >
                         <input
                           type="checkbox"
                           checked={checkedChars.has(name)}
                           onChange={() => toggleChar(name)}
-                          className="rounded border-zinc-300"
+                          className="rounded border-hair"
                         />
                         {name}
                       </label>
                     ))}
                   </div>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => void importSelected()}
                     disabled={checkedChars.size === 0}
-                    className="px-4 py-2 text-sm bg-zinc-900 text-white rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Import Selected ({checkedChars.size})
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <div className="space-y-2">
@@ -299,24 +301,26 @@ export function ImportStep({ onImported }: ImportStepProps) {
                   {fetchStatuses.map((s) => (
                     <div
                       key={s.name}
-                      className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
+                      className={`flex items-center gap-2 t-body-s p-2.5 rounded-[var(--r-lg)] border ${
                         s.status === "error"
-                          ? "bg-red-50 text-red-700"
+                          ? "bg-surface-1 border-hair text-signal-flag"
                           : s.status === "success"
-                          ? "bg-green-50 text-green-700"
-                          : "bg-zinc-50 text-zinc-500"
+                          ? "bg-surface-1 border-hair text-signal-ok"
+                          : "bg-surface-sunk border-hair text-ink-mute"
                       }`}
                     >
-                      <span>
-                        {s.status === "loading"
-                          ? "⟳"
-                          : s.status === "success"
-                          ? "✓"
-                          : "✗"}
+                      <span className="shrink-0">
+                        {s.status === "loading" ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : s.status === "success" ? (
+                          <Check className="size-3.5" />
+                        ) : (
+                          <X className="size-3.5" />
+                        )}
                       </span>
                       <span className="flex-1">{s.name}</span>
                       {s.status === "error" && (
-                        <span className="text-xs">{s.errorMsg}</span>
+                        <span className="t-meta">{s.errorMsg}</span>
                       )}
                     </div>
                   ))}
@@ -325,23 +329,22 @@ export function ImportStep({ onImported }: ImportStepProps) {
                   {!fetchingChars && (
                     <div className="flex items-center gap-3 pt-1">
                       {successResults.length > 0 ? (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => onImported(successResults)}
-                          className="px-4 py-2 text-sm bg-zinc-900 text-white rounded-lg hover:bg-zinc-700 transition-colors"
                         >
                           Continue with {successResults.length} of{" "}
                           {fetchStatuses.length} character
                           {fetchStatuses.length !== 1 ? "s" : ""}
-                        </button>
+                        </Button>
                       ) : (
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
                           onClick={() => void importSelected()}
-                          className="px-4 py-2 text-sm border border-zinc-300 text-zinc-700 rounded-lg hover:bg-zinc-50 transition-colors"
                         >
                           Retry all
-                        </button>
+                        </Button>
                       )}
                     </div>
                   )}
@@ -356,7 +359,7 @@ export function ImportStep({ onImported }: ImportStepProps) {
       {tab === "character" && (
         <div className="space-y-3">
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={charQuery}
               onChange={(e) => setCharQuery(e.target.value)}
@@ -367,18 +370,25 @@ export function ImportStep({ onImported }: ImportStepProps) {
                 }
               }}
               placeholder="e.g. Walter White, Breaking Bad"
-              className="flex-1 px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className="flex-1"
             />
-            <button
+            <Button
               type="button"
               onClick={() => void searchCharacter()}
               disabled={charLoading || !charQuery.trim()}
-              className="px-4 py-2 text-sm bg-zinc-900 text-white rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {charLoading ? "Searching…" : "Search"}
-            </button>
+              {charLoading ? (
+                <><Loader2 className="size-4 animate-spin" /> Searching…</>
+              ) : (
+                "Search"
+              )}
+            </Button>
           </div>
-          {charError && <p className="text-sm text-red-600">{charError}</p>}
+          {charError && (
+            <p className="t-body-s text-signal-flag flex items-center gap-1.5">
+              <AlertTriangle className="size-3.5" /> {charError}
+            </p>
+          )}
         </div>
       )}
     </div>
