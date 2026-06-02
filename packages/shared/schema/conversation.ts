@@ -15,13 +15,16 @@ export const CreateConversationInputSchema = z.object({
   context: z.string().min(1),
   characterIds: z.array(uuidSchema).min(1),
   turnStrategy: TurnStrategySchema.optional().default('ORCHESTRATOR'),
+  userParticipates: z.boolean().optional().default(false),
+  userTurnOrder: z.number().int().min(0).optional(),
 });
 export type CreateConversationInput = z.infer<typeof CreateConversationInputSchema>;
 
 export const MessageRecordSchema = z.object({
   id: uuidSchema,
   conversationId: uuidSchema,
-  characterId: uuidSchema,
+  characterId: uuidSchema.nullable(),
+  authorUserId: uuidSchema.nullable(),
   characterName: z.string(),
   content: z.string(),
   reasoning: z.string().nullable(),
@@ -60,9 +63,10 @@ export const ConversationRecordSchema = z.object({
   createdAt: z.string(),
   participants: z.array(
     z.object({
-      characterId: uuidSchema,
+      characterId: uuidSchema.nullable(),
       name: z.string(),
       turnOrder: z.number().int().min(0),
+      isUserParticipant: z.boolean(),
     })
   ),
   messages: z.array(MessageRecordSchema),
@@ -72,6 +76,7 @@ export type ConversationRecord = z.infer<typeof ConversationRecordSchema>;
 export const ImproveContextInputSchema = z.object({
   draft: z.string().min(1),
   characterIds: z.array(uuidSchema).min(1),
+  userParticipates: z.boolean().optional().default(false),
 });
 export type ImproveContextInput = z.infer<typeof ImproveContextInputSchema>;
 

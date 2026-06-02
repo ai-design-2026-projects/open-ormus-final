@@ -4,7 +4,7 @@ import {
   buildOrchestratorMessages,
 } from "../conversation/build-orchestrator-messages";
 
-type Participant = { characterId: string; character: { name: string } };
+type Participant = { characterId: string; isUserParticipant: boolean; character: { name: string } };
 type Msg = {
   characterId: string;
   character: { name: string };
@@ -14,6 +14,7 @@ type Msg = {
 
 const p = (id: string, name: string): Participant => ({
   characterId: id,
+  isUserParticipant: false,
   character: { name },
 });
 

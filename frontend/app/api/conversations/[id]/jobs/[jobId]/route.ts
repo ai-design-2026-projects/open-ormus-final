@@ -16,7 +16,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   const { id, jobId } = await params;
 
   const job = await prisma.conversationJob.findFirst({
-    where: { id: jobId, conversationId: id, userId: user.id, status: { in: ["pending", "running"] } },
+    where: { id: jobId, conversationId: id, userId: user.id, status: { in: ["pending", "running", "awaiting_user"] } },
   });
   if (!job) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

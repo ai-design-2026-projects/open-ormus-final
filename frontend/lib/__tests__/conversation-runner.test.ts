@@ -10,10 +10,18 @@ mock.module("@/lib/prisma", () => ({
   },
 }));
 
+class ConversationError extends Error {
+  constructor(public readonly code: string, message: string) {
+    super(message);
+    this.name = "ConversationError";
+  }
+}
+
 mock.module("@/lib/conversation/next", () => ({
+  ConversationError,
   generateNextTurnStream: async function* (_conversationId: string, _userId: string) {
-    yield "hello";
-    yield " world";
+    yield { type: "token" as const, text: "hello" };
+    yield { type: "token" as const, text: " world" };
   },
 }));
 

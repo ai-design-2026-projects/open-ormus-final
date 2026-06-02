@@ -34,6 +34,12 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { displayName: true },
+  });
+  const userDisplayName = dbUser?.displayName ?? "You";
+
   return NextResponse.json({
     id: conversation.id,
     title: conversation.title,
@@ -41,15 +47,17 @@ export async function GET(_request: Request, { params }: RouteContext) {
     turnStrategy: conversation.turnStrategy,
     createdAt: conversation.createdAt.toISOString(),
     participants: conversation.participants.map((p) => ({
-      characterId: p.character.id,
-      name: p.character.name,
+      characterId: p.character?.id ?? null,
+      name: p.isUserParticipant ? userDisplayName : (p.character?.name ?? ""),
       turnOrder: p.turnOrder,
+      isUserParticipant: p.isUserParticipant,
     })),
     messages: conversation.messages.map((m) => ({
       id: m.id,
       conversationId: m.conversationId,
-      characterId: m.characterId,
-      characterName: m.character.name,
+      characterId: m.characterId ?? null,
+      authorUserId: m.authorUserId ?? null,
+      characterName: m.authorUserId ? userDisplayName : (m.character?.name ?? userDisplayName),
       content: m.content,
       reasoning: m.reasoning ?? null,
       emotion: m.emotion,

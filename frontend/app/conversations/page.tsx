@@ -31,6 +31,8 @@ export default function ConversationsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [turnStrategy, setTurnStrategy] = useState<'ORCHESTRATOR' | 'ROUND_ROBIN'>('ORCHESTRATOR');
+  const [userParticipates, setUserParticipates] = useState(false);
+  const [userGoesFirst, setUserGoesFirst] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [improving, setImproving] = useState(false);
   const [improveResult, setImproveResult] = useState<{
@@ -87,6 +89,8 @@ export default function ConversationsPage() {
     setSelectedIds([]);
     setCreateError(null);
     setTurnStrategy('ORCHESTRATOR');
+    setUserParticipates(false);
+    setUserGoesFirst(false);
     setImproveResult(null);
     setImproving(false);
     setShowModal(true);
@@ -103,7 +107,16 @@ export default function ConversationsPage() {
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, context, characterIds: orderedIds, turnStrategy }),
+      body: JSON.stringify({
+        title,
+        context,
+        characterIds: orderedIds,
+        turnStrategy,
+        userParticipates,
+        userTurnOrder: userParticipates
+          ? (userGoesFirst ? 0 : selectedIds.length)
+          : undefined,
+      }),
     });
     setCreating(false);
     if (res.ok) {
@@ -128,7 +141,7 @@ export default function ConversationsPage() {
       const res = await fetch("/api/conversations/improve-context", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft: draftAtClick, characterIds: selectedIds }),
+        body: JSON.stringify({ draft: draftAtClick, characterIds: selectedIds, userParticipates }),
       });
       if (!res.ok) {
         setCreateError("Improvement failed — try again.");
@@ -254,6 +267,36 @@ export default function ConversationsPage() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </div>
+              {/* User participation */}
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={userParticipates}
+                    onChange={(e) => {
+                      setUserParticipates(e.target.checked);
+                      if (!e.target.checked) setUserGoesFirst(false);
+                    }}
+                    className="size-4 rounded"
+                  />
+                  <span className="text-sm" style={{ color: "var(--ink)" }}>
+                    Join this conversation as a participant
+                  </span>
+                </label>
+                {userParticipates && (
+                  <label className="flex items-center gap-2 cursor-pointer ml-6">
+                    <input
+                      type="checkbox"
+                      checked={userGoesFirst}
+                      onChange={(e) => setUserGoesFirst(e.target.checked)}
+                      className="size-4 rounded"
+                    />
+                    <span className="text-sm" style={{ color: "var(--ink-mute)" }}>
+                      Go first
+                    </span>
+                  </label>
                 )}
               </div>
               {selectedIds.length >= 3 && (

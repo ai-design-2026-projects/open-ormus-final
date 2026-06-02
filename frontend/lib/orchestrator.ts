@@ -15,6 +15,7 @@ export async function selectNextSpeakerWithOrchestrator(
   messages: OrchestratorMessage[],
   conversationId: string,
   userId: string,
+  excludeUser = false,
 ): Promise<string> {
   const model = process.env["CONVERSATION_MODEL"];
 
@@ -23,7 +24,7 @@ export async function selectNextSpeakerWithOrchestrator(
     return fallback(participants, messages);
   }
 
-  const systemPrompt = buildOrchestratorSystemPrompt(participants);
+  const systemPrompt = buildOrchestratorSystemPrompt(participants, excludeUser);
   const turnMessages = buildOrchestratorMessages(messages);
 
   const client = createLLMClient();
@@ -65,22 +66,28 @@ export async function selectNextSpeakerWithOrchestrator(
 
   const chosen = (response.choices[0]?.message.content ?? "").trim();
 
+  if (chosen === "user" && !excludeUser && participants.some((p) => p.isUserParticipant)) {
+    return "user";
+  }
+
   if (participants.some((p) => p.characterId === chosen)) {
     return chosen;
   }
 
   console.error(`[orchestrator] Invalid characterId returned: "${chosen}"`);
-  return fallback(participants, messages);
+  return fallback(participants, messages, excludeUser);
 }
 
 function fallback(
   participants: OrchestratorParticipant[],
   messages: OrchestratorMessage[],
+  excludeUser = false,
 ): string {
-  if (participants.length === 0)
-    throw new Error("[orchestrator] fallback called with empty participants");
-  const p = participants[messages.length % participants.length];
+  const eligible = excludeUser ? participants.filter((p) => !p.isUserParticipant) : participants;
+  if (eligible.length === 0)
+    throw new Error("[orchestrator] fallback called with no eligible participants");
+  const p = eligible[messages.length % eligible.length];
   if (p === undefined)
     throw new Error("[orchestrator] fallback index out of range");
-  return p.characterId;
+  return p.isUserParticipant ? "user" : p.characterId!;
 }

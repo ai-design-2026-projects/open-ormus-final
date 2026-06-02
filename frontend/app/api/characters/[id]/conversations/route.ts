@@ -42,14 +42,16 @@ export async function GET(_request: Request, { params }: RouteContext) {
       id: c.id,
       title: c.title,
       createdAt: c.createdAt.toISOString(),
-      participants: c.participants.map((p) => ({
-        characterId: p.character.id,
-        name: p.character.name,
-      })),
+      participants: c.participants
+        .filter((p) => p.character != null)
+        .map((p) => ({
+          characterId: p.character!.id,
+          name: p.character!.name,
+        })),
       lastMessage:
         c.messages[0] != null
           ? {
-              characterName: c.messages[0].character.name,
+              characterName: c.messages[0].character?.name ?? "",
               content: c.messages[0].content,
               createdAt: c.messages[0].createdAt.toISOString(),
             }

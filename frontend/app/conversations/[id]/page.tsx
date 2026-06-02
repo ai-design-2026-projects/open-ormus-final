@@ -6,10 +6,16 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { EmotionDot } from "@/components/ui/emotion-dot";
 
-type Participant = { characterId: string; name: string; turnOrder: number };
+type Participant = {
+  characterId: string | null;
+  name: string;
+  turnOrder: number;
+  isUserParticipant: boolean;
+};
 type Message = {
   id: string;
-  characterId: string;
+  characterId: string | null;
+  authorUserId: string | null;
   characterName: string;
   content: string;
   reasoning: string | null;
@@ -48,6 +54,8 @@ export default function ConversationPage() {
   const [error, setError] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [expandedReasonings, setExpandedReasonings] = useState<Set<string>>(new Set());
+  const [awaitingUserTurn, setAwaitingUserTurn] = useState(false);
+  const [userInput, setUserInput] = useState("");
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
@@ -127,6 +135,13 @@ export default function ConversationPage() {
         setStreamingBuffer("");
         setStreamingEmotion(null);
         void loadConversation();
+      } else if (data.type === "user_turn") {
+        setAwaitingUserTurn(true);
+        setIsThinking(false);
+      } else if (data.type === "user_turn_done") {
+        setAwaitingUserTurn(false);
+        setStreamingBuffer("");
+        void loadConversation();
       } else if (data.type === "error") {
         es.close();
         eventSourceRef.current = null;
@@ -191,6 +206,28 @@ export default function ConversationPage() {
     connectToJob(jobId);
   }
 
+  async function handleUserSend() {
+    if (!activeJob || !userInput.trim()) return;
+    const content = userInput.trim();
+    setUserInput("");
+    setAwaitingUserTurn(false);
+    await fetch(`/api/conversations/${id}/user-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: activeJob.id, content }),
+    });
+  }
+
+  async function handleUserSkip() {
+    if (!activeJob) return;
+    setAwaitingUserTurn(false);
+    await fetch(`/api/conversations/${id}/user-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: activeJob.id, content: null }),
+    });
+  }
+
   async function handleStop() {
     if (!activeJob) return;
     await fetch(`/api/conversations/${id}/jobs/${activeJob.id}`, { method: "DELETE" });
@@ -205,8 +242,11 @@ export default function ConversationPage() {
   if (conversation === null) return <p className="p-8 text-zinc-500">Conversation not found.</p>;
 
   const sortedParticipants = [...conversation.participants].sort((a, b) => a.turnOrder - b.turnOrder);
-  const nextSpeaker = sortedParticipants[conversation.messages.length % sortedParticipants.length];
   const isRunning = activeJob !== null;
+  const turnIndexForDisplay = isRunning && activeJob
+    ? activeJob.doneTurns
+    : conversation.messages.length;
+  const nextSpeaker = sortedParticipants[turnIndexForDisplay % sortedParticipants.length];
   const progress = activeJob ? activeJob.doneTurns / activeJob.totalTurns : 0;
 
   return (
@@ -251,6 +291,22 @@ export default function ConversationPage() {
           >
             <p className="t-meta mb-3">Cast State</p>
             {conversation.participants.map((p) => {
+              if (p.isUserParticipant) {
+                return (
+                  <div
+                    key="user"
+                    className="flex items-center gap-2 py-2"
+                    style={{ borderTop: "1px solid var(--hair)" }}
+                  >
+                    <span
+                      className="text-xs font-medium flex-1 truncate"
+                      style={{ color: "var(--accent-deep)" }}
+                    >
+                      You
+                    </span>
+                  </div>
+                );
+              }
               const lastMsg = [...conversation.messages]
                 .reverse()
                 .find((m) => m.characterId === p.characterId);
@@ -293,45 +349,63 @@ export default function ConversationPage() {
           ) : (
             conversation.messages.map((m) => (
               <div key={m.id} className="text-sm">
-                {m.reasoning !== null && (
-                  <div className="mb-1.5">
-                    <button
-                      onClick={() => toggleReasoning(m.id)}
-                      className="flex items-center gap-1 text-xs"
-                      style={{ color: "var(--ink-faint)" }}
-                    >
-                      💭 {m.characterName}&apos;s thoughts
-                      <span>{expandedReasonings.has(m.id) ? "▲" : "▼"}</span>
-                    </button>
-                    {expandedReasonings.has(m.id) && (
-                      <p
-                        className="mt-1 px-3 py-2 rounded-lg text-xs italic"
-                        style={{
-                          background: "var(--surface-sunk)",
-                          border: "1px solid var(--hair)",
-                          color: "var(--ink-mute)",
-                        }}
-                      >
-                        {m.reasoning}
-                      </p>
-                    )}
+                {m.authorUserId ? (
+                  // User message
+                  <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-medium" style={{ color: "var(--accent-deep)" }}>
+                        You
+                      </span>
+                      <span className="text-xs" style={{ color: "var(--ink-faint)" }}>
+                        {new Date(m.createdAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <span style={{ color: "var(--ink)" }}>{m.content}</span>
                   </div>
+                ) : (
+                  // Character message
+                  <>
+                    {m.reasoning !== null && (
+                      <div className="mb-1.5">
+                        <button
+                          onClick={() => toggleReasoning(m.id)}
+                          className="flex items-center gap-1 text-xs"
+                          style={{ color: "var(--ink-faint)" }}
+                        >
+                          💭 {m.characterName}&apos;s thoughts
+                          <span>{expandedReasonings.has(m.id) ? "▲" : "▼"}</span>
+                        </button>
+                        {expandedReasonings.has(m.id) && (
+                          <p
+                            className="mt-1 px-3 py-2 rounded-lg text-xs italic"
+                            style={{
+                              background: "var(--surface-sunk)",
+                              border: "1px solid var(--hair)",
+                              color: "var(--ink-mute)",
+                            }}
+                          >
+                            {m.reasoning}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-medium" style={{ color: "var(--ink)" }}>
+                        {m.characterName}
+                      </span>
+                      <EmotionDot
+                        emotion={m.emotion}
+                        intensity={m.intensity as "low" | "medium" | "high"}
+                        subtext={m.subtext}
+                        showLabel
+                      />
+                      <span className="text-xs" style={{ color: "var(--ink-faint)" }}>
+                        {new Date(m.createdAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <span style={{ color: "var(--ink-dim)" }}>{m.content}</span>
+                  </>
                 )}
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="font-medium" style={{ color: "var(--ink)" }}>
-                    {m.characterName}
-                  </span>
-                  <EmotionDot
-                    emotion={m.emotion}
-                    intensity={m.intensity as "low" | "medium" | "high"}
-                    subtext={m.subtext}
-                    showLabel
-                  />
-                  <span className="text-xs" style={{ color: "var(--ink-faint)" }}>
-                    {new Date(m.createdAt).toLocaleTimeString()}
-                  </span>
-                </div>
-                <span style={{ color: "var(--ink-dim)" }}>{m.content}</span>
               </div>
             ))
           )}
@@ -368,7 +442,7 @@ export default function ConversationPage() {
         className="flex-shrink-0 px-8 py-4 flex flex-col gap-2"
         style={{ borderTop: "1px solid var(--hair)" }}
       >
-        {nextSpeaker !== undefined && !isRunning && (
+        {nextSpeaker !== undefined && !isRunning && !awaitingUserTurn && (
           <p className="text-xs" style={{ color: "var(--ink-faint)" }}>
             Next: {nextSpeaker.name}
           </p>
@@ -378,7 +452,52 @@ export default function ConversationPage() {
             {error}
           </p>
         )}
-        {!isRunning ? (
+        {awaitingUserTurn ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs" style={{ color: "var(--ink-faint)" }}>Your turn</p>
+            <textarea
+              autoFocus
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleUserSend();
+                }
+              }}
+              rows={3}
+              placeholder="Type your message… (Enter to send, Shift+Enter for newline)"
+              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+              style={{
+                border: "1px solid var(--hair-strong)",
+                background: "var(--surface-1)",
+                color: "var(--ink)",
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => void handleUserSend()}
+                disabled={!userInput.trim()}
+                className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{
+                  background: "var(--accent)",
+                  color: "var(--ink-on-accent)",
+                  opacity: userInput.trim() ? 1 : 0.4,
+                  cursor: userInput.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                Send
+              </button>
+              <button
+                onClick={() => void handleUserSkip()}
+                className="px-4 py-2 rounded-lg text-sm"
+                style={{ color: "var(--ink-mute)", background: "var(--surface-sunk)" }}
+              >
+                Skip my turn
+              </button>
+            </div>
+          </div>
+        ) : !isRunning ? (
           <div className="flex items-center gap-2">
             <input
               type="number"

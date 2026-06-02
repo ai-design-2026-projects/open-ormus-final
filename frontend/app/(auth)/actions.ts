@@ -14,6 +14,7 @@ const loginSchema = z.object({
 
 const registerSchema = z
   .object({
+    displayName: z.string().min(1, "Display name is required"),
     email: z.string().email(),
     password: z.string().min(8),
     confirmPassword: z.string().min(8),
@@ -65,6 +66,7 @@ export async function register(
   formData: FormData,
 ): Promise<AuthActionState> {
   const parsed = registerSchema.safeParse({
+    displayName: formData.get("displayName"),
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
@@ -91,8 +93,8 @@ export async function register(
     try {
       await prisma.user.upsert({
         where: { id: data.user.id },
-        update: { email: parsed.data.email },
-        create: { id: data.user.id, email: parsed.data.email },
+        update: { email: parsed.data.email, displayName: parsed.data.displayName },
+        create: { id: data.user.id, email: parsed.data.email, displayName: parsed.data.displayName },
       })
     } catch (err) {
       console.error("Failed to upsert user after signUp:", err)

@@ -5,8 +5,10 @@ export type ConversationTurn =
   | { role: "assistant"; content: string };
 
 type ConversationMessage = {
-  characterId: string;
-  character: { name: string };
+  characterId: string | null;
+  authorUserId?: string | null;
+  character: { name: string } | null;
+  authorName?: string | null;
   content: string;
   emotion: string;
   intensity: string;
@@ -57,9 +59,10 @@ export function buildCharacterMessages(
       });
       pendingOthers = [];
     } else {
+      const speakerName = msg.character?.name ?? msg.authorName ?? "Unknown";
       pendingOthers.push(
         buildHistoryLine(
-          msg.character.name,
+          speakerName,
           msg.content,
           msg.emotion,
           msg.intensity,

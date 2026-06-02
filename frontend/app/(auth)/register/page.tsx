@@ -45,6 +45,14 @@ export default function RegisterPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
       <form action={formAction} className="flex flex-col gap-4">
         <input
+          name="displayName"
+          type="text"
+          placeholder="Display name"
+          required
+          autoComplete="nickname"
+          className={inputClass}
+        />
+        <input
           name="email"
           type="email"
           placeholder="Email"

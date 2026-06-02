@@ -38,14 +38,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { draft, characterIds } = parsed.data;
+  const { draft, characterIds, userParticipates } = parsed.data;
 
   const characters = await prisma.character.findMany({
     where: { id: { in: characterIds }, userId: user.id },
     select: { name: true },
   });
 
-  const characterLines = characters.map((ch) => `- ${ch.name}`);
+  let userDisplayName: string | null = null;
+  if (userParticipates) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { displayName: true },
+    });
+    userDisplayName = dbUser?.displayName ?? "You";
+  }
+
+  const characterLines = [
+    ...characters.map((ch) => `- ${ch.name}`),
+    ...(userDisplayName ? [`- ${userDisplayName} (you)`] : []),
+  ];
 
   const userMessage =
     characterLines.length > 0

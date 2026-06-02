@@ -12,7 +12,7 @@ import { LlmUsageSource } from "@/lib/generated/prisma/client";
 
 export class ConversationError extends Error {
   constructor(
-    public readonly code: "NOT_FOUND" | "NO_PARTICIPANTS" | "ENV_MISSING" | "LITELLM_ERROR",
+    public readonly code: "NOT_FOUND" | "NO_PARTICIPANTS" | "ENV_MISSING" | "LITELLM_ERROR" | "USER_TURN",
     message: string,
   ) {
     super(message);
@@ -38,6 +38,8 @@ export async function* generateNextTurnStream(
   userId: string,
   signal?: AbortSignal,
   onEmotion?: (emotion: Emotion) => void,
+  turnIndex?: number,
+  userJustSkipped = false,
 ): AsyncGenerator<TurnEvent> {
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, userId },
@@ -54,6 +56,13 @@ export async function* generateNextTurnStream(
   });
 
   if (!conversation) throw new ConversationError("NOT_FOUND", "Conversation not found");
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { displayName: true },
+  });
+  const userDisplayName = dbUser?.displayName ?? "Player";
+
   if (conversation.participants.length === 0) throw new ConversationError("NO_PARTICIPANTS", "No participants");
 
   const model = process.env["CONVERSATION_MODEL"];
@@ -62,35 +71,59 @@ export async function* generateNextTurnStream(
   let nextParticipant: (typeof conversation.participants)[number];
 
   if (conversation.turnStrategy === "ORCHESTRATOR") {
+    const orchestratorParticipants = conversation.participants.map((p) => ({
+      characterId: p.characterId,
+      isUserParticipant: p.isUserParticipant,
+      userDisplayName: p.isUserParticipant ? userDisplayName : undefined,
+      character: p.character ? { name: p.character.name } : null,
+    }));
+
+    const orchestratorMessages = conversation.messages.map((m) => ({
+      characterId: m.characterId,
+      authorUserId: m.authorUserId,
+      character: m.character ? { name: m.character.name } : null,
+      authorName: m.authorUserId ? userDisplayName : null,
+      content: m.content,
+      reasoning: m.reasoning,
+    }));
+
     const characterId = await selectNextSpeakerWithOrchestrator(
-      conversation.participants,
-      conversation.messages,
+      orchestratorParticipants,
+      orchestratorMessages,
       conversationId,
       userId,
+      userJustSkipped,
     );
+
+    if (characterId === "user") {
+      throw new ConversationError("USER_TURN", "User turn — waiting for user input");
+    }
+
     const found = conversation.participants.find((p) => p.characterId === characterId);
     if (!found) {
       console.error(
         `[generateNextTurnStream] orchestrator returned unknown characterId "${characterId}" — falling back to round-robin`,
       );
     }
-    nextParticipant =
-      found ??
-      conversation.participants[
-        conversation.messages.length % conversation.participants.length
-      ]!;
+    const rrIndex = (turnIndex ?? conversation.messages.length) % conversation.participants.length;
+    nextParticipant = found ?? conversation.participants[rrIndex]!;
   } else {
-    nextParticipant =
-      conversation.participants[
-        conversation.messages.length % conversation.participants.length
-      ]!;
+    const rrIndex = (turnIndex ?? conversation.messages.length) % conversation.participants.length;
+    nextParticipant = conversation.participants[rrIndex]!;
   }
 
+  if (nextParticipant.isUserParticipant) {
+    throw new ConversationError("USER_TURN", "User turn — waiting for user input");
+  }
+
+  if (!nextParticipant.character) {
+    throw new ConversationError("USER_TURN", "User turn — waiting for user input");
+  }
   const sheet = CharacterSearchResultSchema.parse(nextParticipant.character.sheet);
 
   const otherNames = conversation.participants
-    .filter((p) => p.characterId !== nextParticipant.characterId)
-    .map((p) => p.character.name);
+    .filter((p) => p.id !== nextParticipant.id)
+    .map((p) => (p.isUserParticipant ? userDisplayName : p.character!.name));
 
   const systemPrompt = buildCharacterPrompt(sheet, conversation.context, otherNames);
 
@@ -102,11 +135,26 @@ export async function* generateNextTurnStream(
     "x-session-id": conversationId,
   };
 
-  const lastSpeakerName = conversation.messages.at(-1)?.character.name ?? null;
+  const lastMsg = conversation.messages.at(-1);
+  const lastSpeakerName = lastMsg
+    ? (lastMsg.character?.name ?? userDisplayName)
+    : null;
+
+  const historyMessages = conversation.messages.map((m) => ({
+    characterId: m.characterId,
+    authorUserId: m.authorUserId,
+    character: m.character ? { name: m.character.name } : null,
+    authorName: m.authorUserId ? userDisplayName : null,
+    content: m.content,
+    emotion: m.emotion,
+    intensity: m.intensity,
+    subtext: m.subtext,
+    reasoning: m.reasoning,
+  }));
 
   const contentMessages = buildCharacterMessages(
-    conversation.messages,
-    nextParticipant.characterId,
+    historyMessages,
+    nextParticipant.characterId!,
     nextParticipant.character.name,
     conversation.context,
     lastSpeakerName,

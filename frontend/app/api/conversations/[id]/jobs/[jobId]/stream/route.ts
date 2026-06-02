@@ -48,6 +48,11 @@ export async function GET(request: Request, { params }: RouteContext) {
 
       const encode = (obj: unknown) => `data: ${JSON.stringify(obj)}\n\n`;
 
+      // If reconnecting to a paused job, immediately notify the client.
+      if (job.status === "awaiting_user") {
+        controller.enqueue(encode({ type: "user_turn" }));
+      }
+
       const unsub = subscribeToJob(jobId, {
         onToken: (text) => {
           if (!closed) controller.enqueue(encode({ type: "token", text }));
@@ -73,6 +78,12 @@ export async function GET(request: Request, { params }: RouteContext) {
         },
         onThinkingDone: () => {
           if (!closed) controller.enqueue(encode({ type: "thinking_done" }));
+        },
+        onUserTurn: () => {
+          if (!closed) controller.enqueue(encode({ type: "user_turn" }));
+        },
+        onUserTurnDone: () => {
+          if (!closed) controller.enqueue(encode({ type: "user_turn_done" }));
         },
       });
 

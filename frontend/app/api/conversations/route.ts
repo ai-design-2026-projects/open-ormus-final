@@ -34,14 +34,16 @@ export async function GET() {
       id: c.id,
       title: c.title,
       createdAt: c.createdAt.toISOString(),
-      participants: c.participants.map((p) => ({
-        characterId: p.character.id,
-        name: p.character.name,
-      })),
+      participants: c.participants
+        .filter((p) => !p.isUserParticipant && p.character != null)
+        .map((p) => ({
+          characterId: p.character!.id,
+          name: p.character!.name,
+        })),
       lastMessage:
         c.messages[0] != null
           ? {
-              characterName: c.messages[0].character.name,
+              characterName: c.messages[0].character?.name ?? "You",
               content: c.messages[0].content,
               createdAt: c.messages[0].createdAt.toISOString(),
             }
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { title, context, characterIds, turnStrategy } = parsed.data;
+  const { title, context, characterIds, turnStrategy, userParticipates, userTurnOrder } = parsed.data;
 
   const characters = await prisma.character.findMany({
     where: { id: { in: characterIds }, userId: user.id },
@@ -82,6 +84,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid character IDs" }, { status: 400 });
   }
 
+  const userGoesFirst = userParticipates && userTurnOrder === 0;
+  const characterParticipants = characterIds.map((characterId, index) => ({
+    characterId,
+    isUserParticipant: false as const,
+    turnOrder: userGoesFirst ? index + 1 : index,
+  }));
+
+  const userParticipant = userParticipates
+    ? [{
+        characterId: null,
+        isUserParticipant: true as const,
+        turnOrder: userTurnOrder ?? characterIds.length,
+      }]
+    : [];
+
   const conversation = await prisma.conversation.create({
     data: {
       userId: user.id,
@@ -89,10 +106,7 @@ export async function POST(request: Request) {
       context,
       turnStrategy,
       participants: {
-        create: characterIds.map((characterId, index) => ({
-          characterId,
-          turnOrder: index,
-        })),
+        create: [...characterParticipants, ...userParticipant],
       },
     },
     include: {
@@ -109,8 +123,9 @@ export async function POST(request: Request) {
       title: conversation.title,
       createdAt: conversation.createdAt.toISOString(),
       participants: conversation.participants.map((p) => ({
-        characterId: p.character.id,
-        name: p.character.name,
+        characterId: p.character?.id ?? null,
+        name: p.character?.name ?? "You",
+        isUserParticipant: p.isUserParticipant,
       })),
       lastMessage: null,
     },

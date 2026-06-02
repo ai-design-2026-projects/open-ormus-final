@@ -11,7 +11,7 @@ export async function ensureStarted(): Promise<void> {
   initialized = true;
 
   await prisma.conversationJob.updateMany({
-    where: { status: "running" },
+    where: { status: { in: ["running", "awaiting_user"] } },
     data: { status: "pending" },
   });
 
