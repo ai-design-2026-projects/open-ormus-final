@@ -209,6 +209,7 @@ export default function ConversationPage() {
 
   const lastEmotionMap: Record<string, { emotion: string; intensity: string }> = {};
   for (const m of conversation.messages) {
+    if (m.characterId === null) continue;
     lastEmotionMap[m.characterId] = { emotion: m.emotion, intensity: m.intensity };
   }
 
@@ -220,7 +221,7 @@ export default function ConversationPage() {
       ? conversation.messages[conversation.messages.length - 1]?.characterId
       : sortedParticipants[0]?.characterId;
   const focusSpeaker = sortedParticipants.find((p) => p.characterId === focusId) ?? sortedParticipants[0];
-  const focusEmotion = (isActive ? streamingEmotion : null) ?? (focusSpeaker ? lastEmotionMap[focusSpeaker.characterId] : null);
+  const focusEmotion = (isActive ? streamingEmotion : null) ?? (focusSpeaker?.characterId != null ? lastEmotionMap[focusSpeaker.characterId] : null);
   const focusEmotionName = focusEmotion?.emotion?.toLowerCase() ?? "";
   const focusIntensity = focusEmotion?.intensity ?? "";
   const showEmotionGrid = focusLabel !== "ON DECK";
@@ -352,7 +353,7 @@ export default function ConversationPage() {
           <div className="bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
             <div className="t-meta mb-1">CAST STATE</div>
             {sortedParticipants.map((p, i) => {
-              const em = lastEmotionMap[p.characterId];
+              const em = p.characterId != null ? lastEmotionMap[p.characterId] : undefined;
               return (
                 <div
                   key={p.characterId}

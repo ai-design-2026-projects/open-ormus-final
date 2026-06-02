@@ -38,7 +38,11 @@ export async function selectNextSpeakerWithOrchestrator(
     const { data, response: httpResponse } = await client.chat.completions
       .create({
         model,
-        max_tokens: 64,
+        // Caps total completion (reasoning_tokens + content). Reasoning models spend
+        // budget on private reasoning before emitting the characterId; 64 truncated
+        // content to empty, forcing round-robin fallback every turn. Headroom for
+        // reasoning + a single characterId/"user" token.
+        max_tokens: 2048,
         messages: [{ role: "system", content: systemPrompt }, ...turnMessages],
       })
       .withResponse();
