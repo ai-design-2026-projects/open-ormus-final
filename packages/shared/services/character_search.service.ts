@@ -131,20 +131,23 @@ const BASICS_SYSTEM_PROMPT =
   "The subject is always a fictional character from a film, TV series, book, or other fictional work — never a real person. " +
   "If a real person shares this name, ignore them entirely and focus only on the fictional character. " +
   "If the character is not identifiable from the query, return name as an empty string and imageUrl as null. " +
-  "If the first appearance date is unknown, return null for firstAppearanceDate.";
+  "If the first appearance date is unknown, return null for firstAppearanceDate." +
+  " Write all output fields in English, regardless of the source material's language.";
 
 const PERSONALITY_SYSTEM_PROMPT =
   "You are a fictional character analyst. Populate the personality fields for the identified character. " +
   "Draw from canonical sources. Be specific and detailed. " +
   "The subject is always a fictional character — never a real person. " +
-  "If a real person shares this name, ignore them and focus only on the fictional character.";
+  "If a real person shares this name, ignore them and focus only on the fictional character." +
+  " Write all output fields in English, regardless of the source material's language.";
 
 const CONNECTIONS_SYSTEM_PROMPT =
   "You are a fictional character analyst. Populate the relationships and knowledge scope for the identified character. " +
   "The subject is always a fictional character — never a real person. " +
   "If a real person shares this name, ignore them and focus only on the fictional character. " +
   "For relationships: list each significant relationship as an entry with the related character's name and a brief description of the relationship. " +
-  "For knowledgeScope: list each domain of knowledge as an entry with the domain name and a description of this character's level or type of expertise.";
+  "For knowledgeScope: list each domain of knowledge as an entry with the domain name and a description of this character's level or type of expertise." +
+  " Write all output fields in English, regardless of the source material's language.";
 
 // ─── Exported handlers ─────────────────────────────────────────────────────────
 

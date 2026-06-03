@@ -31,6 +31,11 @@ describe("buildCharacterPrompt", () => {
     expect(result).toContain("Walter White");
   });
 
+  test("instructs the character to always respond in English", () => {
+    const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
+    expect(result).toContain("Always respond in English");
+  });
+
   test("includes values in the psychology section", () => {
     const result = buildCharacterPrompt(mockSheet, "A tense meeting.");
     expect(result).toContain("pride");

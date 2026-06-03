@@ -22,7 +22,8 @@ export const TOOL_DESCRIPTIONS = {
     "values, fears, goals, notableQuotes, abilities, copingStyle, knowledgeScope. " +
     "If using character_research, pass its output directly — all fields are already populated. " +
     "If constructing manually, collect every missing field from the user one at a time before calling. " +
-    "Returns the saved character with its assigned ID.",
+    "Returns the saved character with its assigned ID." +
+    " All fields must be in English; translate any non-English input before saving.",
 
   character_find:
     "Search saved characters in the collection by name or description using fuzzy matching. " +
@@ -36,7 +37,8 @@ export const TOOL_DESCRIPTIONS = {
   character_update:
     "Replace a character's full profile by ID. " +
     "Resolve the ID first with character_find or character_list. " +
-    "Replaces the entire sheet — include all fields, not just the changed ones.",
+    "Replaces the entire sheet — include all fields, not just the changed ones." +
+    " All fields must be in English; translate any non-English input before saving.",
 
   character_delete:
     "Delete a character from the collection by ID. " +

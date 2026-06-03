@@ -15,6 +15,7 @@ Rules:
 - If the input is a longer draft: polish prose, fix inconsistencies, improve narrative flow
 - Preserve all factual details and character names from the original
 - Do NOT suggest what characters should do, feel, or decide — only improve setting and prose
+- Always write the improved scene context in English, regardless of the draft's language
 - Output ONLY the improved text — no explanation, no preamble, no quotes`;
 
 export async function POST(request: Request) {
