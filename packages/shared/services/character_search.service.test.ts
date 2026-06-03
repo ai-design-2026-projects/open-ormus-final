@@ -194,7 +194,7 @@ describe("characterSearchHandler", () => {
     if ("error" in result) throw new Error(`unexpected error: ${result.error}`);
     // root-level basics
     expect(result.name).toBe("Walter White");
-    expect(result.imageUrl).toBeNull();
+    expect(result.imageUrl ?? null).toBeNull();
     expect(result.shortDescription).toBe("Chemistry teacher turned drug lord.");
     // nested personality
     expect(result.personality.personalityTraits).toEqual(["intelligent", "prideful"]);

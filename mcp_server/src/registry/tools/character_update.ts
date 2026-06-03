@@ -7,6 +7,7 @@ import {
   type SavedCharacterRecord,
 } from "@open-ormus/shared";
 import { updateCharacter } from "@open-ormus/shared/services/character.service";
+import { processAndStorePictures } from "@open-ormus/shared/services/character_picture.service";
 import { prisma } from "../../db.js";
 import { userIdStorage } from "../../auth/context.js";
 
@@ -17,7 +18,25 @@ export async function characterUpdateHandler(
 ): Promise<UpdateResult> {
   const userId = userIdStorage.getStore();
   if (!userId) throw new Error("userId not in context");
-  return updateCharacter(prisma, userId, args);
+
+  const { id, imageUrl, sheet } = args;
+
+  if (imageUrl) {
+    await processAndStorePictures(
+      prisma,
+      imageUrl,
+      userId,
+      id,
+      {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      }
+    );
+    // throws on failure — update is not applied if picture processing fails
+  }
+
+  const { imageUrl: _stripped, ...sheetData } = sheet;
+  return updateCharacter(prisma, userId, { id, sheet: sheetData });
 }
 
 export function register(server: McpServer): void {

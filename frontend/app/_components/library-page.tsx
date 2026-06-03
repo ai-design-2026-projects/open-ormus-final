@@ -63,26 +63,31 @@ export function LibraryPage() {
     );
   }, [characters, searchQuery, sortDir]);
 
-  const handleCreate = async (data: CharacterSaveInput) => {
+  const handleCreate = async (data: CharacterSaveInput): Promise<SavedCharacterRecord> => {
     const res = await fetch("/api/characters", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error("Failed to create character");
+    const character = (await res.json()) as SavedCharacterRecord;
     await fetchCharacters();
+    return character;
   };
 
-  const handleEdit = async (data: CharacterSaveInput) => {
-    if (!selected) return;
+  const handleEdit = async (data: CharacterSaveInput): Promise<SavedCharacterRecord> => {
+    if (!selected) throw new Error("No character selected");
     const res = await fetch(`/api/characters/${selected.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: selected.id, sheet: data }),
     });
     if (!res.ok) throw new Error("Failed to update character");
+    const character = (await res.json()) as SavedCharacterRecord;
     await fetchCharacters();
+    return character;
   };
+
 
   const handleDelete = async () => {
     if (!selected) return;

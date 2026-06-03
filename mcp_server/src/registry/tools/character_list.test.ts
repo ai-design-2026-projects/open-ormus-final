@@ -2,7 +2,6 @@ import { mock } from "bun:test";
 
 const mockSheet = {
   name: "Arthur",
-  imageUrl: null,
   shortDescription: "Legendary king",
   firstAppearanceDate: "500 AD",
   personality: {
@@ -32,8 +31,13 @@ const mockFindMany = mock(async () => [
   },
 ]);
 
+const mockFindManyPictures = mock(async () => []);
+
 mock.module("../../db.js", () => ({
-  prisma: { character: { findMany: mockFindMany } },
+  prisma: {
+    character: { findMany: mockFindMany },
+    characterPicture: { findMany: mockFindManyPictures },
+  },
 }));
 
 import { describe, test, expect, beforeEach } from "bun:test";
@@ -53,6 +57,7 @@ describe("characterListHandler", () => {
     expect(result[0]?.name).toBe("Arthur");
     expect(result[0]?.id).toBe("00000000-0000-0000-0000-000000000001");
     expect(result[0]?.archivedAt).toBeNull();
+    expect(result[0]?.pictures).toEqual([]);
   });
 
   test("queries only active (non-archived) characters for current user", async () => {

@@ -10,6 +10,8 @@ export {
   CharacterDeleteInputShape,
   CharacterDeleteInputSchema,
   type CharacterDeleteInput,
+  CharacterPictureSchema,
+  type CharacterPicture,
   SavedCharacterRecordSchema,
   type SavedCharacterRecord,
   CharacterArchiveInputSchema,

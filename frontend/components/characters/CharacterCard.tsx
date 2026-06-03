@@ -1,5 +1,4 @@
 "use client";
-// frontend/components/characters/CharacterCard.tsx
 import type { SavedCharacterRecord } from "@open-ormus/shared";
 import { Play, Eye, Pencil, Trash2 } from "lucide-react";
 import { Monogram } from "@/components/ui/monogram";
@@ -15,18 +14,18 @@ interface Props {
 }
 
 export function CharacterCard({ character, onView, onEdit, onDelete }: Props) {
+  const pictureUrl = character.pictures.find((p) => p.size === 512)?.url;
   const { sheet } = character;
-  const imageUrl = (sheet as Record<string, unknown>).imageUrl as string | undefined;
   const shortDesc = sheet.shortDescription;
   const traits: string[] = sheet.personality.personalityTraits.slice(0, 4);
 
   return (
     <article className="bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[22px] flex flex-col gap-3.5 relative transition-[box-shadow,border-color] duration-[220ms] hover:shadow-[var(--shadow-inset),var(--shadow-2)] hover:border-hair-strong shadow-[var(--shadow-inset),var(--shadow-1)] h-full">
-      {/* Top: Monogram + badges + more button */}
+      {/* Top: Avatar + badges */}
       <div className="flex items-start justify-between">
-        {imageUrl ? (
+        {pictureUrl ? (
           <img
-            src={imageUrl}
+            src={pictureUrl}
             alt={character.name}
             className="size-14 rounded-[var(--r-md)] object-cover shrink-0"
           />
@@ -62,31 +61,13 @@ export function CharacterCard({ character, onView, onEdit, onDelete }: Props) {
 
       {/* Action row */}
       <div className="flex gap-1 pt-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => onView(character)}
-          className="flex-1 gap-1"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={() => onView(character)} className="flex-1 gap-1">
           <Eye className="size-3.5" /> View
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => onEdit(character)}
-          className="flex-1 gap-1"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(character)} className="flex-1 gap-1">
           <Pencil className="size-3.5" /> Edit
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => onDelete(character)}
-          className="flex-1 gap-1 text-signal-flag hover:text-signal-flag"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={() => onDelete(character)} className="flex-1 gap-1 text-signal-flag hover:text-signal-flag">
           <Trash2 className="size-3.5" /> Delete
         </Button>
       </div>

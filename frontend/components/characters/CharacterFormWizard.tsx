@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, Camera } from "lucide-react";
 import type {
   CharacterSaveInput,
   CharacterPersonality,
   CharacterSearchResult,
   SavedCharacterRecord,
 } from "@open-ormus/shared";
+import { Monogram } from "@/components/ui/monogram";
 import { ImportStep } from "./ImportStep";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -62,7 +63,7 @@ function fromRecord(record: SavedCharacterRecord): FormState {
   return {
     name: sheet.name,
     shortDescription: sheet.shortDescription,
-    imageUrl: sheet.imageUrl ?? "",
+    imageUrl: record.pictures.find((pic) => pic.size === 512)?.url ?? "",
     firstAppearanceDate: sheet.firstAppearanceDate ?? "",
     personalityTraits: p.personalityTraits,
     backstory: p.backstory,
@@ -274,7 +275,7 @@ interface WizardProps {
   mode: "create" | "edit";
   initialData?: SavedCharacterRecord;
   initialStep?: number;
-  onSubmit: (data: CharacterSaveInput) => Promise<void>;
+  onSubmit: (data: CharacterSaveInput) => Promise<SavedCharacterRecord>;
   onClose: () => void;
 }
 
@@ -291,6 +292,15 @@ export function CharacterFormWizard({
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    };
+  }, [filePreviewUrl]);
 
   // Queue state for multi-character imports
   const [pendingQueue, setPendingQueue] = useState<CharacterSearchResult[]>([]);
@@ -299,6 +309,29 @@ export function CharacterFormWizard({
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setFile(picked);
+    setFilePreviewUrl(URL.createObjectURL(picked));
+    set("imageUrl", "");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const uploadPendingFile = async (characterId: string): Promise<void> => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/characters/${characterId}/picture`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) console.error("[CharacterFormWizard] picture upload failed");
+    setFile(null);
+    if (filePreviewUrl) { URL.revokeObjectURL(filePreviewUrl); setFilePreviewUrl(null); }
+  };
 
   // formStep is the index into FORM_STEPS (0=Basics, 1=Personality, 2=Connections).
   // In create mode, step 0 is Import, so formStep = step - 1.
@@ -316,13 +349,22 @@ export function CharacterFormWizard({
     setPendingQueue(rest);
     setQueueTotal(results.length);
     setStep(mode === "create" ? 1 : 0); // advance to Basics
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setFile(null);
+    setFilePreviewUrl(null);
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(toSaveInput(form));
+      if (mode === "edit" && initialData && file) {
+        await uploadPendingFile(initialData.id);
+      }
+      const saved = await onSubmit(toSaveInput(form));
+      if (mode === "create" && file) {
+        await uploadPendingFile(saved.id);
+      }
       onClose();
     } catch {
       setError("Failed to save character. Please try again.");
@@ -334,12 +376,18 @@ export function CharacterFormWizard({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(toSaveInput(form));
+      if (mode === "edit" && initialData && file) {
+        await uploadPendingFile(initialData.id);
+      }
+      const saved = await onSubmit(toSaveInput(form));
+      if (mode === "create" && file) {
+        await uploadPendingFile(saved.id);
+      }
       if (pendingQueue.length > 0) {
         const [next, ...rest] = pendingQueue;
         setForm(fromSearchResult(next!));
         setPendingQueue(rest);
-        setStep(mode === "create" ? 1 : 0); // back to Basics for next character
+        setStep(mode === "create" ? 1 : 0);
       } else {
         onClose();
       }
@@ -360,6 +408,9 @@ export function CharacterFormWizard({
     } else {
       onClose();
     }
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setFile(null);
+    setFilePreviewUrl(null);
   };
 
   const queuePosition = queueTotal - pendingQueue.length; // 1-based index of current char
@@ -435,11 +486,44 @@ export function CharacterFormWizard({
                     />
                   </div>
                   <div>
-                    <FieldLabel>Image URL</FieldLabel>
+                    <FieldLabel>Picture</FieldLabel>
+                    <div className="mb-3">
+                      {(filePreviewUrl || form.imageUrl) ? (
+                        <img
+                          src={filePreviewUrl ?? form.imageUrl}
+                          alt="Preview"
+                          className="size-14 rounded-[var(--r-md)] object-cover"
+                        />
+                      ) : (
+                        <Monogram name={form.name || "?"} size={56} />
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mb-3"
+                    >
+                      <Camera className="size-3.5 mr-1.5" /> Upload from file
+                    </Button>
+                    <div className="t-meta text-ink-faint mb-1">or paste a URL</div>
                     <Input
                       type="text"
                       value={form.imageUrl}
-                      onChange={(e) => set("imageUrl", e.target.value)}
+                      placeholder="https://..."
+                      onChange={(e) => {
+                        if (filePreviewUrl) { URL.revokeObjectURL(filePreviewUrl); setFilePreviewUrl(null); }
+                        setFile(null);
+                        set("imageUrl", e.target.value);
+                      }}
                     />
                   </div>
                   <div>

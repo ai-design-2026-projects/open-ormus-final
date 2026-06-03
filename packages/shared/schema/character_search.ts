@@ -46,7 +46,7 @@ export type CharacterPersonality = z.infer<typeof CharacterPersonalitySchema>;
 // Success result
 const CharacterSearchResultShape = {
   name: z.string(),
-  imageUrl: z.string().nullable(),
+  imageUrl: z.string().nullable().optional(),
   shortDescription: z.string(),
   firstAppearanceDate: z.string().nullable(),
   personality: CharacterPersonalitySchema,

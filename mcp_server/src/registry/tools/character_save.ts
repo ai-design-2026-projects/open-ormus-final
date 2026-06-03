@@ -5,17 +5,41 @@ import {
   TOOL_DESCRIPTIONS,
   type CharacterSaveInput,
   type SavedCharacterRecord,
+  type CharacterPicture,
 } from "@open-ormus/shared";
 import { saveCharacter } from "@open-ormus/shared/services/character.service";
+import { processAndStorePictures } from "@open-ormus/shared/services/character_picture.service";
 import { prisma } from "../../db.js";
 import { userIdStorage } from "../../auth/context.js";
+import { randomUUID } from "crypto";
 
 export async function characterSaveHandler(
   args: CharacterSaveInput
 ): Promise<SavedCharacterRecord> {
   const userId = userIdStorage.getStore();
   if (!userId) throw new Error("userId not in context");
-  return saveCharacter(prisma, userId, args);
+
+  const { imageUrl, ...sheetData } = args;
+
+  let pictures: CharacterPicture[] = [];
+  let characterId: string | undefined;
+
+  if (imageUrl) {
+    characterId = randomUUID();
+    pictures = await processAndStorePictures(
+      prisma,
+      imageUrl,
+      userId,
+      characterId,
+      {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      }
+    );
+    // throws on failure — character is not saved if picture processing fails
+  }
+
+  return saveCharacter(prisma, userId, sheetData, pictures, characterId);
 }
 
 export function register(server: McpServer): void {

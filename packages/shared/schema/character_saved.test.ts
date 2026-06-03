@@ -94,6 +94,7 @@ describe("SavedCharacterRecordSchema", () => {
       userId: "00000000-0000-0000-0000-000000000002",
       name: "Arthur",
       sheet: validSheet,
+      pictures: [],
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
       archivedAt: null,

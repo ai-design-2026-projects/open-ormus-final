@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { CharacterPersonalitySchema, CharacterSearchResultSchema } from "./character_search";
 
+export const CharacterPictureSchema = z.object({
+  size: z.number().int(),
+  url: z.string(),
+});
+export type CharacterPicture = z.infer<typeof CharacterPictureSchema>;
+
 // Zod v4 z.string().uuid() enforces RFC 4122 version nibble [1-8], which rejects
 // some valid-looking UUIDs (e.g. 00000000-0000-0000-0000-000000000001). Using a
 // lenient regex that checks UUID shape without constraining the version nibble.
@@ -26,6 +32,7 @@ export type CharacterSaveInput = z.infer<typeof CharacterSaveInputSchema>;
 // Update input — full sheet replacement
 export const CharacterUpdateInputShape = {
   id: uuidSchema,
+  imageUrl: z.string().nullable().optional(),
   sheet: CharacterSearchResultSchema,
 } as const;
 
@@ -46,6 +53,7 @@ export const SavedCharacterRecordSchema = z.object({
   userId: uuidSchema,
   name: z.string(),
   sheet: CharacterSearchResultSchema,
+  pictures: z.array(CharacterPictureSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
   archivedAt: z.string().datetime().nullable(),

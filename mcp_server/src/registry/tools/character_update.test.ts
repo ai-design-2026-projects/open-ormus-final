@@ -1,8 +1,12 @@
 import { mock } from "bun:test";
 
+// Mock processAndStorePictures
+mock.module("@open-ormus/shared/services/character_picture.service", () => ({
+  processAndStorePictures: mock(async () => []),
+}));
+
 const validSheet = {
   name: "Arthur Updated",
-  imageUrl: "https://example.com/arthur.jpg",
   shortDescription: "Updated description",
   firstAppearanceDate: "500 AD",
   personality: {
@@ -32,12 +36,16 @@ const baseRow = {
 
 const mockUpdateMany = mock(async () => ({ count: 1 }));
 const mockFindFirst = mock(async () => ({ ...baseRow }));
+const mockFindManyPictures = mock(async () => []);
 
 mock.module("../../db.js", () => ({
   prisma: {
     character: {
       updateMany: mockUpdateMany,
       findFirst: mockFindFirst,
+    },
+    characterPicture: {
+      findMany: mockFindManyPictures,
     },
   },
 }));
@@ -55,21 +63,21 @@ describe("characterUpdateHandler", () => {
   beforeEach(() => {
     mockUpdateMany.mockClear();
     mockFindFirst.mockClear();
+    mockFindManyPictures.mockClear();
   });
 
-  test("updates character and returns updated record", async () => {
+  test("updates character and returns updated record with pictures array", async () => {
     const result = await userIdStorage.run("test-user", () =>
       characterUpdateHandler(validInput)
     );
     if ("error" in result) throw new Error("expected success");
     expect(result.name).toBe("Arthur Updated");
     expect(result.archivedAt).toBeNull();
+    expect(result.pictures).toEqual([]);
   });
 
   test("scopes update to current userId", async () => {
-    await userIdStorage.run("test-user", () =>
-      characterUpdateHandler(validInput)
-    );
+    await userIdStorage.run("test-user", () => characterUpdateHandler(validInput));
     const updateCall = mockUpdateMany.mock.calls[0]?.[0] as {
       where: { id: string; userId: string };
     };
