@@ -15,10 +15,12 @@ import { createMcpServer } from "@/lib/agent/mcp_bridge";
 import { runAgent } from "@/lib/agent/loop";
 import { logLlmUsage } from "@/lib/llm-usage";
 import { LlmUsageSource } from "@/lib/generated/prisma/client";
+import { AttachmentSchema } from "@/lib/agent/attachment";
 
 const RequestSchema = z.object({
   message: z.string().min(1),
   sessionId: z.string().uuid().optional(),
+  attachments: z.array(AttachmentSchema).max(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
-  const { message, sessionId: incomingSessionId } = parsed.data;
+  const { message, sessionId: incomingSessionId, attachments } = parsed.data;
 
   const sessionId = incomingSessionId ?? (await createSession(prisma, user.id));
   const priorMessages = await getSessionMessages(prisma, sessionId, user.id);
@@ -72,6 +74,7 @@ export async function POST(request: Request) {
           safeEnqueue,
           { source: LlmUsageSource.AGENT_SESSION, agentSessionId: sessionId, userId: user.id },
           request.signal,
+          attachments,
         );
 
         // Persist regardless of LLM error so the user turn and any completed

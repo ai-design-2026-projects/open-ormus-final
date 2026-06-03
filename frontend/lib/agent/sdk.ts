@@ -7,6 +7,7 @@ import {
 import { createLLMClient } from "@/lib/llm-client";
 import { logLlmUsage, type UsageContext } from "@/lib/llm-usage";
 import { LlmUsageSource } from "@/lib/generated/prisma/client";
+import type { Attachment } from "./attachment";
 
 export const MODEL_NAME = process.env["CONVERSATION_MODEL"] ?? "default";
 
@@ -57,14 +58,57 @@ function asResponseDone(event: unknown): ResponseDoneEvent | undefined {
 type StreamedRequest = Parameters<OpenAIChatCompletionsModel["getStreamedResponse"]>[0];
 type StreamedResponse = ReturnType<OpenAIChatCompletionsModel["getStreamedResponse"]>;
 
+// Intercepts the outgoing fetch to inject file content parts into the last
+// user message after the SDK has serialized AgentInputItems to chat messages.
+// This avoids relying on the SDK understanding the `file` content type.
+function injectFilesFetch(attachments: Attachment[]): typeof globalThis.fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (init?.body && typeof init.body === "string") {
+      try {
+        const body = JSON.parse(init.body) as {
+          messages?: { role: string; content: unknown }[];
+          plugins?: unknown[];
+        };
+        if (Array.isArray(body.messages)) {
+          for (let i = body.messages.length - 1; i >= 0; i--) {
+            const msg = body.messages[i];
+            if (msg?.role === "user") {
+              const text =
+                typeof msg.content === "string"
+                  ? msg.content
+                  : Array.isArray(msg.content)
+                    ? ((msg.content as { type?: string; text?: string }[]).find((c) => c.type === "text")?.text ?? "")
+                    : "";
+              msg.content = [
+                { type: "text", text },
+                ...attachments.map((a) => ({
+                  type: "file",
+                  file: { filename: a.filename, file_data: a.fileData },
+                })),
+              ];
+              break;
+            }
+          }
+          body.plugins = [{ id: "file-parser", pdf: { engine: "native" } }];
+          init = { ...init, body: JSON.stringify(body) };
+        }
+      } catch {
+        // parsing failed — send original
+      }
+    }
+    return globalThis.fetch(input, init);
+  };
+}
+
 // Wraps the chat-completions model so every underlying LLM call (each tool
 // round produces its own `response_done`) emits exactly one usage row. The SDK
 // only aggregates usage at the run level, which would lose per-call detail.
 export class LoggingModel extends OpenAIChatCompletionsModel {
   private readonly ctx: UsageContext;
 
-  constructor(ctx: UsageContext = { source: LlmUsageSource.AGENT_SESSION }) {
-    super(client, MODEL_NAME);
+  constructor(ctx: UsageContext = { source: LlmUsageSource.AGENT_SESSION }, attachments?: Attachment[]) {
+    const modelClient = attachments?.length ? createLLMClient(injectFilesFetch(attachments)) : client;
+    super(modelClient, MODEL_NAME);
     this.ctx = ctx;
   }
 

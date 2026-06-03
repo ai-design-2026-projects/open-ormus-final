@@ -6,7 +6,8 @@ import { ToolCallBlock } from "./tool-call-block";
 export type MessageBlock =
   | { type: "text"; content: string }
   | { type: "tool_call"; tool: string; input: unknown; result?: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "attachment"; filename: string };
 
 export type ChatMessage = {
   id: string;
@@ -63,6 +64,14 @@ export function MessageThread({ messages, isStreaming }: MessageThreadProps) {
                   <p key={i} className="text-sm text-destructive">
                     ⚠ {block.message}
                   </p>
+                );
+              }
+              if (block.type === "attachment") {
+                return (
+                  <div key={i} className="flex items-center gap-1 text-xs opacity-75 bg-primary-foreground/10 rounded px-2 py-1 w-fit">
+                    <span>📎</span>
+                    <span className="truncate max-w-[200px]">{block.filename}</span>
+                  </div>
                 );
               }
               return null;

@@ -6,6 +6,7 @@ import { encodeChunk, mapRunEvent } from "./stream";
 import { LoggingModel } from "./sdk";
 import type { AgentMcpServer } from "./mcp_bridge";
 import { AGENT_SYSTEM_PROMPT } from "./prompt";
+import type { Attachment } from "./attachment";
 
 export async function runAgent(
   priorItems: AgentInputItem[],
@@ -14,6 +15,7 @@ export async function runAgent(
   onChunk: (data: Uint8Array) => void,
   ctx: UsageContext = { source: LlmUsageSource.AGENT_SESSION },
   signal?: AbortSignal,
+  attachments?: Attachment[],
 ): Promise<{ items: AgentInputItem[]; error: Error | null }> {
   const send = (chunk: Parameters<typeof encodeChunk>[0]) => {
     onChunk(encodeChunk(chunk));
@@ -27,7 +29,7 @@ export async function runAgent(
   const agent = new Agent({
     name: "openormus",
     instructions: AGENT_SYSTEM_PROMPT,
-    model: new LoggingModel(ctx),
+    model: new LoggingModel(ctx, attachments),
     mcpServers: [mcpServer],
   });
 

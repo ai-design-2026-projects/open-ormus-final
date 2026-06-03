@@ -7,6 +7,7 @@ import { ChatInput } from "./chat-input";
 import { AppNav } from "@/components/app-shell/AppNav";
 import type { AgentSessionSummary } from "@/lib/agent/history";
 import type { StreamChunk } from "@/lib/agent/stream";
+import type { Attachment } from "@/lib/agent/attachment";
 
 type ChatState = {
   messages: ChatMessage[];
@@ -16,7 +17,7 @@ type ChatState = {
 };
 
 type ChatAction =
-  | { type: "SEND"; text: string }
+  | { type: "SEND"; text: string; attachmentFilename?: string }
   | { type: "SESSION_CREATED"; sessionId: string }
   | { type: "TEXT_DELTA"; text: string }
   | { type: "TOOL_START"; tool: string; input: unknown }
@@ -36,11 +37,11 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, sessionId: action.sessionId };
     }
     case "SEND": {
-      const userMsg: ChatMessage = {
-        id: uid(),
-        role: "user",
-        blocks: [{ type: "text", content: action.text }],
-      };
+      const blocks: MessageBlock[] = [{ type: "text", content: action.text }];
+      if (action.attachmentFilename) {
+        blocks.push({ type: "attachment", filename: action.attachmentFilename });
+      }
+      const userMsg: ChatMessage = { id: uid(), role: "user", blocks };
       const assistantMsg: ChatMessage = { id: uid(), role: "assistant", blocks: [] };
       return {
         ...state,
@@ -142,8 +143,8 @@ export function ChatView({ initialSessions }: ChatViewProps) {
   }, []);
 
   const handleSend = useCallback(
-    async (text: string) => {
-      dispatch({ type: "SEND", text });
+    async (text: string, attachment?: Attachment) => {
+      dispatch({ type: "SEND", text, ...(attachment ? { attachmentFilename: attachment.filename } : {}) });
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -155,6 +156,7 @@ export function ChatView({ initialSessions }: ChatViewProps) {
           body: JSON.stringify({
             message: text,
             sessionId: state.sessionId ?? undefined,
+            ...(attachment ? { attachments: [attachment] } : {}),
           }),
           signal: controller.signal,
         });
