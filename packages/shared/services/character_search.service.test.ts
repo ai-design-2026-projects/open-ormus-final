@@ -102,6 +102,18 @@ describe("characterBasicsHandler", () => {
     expect(result).toEqual({ error: "search_failed" });
     expect(calls).toBe(3);
   });
+
+  test("prefixes query with 'fictional character ' before sending to Exa", async () => {
+    const capturedQueries: string[] = [];
+    const mock = {
+      answer: async (query: string) => {
+        capturedQueries.push(query);
+        return { answer: flatCharacter };
+      },
+    };
+    await characterBasicsHandler({ query: "Bruno, Money Heist" }, mock);
+    expect(capturedQueries[0]).toBe("fictional character Bruno, Money Heist");
+  });
 });
 
 // ── characterDetailsHandler ───────────────────────────────────────────────────

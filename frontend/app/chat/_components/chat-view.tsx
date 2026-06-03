@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback } from "react";
+import { useReducer, useCallback, useRef } from "react";
 import { SessionSidebar } from "./session-sidebar";
 import { MessageThread, type ChatMessage, type MessageBlock } from "./message-thread";
 import { ChatInput } from "./chat-input";
@@ -17,6 +17,7 @@ type ChatState = {
 
 type ChatAction =
   | { type: "SEND"; text: string }
+  | { type: "SESSION_CREATED"; sessionId: string }
   | { type: "TEXT_DELTA"; text: string }
   | { type: "TOOL_START"; tool: string; input: unknown }
   | { type: "TOOL_RESULT"; tool: string; preview: string }
@@ -31,6 +32,9 @@ function uid() {
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case "SESSION_CREATED": {
+      return { ...state, sessionId: action.sessionId };
+    }
     case "SEND": {
       const userMsg: ChatMessage = {
         id: uid(),
@@ -131,9 +135,18 @@ export function ChatView({ initialSessions }: ChatViewProps) {
     sessions: initialSessions,
   });
 
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
   const handleSend = useCallback(
     async (text: string) => {
       dispatch({ type: "SEND", text });
+
+      const controller = new AbortController();
+      abortRef.current = controller;
 
       try {
         const response = await fetch("/api/chat/stream", {
@@ -143,6 +156,7 @@ export function ChatView({ initialSessions }: ChatViewProps) {
             message: text,
             sessionId: state.sessionId ?? undefined,
           }),
+          signal: controller.signal,
         });
 
         if (!response.ok || !response.body) {
@@ -164,7 +178,9 @@ export function ChatView({ initialSessions }: ChatViewProps) {
             if (!line.startsWith("data: ")) continue;
             try {
               const chunk = JSON.parse(line.slice(6)) as StreamChunk;
-              if (chunk.type === "text_delta")
+              if (chunk.type === "session_created")
+                dispatch({ type: "SESSION_CREATED", sessionId: chunk.sessionId });
+              else if (chunk.type === "text_delta")
                 dispatch({ type: "TEXT_DELTA", text: chunk.text });
               else if (chunk.type === "tool_start")
                 dispatch({ type: "TOOL_START", tool: chunk.tool, input: chunk.input });
@@ -180,10 +196,14 @@ export function ChatView({ initialSessions }: ChatViewProps) {
           }
         }
       } catch (err) {
-        dispatch({
-          type: "ERROR",
-          message: err instanceof Error ? err.message : "Network error",
-        });
+        if (err instanceof DOMException && err.name === "AbortError") {
+          dispatch({ type: "ERROR", message: "Generation stopped." });
+        } else {
+          dispatch({
+            type: "ERROR",
+            message: err instanceof Error ? err.message : "Network error",
+          });
+        }
       }
     },
     [state.sessionId],
@@ -223,7 +243,7 @@ export function ChatView({ initialSessions }: ChatViewProps) {
           ) : (
             <MessageThread messages={state.messages} isStreaming={state.isStreaming} />
           )}
-          <ChatInput onSend={handleSend} disabled={state.isStreaming} />
+          <ChatInput onSend={handleSend} onStop={handleStop} isStreaming={state.isStreaming} />
         </div>
       </div>
     </div>

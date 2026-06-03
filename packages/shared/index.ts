@@ -1,3 +1,4 @@
+export { TOOL_DESCRIPTIONS } from "./tool-descriptions";
 export * from "./types";
 export {
   CharacterSaveInputShape,
@@ -30,11 +31,6 @@ export {
   CharacterSearchResultSchema,
   type CharacterSearchResult,
 } from "./schema/character_search";
-export {
-  SceneSimulateInputShape,
-  SceneSimulateInputSchema,
-  SceneResultSchema,
-} from "./schema/scene";
 export {
   ShowSearchInputShape,
   ShowSearchInputSchema,

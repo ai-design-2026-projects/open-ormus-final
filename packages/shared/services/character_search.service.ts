@@ -125,16 +125,26 @@ const ConnectionsPartSchema = z.object({
 
 // ─── System prompts ────────────────────────────────────────────────────────────
 
-const BASICS_SYSTEM_PROMPT = `You are a fictional character analyst. Given a search query identifying a fictional character (e.g. "Berlin, Money Heist"), populate the basic identity fields.
+const BASICS_SYSTEM_PROMPT =
+  "You are a fictional character analyst. Given a search query identifying a fictional character " +
+  "(e.g. 'Walter White, Breaking Bad'), populate the basic identity fields. " +
+  "The subject is always a fictional character from a film, TV series, book, or other fictional work — never a real person. " +
+  "If a real person shares this name, ignore them entirely and focus only on the fictional character. " +
+  "If the character is not identifiable from the query, return name as an empty string and imageUrl as null. " +
+  "If the first appearance date is unknown, return null for firstAppearanceDate.";
 
-If the character is not identifiable from the query, return name as an empty string and imageUrl as null. If the first appearance date is unknown, return null for firstAppearanceDate.`;
+const PERSONALITY_SYSTEM_PROMPT =
+  "You are a fictional character analyst. Populate the personality fields for the identified character. " +
+  "Draw from canonical sources. Be specific and detailed. " +
+  "The subject is always a fictional character — never a real person. " +
+  "If a real person shares this name, ignore them and focus only on the fictional character.";
 
-const PERSONALITY_SYSTEM_PROMPT = `You are a fictional character analyst. Populate the personality fields for the identified character. Draw from canonical sources. Be specific and detailed.`;
-
-const CONNECTIONS_SYSTEM_PROMPT = `You are a fictional character analyst. Populate the relationships and knowledge scope for the identified character.
-
-For relationships: list each significant relationship as an entry with the related character's name and a brief description of the relationship.
-For knowledgeScope: list each domain of knowledge as an entry with the domain name and a description of this character's level or type of expertise.`;
+const CONNECTIONS_SYSTEM_PROMPT =
+  "You are a fictional character analyst. Populate the relationships and knowledge scope for the identified character. " +
+  "The subject is always a fictional character — never a real person. " +
+  "If a real person shares this name, ignore them and focus only on the fictional character. " +
+  "For relationships: list each significant relationship as an entry with the related character's name and a brief description of the relationship. " +
+  "For knowledgeScope: list each domain of knowledge as an entry with the domain name and a description of this character's level or type of expertise.";
 
 // ─── Exported handlers ─────────────────────────────────────────────────────────
 
@@ -142,9 +152,10 @@ export async function characterBasicsHandler(
   args: CharacterSearchInput,
   exaClient: ExaClient = getExa() as unknown as ExaClient
 ): Promise<CharacterBasics | { error: "character_not_found" | "parse_failed" | "search_failed" }> {
+  const enrichedQuery = `fictional character ${args.query}`;
   try {
     const result = await withRetry(() =>
-      exaClient.answer(args.query, {
+      exaClient.answer(enrichedQuery, {
         systemPrompt: BASICS_SYSTEM_PROMPT,
         outputSchema: BASICS_OUTPUT_SCHEMA,
       })

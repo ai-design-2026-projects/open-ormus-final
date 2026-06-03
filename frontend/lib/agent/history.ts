@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 import { Prisma } from "@/lib/generated/prisma/client";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { AgentInputItem } from "@openai/agents";
 
 export type AgentSessionSummary = {
   id: string;
@@ -19,65 +19,88 @@ export async function createSession(
   return session.id;
 }
 
-/**
- * Appends a user turn and assistant turn to an AgentSession.
- * toolCalls stores the raw Claude SDK content blocks for the assistant turn.
- */
-export async function appendTurns(
-  prisma: PrismaClient,
+/** Extracts a text body from an SDK item for the denormalised `content` column. */
+function extractText(item: AgentInputItem): string {
+  const content = (item as { content?: unknown }).content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        const text = (part as { text?: unknown }).text;
+        return typeof text === "string" ? text : "";
+      })
+      .join("");
+  }
+  return "";
+}
+
+/** Maps SDK items to AgentTurn rows. `item` is the source of truth; `content`/`role` are denormalised. */
+export function itemsToRows(
   sessionId: string,
-  userMessage: string,
-  assistantContent: string,
-  toolCalls: unknown,
-): Promise<void> {
-  const toolCallsJson =
-    toolCalls != null ? (toolCalls as Prisma.InputJsonValue) : undefined;
-  await prisma.agentTurn.createMany({
-    data: [
-      { sessionId, role: "user", content: userMessage },
-      {
-        sessionId,
-        role: "assistant",
-        content: assistantContent,
-        ...(toolCallsJson !== undefined ? { toolCalls: toolCallsJson } : {}),
-      },
-    ],
+  items: AgentInputItem[],
+): { sessionId: string; role: string; content: string; item: Prisma.InputJsonValue }[] {
+  return items.map((item) => {
+    const record = item as { role?: unknown; type?: unknown };
+    const role =
+      typeof record.role === "string"
+        ? record.role
+        : typeof record.type === "string"
+          ? record.type
+          : "item";
+    return {
+      sessionId,
+      role,
+      content: extractText(item),
+      item: item as Prisma.InputJsonValue,
+    };
   });
 }
 
-/**
- * Loads all turns for a session as OpenAI SDK ChatCompletionMessageParam objects.
- * Tool calls stored in JSON are rehydrated into tool_calls arrays.
- */
+/** Reconstructs SDK items from rows. `item` is authoritative; rows without it are skipped. */
+export function rowsToItems(
+  rows: { role: string; content: string; item: unknown }[],
+): AgentInputItem[] {
+  return rows
+    .filter((row) => row.item != null)
+    .map((row) => row.item as AgentInputItem);
+}
+
+/** Persists all new SDK items from a completed agent turn. */
+export async function appendTurns(
+  prisma: PrismaClient,
+  sessionId: string,
+  newItems: AgentInputItem[],
+): Promise<void> {
+  const data = itemsToRows(sessionId, newItems);
+
+  if (data.length === 0) return;
+
+  // Lock the session row for the duration of the insert so concurrent appends
+  // to the same session serialize. Without this, two parallel createMany calls
+  // can interleave the global `seq` sequence and scramble message order on
+  // reload. Different sessions never block each other (distinct lock targets).
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT id FROM agent_sessions WHERE id = ${sessionId}::uuid FOR UPDATE`;
+    await tx.agentTurn.createMany({ data });
+  });
+}
+
+/** Loads all turns for a session as SDK AgentInputItem objects, ordered by seq. */
 export async function getSessionMessages(
   prisma: PrismaClient,
   sessionId: string,
   userId: string,
-): Promise<ChatCompletionMessageParam[]> {
+): Promise<AgentInputItem[]> {
   const session = await prisma.agentSession.findFirst({
     where: { id: sessionId, userId },
-    include: { turns: { orderBy: { createdAt: "asc" } } },
+    include: { turns: { orderBy: { seq: "asc" } } },
   });
 
   if (!session) return [];
 
-  const result: ChatCompletionMessageParam[] = [];
-
-  for (const turn of session.turns) {
-    if (turn.role === "user") {
-      result.push({ role: "user", content: turn.content });
-      continue;
-    }
-    // Assistant turn: rehydrate tool_calls + tool result messages if stored
-    const stored = turn.toolCalls as unknown;
-    if (Array.isArray(stored) && stored.length > 0) {
-      result.push({ role: "assistant", content: turn.content ?? null, tool_calls: stored as ChatCompletionMessageParam[] & [] } as ChatCompletionMessageParam);
-    } else {
-      result.push({ role: "assistant", content: turn.content });
-    }
-  }
-
-  return result;
+  return rowsToItems(
+    session.turns.map((t) => ({ role: t.role, content: t.content, item: t.item })),
+  );
 }
 
 /** Returns summaries of all agent sessions for the given user, newest first. */

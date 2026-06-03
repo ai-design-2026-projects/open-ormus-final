@@ -2,6 +2,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CharacterUpdateInputShape,
+  TOOL_DESCRIPTIONS,
   type CharacterUpdateInput,
   type SavedCharacterRecord,
 } from "@open-ormus/shared";
@@ -22,7 +23,7 @@ export async function characterUpdateHandler(
 export function register(server: McpServer): void {
   server.tool(
     "mcp__openormus__character_update",
-    "Update a saved character's full profile. Replaces the existing sheet entirely.",
+    TOOL_DESCRIPTIONS.character_update,
     CharacterUpdateInputShape,
     async (args: CharacterUpdateInput) => {
       const result = await characterUpdateHandler(args);

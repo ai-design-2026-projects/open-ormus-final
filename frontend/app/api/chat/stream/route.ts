@@ -11,13 +11,13 @@ import {
   getSessionMessages,
   setSessionTitle,
 } from "@/lib/agent/history";
-import { initMcpSession } from "@/lib/agent/mcp_bridge";
-import { runAgentLoop } from "@/lib/agent/loop";
+import { createMcpServer } from "@/lib/agent/mcp_bridge";
+import { runAgent } from "@/lib/agent/loop";
 import { logLlmUsage } from "@/lib/llm-usage";
 import { LlmUsageSource } from "@/lib/generated/prisma/client";
 
 const RequestSchema = z.object({
-  message: z.string().min(1).max(8000),
+  message: z.string().min(1),
   sessionId: z.string().uuid().optional(),
 });
 
@@ -48,21 +48,36 @@ export async function POST(request: Request) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const onChunk = (data: Uint8Array) => controller.enqueue(data);
+      // Client may have aborted (Stop button); enqueueing into a closed
+      // controller throws. Swallow so persistence below still runs.
+      const safeEnqueue = (data: Uint8Array) => {
+        try {
+          controller.enqueue(data);
+        } catch {
+          // controller already closed
+        }
+      };
+
+      safeEnqueue(encodeChunk({ type: "session_created", sessionId }));
+
+      const mcp = createMcpServer(jwt);
 
       try {
-        const mcpSession = await initMcpSession(jwt);
+        await mcp.connect();
 
-        const { assistantText, toolCallsJson } = await runAgentLoop(
+        const { items, error } = await runAgent(
           priorMessages,
           message,
-          mcpSession,
-          onChunk,
+          mcp,
+          safeEnqueue,
           { source: LlmUsageSource.AGENT_SESSION, agentSessionId: sessionId, userId: user.id },
+          request.signal,
         );
 
+        // Persist regardless of LLM error so the user turn and any completed
+        // tool rounds are not lost.
         try {
-          await appendTurns(prisma, sessionId, message, assistantText, toolCallsJson);
+          await appendTurns(prisma, sessionId, items.slice(priorMessages.length));
         } catch (err) {
           console.error("Failed to persist AgentTurn:", err);
         }
@@ -71,12 +86,25 @@ export async function POST(request: Request) {
           void autoTitle(sessionId, message, user.id);
         }
 
-        controller.enqueue(encodeChunk({ type: "done", sessionId }));
+        if (error) {
+          safeEnqueue(encodeChunk({ type: "error", message: error.message }));
+        } else {
+          safeEnqueue(encodeChunk({ type: "done", sessionId }));
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Agent error";
-        controller.enqueue(encodeChunk({ type: "error", message: msg }));
+        safeEnqueue(encodeChunk({ type: "error", message: msg }));
       } finally {
-        controller.close();
+        try {
+          await mcp.close();
+        } catch {
+          // already closed
+        }
+        try {
+          controller.close();
+        } catch {
+          // controller already closed
+        }
       }
     },
   });
@@ -98,6 +126,8 @@ async function autoTitle(sessionId: string, firstMessage: string, userId: string
     const response = await client.chat.completions.create({
       model,
       max_tokens: 20,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...({ reasoning_effort: "none" } as any),
       messages: [
         {
           role: "system",

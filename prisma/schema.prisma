@@ -115,14 +115,16 @@ model AgentSession {
 model AgentTurn {
   id        String       @id @default(uuid()) @db.Uuid
   sessionId String       @db.Uuid @map("session_id")
+  seq       Int          @default(autoincrement())
   role      String
-  content   String
+  content   String       @default("")
+  item      Json?
   toolCalls Json?        @map("tool_calls")
   createdAt DateTime     @default(now()) @map("created_at")
 
   session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@index([sessionId])
+  @@index([sessionId, seq])
   @@map("agent_turns")
 }
 

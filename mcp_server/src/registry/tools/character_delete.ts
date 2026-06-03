@@ -2,6 +2,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CharacterDeleteInputShape,
+  TOOL_DESCRIPTIONS,
   type CharacterDeleteInput,
 } from "@open-ormus/shared";
 import { archiveCharacter } from "@open-ormus/shared/services/character.service";
@@ -24,7 +25,7 @@ export async function characterDeleteHandler(
 export function register(server: McpServer): void {
   server.tool(
     "mcp__openormus__character_delete",
-    "Archive a saved character by id. The character is removed from all views and becomes read-only. This action is permanent.",
+    TOOL_DESCRIPTIONS.character_delete,
     CharacterDeleteInputShape,
     async (args: CharacterDeleteInput) => {
       const result = await characterDeleteHandler(args);

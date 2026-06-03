@@ -4,6 +4,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import {
   CharacterDbSearchInputShape,
   CharacterSearchResultSchema,
+  TOOL_DESCRIPTIONS,
   type CharacterDbSearchInput,
   type SavedCharacterRecord,
 } from "@open-ormus/shared";
@@ -69,8 +70,8 @@ export async function characterDbSearchHandler(
 
 export function register(server: McpServer): void {
   server.tool(
-    "mcp__openormus__character_db_search",
-    "Search your saved characters by name or description using fuzzy similarity. Returns characters ranked by match score.",
+    "mcp__openormus__character_find",
+    TOOL_DESCRIPTIONS.character_find,
     CharacterDbSearchInputShape,
     async (args: CharacterDbSearchInput) => ({
       content: [

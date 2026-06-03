@@ -2,6 +2,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   CharacterSaveInputShape,
+  TOOL_DESCRIPTIONS,
   type CharacterSaveInput,
   type SavedCharacterRecord,
 } from "@open-ormus/shared";
@@ -19,8 +20,8 @@ export async function characterSaveHandler(
 
 export function register(server: McpServer): void {
   server.tool(
-    "mcp__openormus__character_save",
-    "Save a character to your collection. Accepts the full character profile returned by character_search.",
+    "mcp__openormus__character_create",
+    TOOL_DESCRIPTIONS.character_create,
     CharacterSaveInputShape,
     async (args: CharacterSaveInput) => ({
       content: [{ type: "text" as const, text: JSON.stringify(await characterSaveHandler(args)) }],

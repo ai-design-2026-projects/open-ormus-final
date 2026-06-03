@@ -1,4 +1,2 @@
-export type {
-  SceneSimulateInput,
-  SceneResult,
-} from "./schema/scene";
+// Type exports from schema modules
+export {};
