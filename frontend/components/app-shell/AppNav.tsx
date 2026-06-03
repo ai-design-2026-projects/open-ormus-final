@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, useEffect } from "react";
-import { Library, Clapperboard, Bot, Settings } from "lucide-react";
+import { Library, Clapperboard, Bot, Settings, BarChart2 } from "lucide-react";
 import { Monogram } from "@/components/ui/monogram";
 import { logout } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
@@ -100,6 +100,15 @@ export function AppNav() {
             >
               <Settings className="size-3.5" strokeWidth={1.5} />
               Settings
+            </Link>
+            <Link
+              href="/settings/usage"
+              role="menuitem"
+              className="flex items-center gap-2 px-3 py-2 text-[13px] text-ink-dim hover:text-ink hover:bg-bg-tinted transition-colors duration-[120ms]"
+              onClick={() => setMenuOpen(false)}
+            >
+              <BarChart2 className="size-3.5" strokeWidth={1.5} />
+              Token Usage
             </Link>
             <div className="border-t border-hair my-1" />
             <form action={logout}>
