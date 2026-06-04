@@ -69,6 +69,13 @@ export {
   type ConversationRecord,
 } from "./schema/conversation";
 export {
+  ConversationStartInputSchema,
+  ConversationStartInputShape,
+  type ConversationStartInput,
+  ConversationJobStatusSchema,
+  type ConversationJobStatus,
+} from "./schema/conversation_start";
+export {
   EmotionSchema,
   type Emotion,
   parseEmotionBlock,

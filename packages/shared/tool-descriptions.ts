@@ -43,4 +43,18 @@ export const TOOL_DESCRIPTIONS = {
   character_delete:
     "Delete a character from the collection by ID. " +
     "Resolve the ID first with character_find or character_list.",
+
+  conversation_start:
+    "Start a new multi-character conversation and run it for a fixed number of turns. " +
+    "Provide at least 2 character IDs (use character_list or character_find to resolve them), " +
+    "a context string describing the scene, a turn strategy (ORCHESTRATOR lets an AI pick who speaks next; " +
+    "ROUND_ROBIN rotates speakers in order), and the number of turns to run (1–500). " +
+    "Returns a conversationId and jobId immediately — the conversation runs in the background. " +
+    "Poll conversation_job_status with the jobId until status is 'completed'.",
+
+  conversation_job_status:
+    "Poll the status of a background conversation job started with conversation_start. " +
+    "Returns status ('pending', 'running', 'completed', 'failed', 'cancelled'), " +
+    "doneTurns, totalTurns, and — when completed — the full array of messages. " +
+    "Keep polling until status is a terminal value: 'completed', 'failed', or 'cancelled'.",
 } as const;

@@ -7,6 +7,8 @@ mock.module("./tools/character_delete.js", () => ({ register: () => {} }));
 mock.module("./tools/character_search.js", () => ({ register: () => {} }));
 mock.module("./tools/character_db_search.js", () => ({ register: () => {} }));
 mock.module("./tools/show_search.js", () => ({ register: () => {} }));
+mock.module("./tools/conversation_start.js", () => ({ register: () => {} }));
+mock.module("./tools/conversation_job_status.js", () => ({ register: () => {} }));
 mock.module("./tools/scene_simulate.js", () => ({ register: () => {} }));
 mock.module("../exa.js", () => ({ exa: {} }));
 

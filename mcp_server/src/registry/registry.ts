@@ -6,6 +6,8 @@ import { register as registerCharacterDelete } from "./tools/character_delete.js
 import { register as registerCharacterSearch } from "./tools/character_search.js";
 import { register as registerCharacterDbSearch } from "./tools/character_db_search.js";
 import { register as registerShowSearch } from "./tools/show_search.js";
+import { register as registerConversationStart } from "./tools/conversation_start.js";
+import { register as registerConversationJobStatus } from "./tools/conversation_job_status.js";
 
 export function createRegistry(): McpServer {
   const server = new McpServer({
@@ -20,6 +22,8 @@ export function createRegistry(): McpServer {
   registerCharacterSearch(server);
   registerCharacterDbSearch(server);
   registerShowSearch(server);
+  registerConversationStart(server);
+  registerConversationJobStatus(server);
 
   return server;
 }
