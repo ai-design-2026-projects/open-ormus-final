@@ -208,7 +208,7 @@ async function runTurns(
 
   await prisma.conversationJob.update({
     where: { id: jobId },
-    data: { status: "done" },
+    data: { status: "completed" },
   });
   emitter.emit(`${jobId}:done`);
 }

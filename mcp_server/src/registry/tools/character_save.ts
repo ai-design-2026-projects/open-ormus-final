@@ -26,17 +26,21 @@ export async function characterSaveHandler(
 
   if (imageUrl) {
     characterId = randomUUID();
-    pictures = await processAndStorePictures(
-      prisma,
-      imageUrl,
-      userId,
-      characterId,
-      {
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      }
-    );
-    // throws on failure — character is not saved if picture processing fails
+    try {
+      pictures = await processAndStorePictures(
+        prisma,
+        imageUrl,
+        userId,
+        characterId,
+        {
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        }
+      );
+    } catch (err) {
+      // Image unavailable — save character without pictures
+      console.warn(`[character_save] picture fetch skipped: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   return saveCharacter(prisma, userId, sheetData, pictures, characterId);

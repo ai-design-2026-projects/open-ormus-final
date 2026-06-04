@@ -4,7 +4,7 @@ export type StreamChunk =
   | { type: "session_created"; sessionId: string }
   | { type: "text_delta"; text: string }
   | { type: "tool_start"; tool: string; input: unknown }
-  | { type: "tool_result"; tool: string; preview: string }
+  | { type: "tool_result"; tool: string; result: unknown }
   | { type: "error"; message: string }
   | { type: "done"; sessionId: string };
 
@@ -57,10 +57,46 @@ export function mapRunEvent(event: RunStreamEvent): StreamChunk | null {
     }
     if (event.name === "tool_output") {
       const { item } = event as RunItemToolOutput;
+      const raw = item.output;
+      let result: unknown = raw;
+
+      // Case 1: { content: [{ type: "text", text: "..." }] }
+      if (
+        typeof raw === "object" &&
+        raw !== null &&
+        "content" in raw &&
+        Array.isArray((raw as { content: unknown[] }).content)
+      ) {
+        const first = (raw as { content: unknown[] }).content[0];
+        if (
+          typeof first === "object" &&
+          first !== null &&
+          "text" in first &&
+          typeof (first as { text: unknown }).text === "string"
+        ) {
+          try {
+            result = JSON.parse((first as { text: string }).text);
+          } catch {
+            result = (first as { text: string }).text;
+          }
+        }
+      // Case 2: bare content item { type: "text", text: "..." }
+      } else if (
+        typeof raw === "object" &&
+        raw !== null &&
+        "text" in raw &&
+        typeof (raw as { text: unknown }).text === "string"
+      ) {
+        try {
+          result = JSON.parse((raw as { text: string }).text);
+        } catch {
+          result = (raw as { text: string }).text;
+        }
+      }
       return {
         type: "tool_result",
         tool: item.rawItem.name ?? "",
-        preview: JSON.stringify(item.output).slice(0, 300),
+        result,
       };
     }
     return null;

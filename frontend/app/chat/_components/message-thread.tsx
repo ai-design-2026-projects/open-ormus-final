@@ -5,7 +5,7 @@ import { ToolCallBlock } from "./tool-call-block";
 
 export type MessageBlock =
   | { type: "text"; content: string }
-  | { type: "tool_call"; tool: string; input: unknown; result?: string }
+  | { type: "tool_call"; tool: string; input: unknown; result?: unknown }
   | { type: "error"; message: string }
   | { type: "attachment"; filename: string };
 

@@ -50,11 +50,16 @@ export const TOOL_DESCRIPTIONS = {
     "a context string describing the scene, a turn strategy (ORCHESTRATOR lets an AI pick who speaks next; " +
     "ROUND_ROBIN rotates speakers in order), and the number of turns to run (1–500). " +
     "Returns a conversationId and jobId immediately — the conversation runs in the background. " +
-    "Poll conversation_job_status with the jobId until status is 'completed'.",
+    "The UI streams live progress automatically. " +
+    "DO NOT poll conversation_job_status after starting — the job will finish on its own. " +
+    "Only call conversation_job_status if the user explicitly asks for a status update.",
 
   conversation_job_status:
-    "Poll the status of a background conversation job started with conversation_start. " +
+    "Check the status of a background conversation job started with conversation_start. " +
     "Returns status ('pending', 'running', 'completed', 'failed', 'cancelled'), " +
     "doneTurns, totalTurns, and — when completed — the full array of messages. " +
-    "Keep polling until status is a terminal value: 'completed', 'failed', or 'cancelled'.",
+    "IMPORTANT: Call this tool ONLY when strictly necessary — for example if the user explicitly " +
+    "asks about the progress of a job, or if you need the final messages after confirmed completion. " +
+    "DO NOT call this tool in a loop or repeatedly — the UI already streams live progress. " +
+    "Never poll: one call is enough to get the current state.",
 } as const;

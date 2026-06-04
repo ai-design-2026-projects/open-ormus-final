@@ -21,7 +21,7 @@ type ChatAction =
   | { type: "SESSION_CREATED"; sessionId: string }
   | { type: "TEXT_DELTA"; text: string }
   | { type: "TOOL_START"; tool: string; input: unknown }
-  | { type: "TOOL_RESULT"; tool: string; preview: string }
+  | { type: "TOOL_RESULT"; tool: string; result: unknown }
   | { type: "DONE"; sessionId: string }
   | { type: "ERROR"; message: string }
   | { type: "NEW_SESSION" }
@@ -82,8 +82,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const blocks = [...last.blocks];
       for (let i = blocks.length - 1; i >= 0; i--) {
         const b = blocks[i];
-        if (b?.type === "tool_call" && b.tool === action.tool && !b.result) {
-          blocks[i] = { ...b, result: action.preview };
+        if (b?.type === "tool_call" && b.tool === action.tool && b.result === undefined) {
+          blocks[i] = { ...b, result: action.result };
           break;
         }
       }
@@ -187,7 +187,7 @@ export function ChatView({ initialSessions }: ChatViewProps) {
               else if (chunk.type === "tool_start")
                 dispatch({ type: "TOOL_START", tool: chunk.tool, input: chunk.input });
               else if (chunk.type === "tool_result")
-                dispatch({ type: "TOOL_RESULT", tool: chunk.tool, preview: chunk.preview });
+                dispatch({ type: "TOOL_RESULT", tool: chunk.tool, result: chunk.result });
               else if (chunk.type === "done")
                 dispatch({ type: "DONE", sessionId: chunk.sessionId });
               else if (chunk.type === "error")

@@ -57,22 +57,42 @@ test("tool_called with malformed args falls back to {}", () => {
   }
 });
 
-test("tool_output maps to tool_result with 300-char preview", () => {
-  const bigstring = "x".repeat(500);
+test("tool_output unwraps MCP envelope and parses inner JSON", () => {
   const event = {
     type: "run_item_stream_event",
     name: "tool_output",
     item: {
       type: "tool_call_output_item",
       rawItem: { name: "mcp__openormus__character_list" },
-      output: bigstring,
+      output: {
+        content: [{ type: "text", text: '{"foo":"bar"}' }],
+      },
     },
   } as never;
   const chunk = mapRunEvent(event);
   expect(chunk?.type).toBe("tool_result");
   if (chunk?.type === "tool_result") {
     expect(chunk.tool).toBe("mcp__openormus__character_list");
-    expect(chunk.preview.length).toBe(300);
+    expect(chunk.result).toEqual({ foo: "bar" });
+  }
+});
+
+test("tool_output passes through non-envelope output as-is", () => {
+  const plainValue = "just a string";
+  const event = {
+    type: "run_item_stream_event",
+    name: "tool_output",
+    item: {
+      type: "tool_call_output_item",
+      rawItem: { name: "mcp__openormus__character_list" },
+      output: plainValue,
+    },
+  } as never;
+  const chunk = mapRunEvent(event);
+  expect(chunk?.type).toBe("tool_result");
+  if (chunk?.type === "tool_result") {
+    expect(chunk.tool).toBe("mcp__openormus__character_list");
+    expect(chunk.result).toBe(plainValue);
   }
 });
 
