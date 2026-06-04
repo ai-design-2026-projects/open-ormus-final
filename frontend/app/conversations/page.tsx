@@ -53,6 +53,8 @@ export default function ConversationsPage() {
   const [userParticipates, setUserParticipates] = useState(false);
   const [userGoesFirst, setUserGoesFirst] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [charsError, setCharsError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [charSearch, setCharSearch] = useState("");
   const [improving, setImproving] = useState(false);
@@ -74,8 +76,13 @@ export default function ConversationsPage() {
   }
 
   async function loadCharacters() {
-    const res = await fetch("/api/characters");
-    if (res.ok) setCharacters((await res.json()) as Character[]);
+    try {
+      const res = await fetch("/api/characters");
+      if (res.ok) setCharacters((await res.json()) as Character[]);
+      else setCharsError(true);
+    } catch {
+      setCharsError(true);
+    }
   }
 
   useEffect(() => {
@@ -151,8 +158,14 @@ export default function ConversationsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this conversation?")) return;
-    await fetch(`/api/conversations/${id}`, { method: "DELETE" });
-    void loadConversations();
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      void loadConversations();
+    } catch {
+      setDeleteError("Couldn't delete the scene. Try again.");
+    }
   }
 
   async function handleImprove() {
@@ -230,9 +243,6 @@ export default function ConversationsPage() {
         <div className="flex items-end justify-between py-8">
           <div>
             <div className="t-meta">SCENES · {conversations.length} SESSIONS</div>
-            <h1 className="t-h2 mt-2 mb-0">
-              Two voices, <em className="t-editorial">one stage</em>.
-            </h1>
           </div>
           <div className="flex items-center gap-3">
             {conversations.length > 0 && (
@@ -263,6 +273,11 @@ export default function ConversationsPage() {
       </div>
 
       <div className="max-w-[1440px] mx-auto px-14">
+        {deleteError && (
+          <div className="mb-4 rounded-[var(--r-md)] border border-[color-mix(in_oklch,var(--signal-flag)_30%,transparent)] bg-[color-mix(in_oklch,var(--signal-flag)_8%,var(--surface-1))] px-4 py-3 text-sm text-signal-flag">
+            {deleteError}
+          </div>
+        )}
         {/* Conversations list */}
         {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
@@ -398,7 +413,7 @@ export default function ConversationsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <label className="block t-meta">
                     Participants{" "}
-                    <span className="text-ink-mute font-normal">(select at least one)</span>
+                    <span className="text-ink-mute font-normal">(select at least {userParticipates ? "one" : "two"})</span>
                   </label>
                   {characters.length > 4 && (
                     <div className="relative">
@@ -413,7 +428,11 @@ export default function ConversationsPage() {
                     </div>
                   )}
                 </div>
-                {characters.length === 0 ? (
+                {charsError ? (
+                  <p className="t-body-s text-signal-flag">
+                    Couldn&apos;t load characters. Refresh and try again.
+                  </p>
+                ) : characters.length === 0 ? (
                   <p className="t-body-s text-ink-mute italic">
                     No characters found. Create characters first.
                   </p>
@@ -478,7 +497,7 @@ export default function ConversationsPage() {
                   </label>
                 )}
               </div>
-              {selectedIds.length >= 3 && (
+              {selectedIds.length + (userParticipates ? 1 : 0) >= 3 && (
                 <div>
                   <label className="block t-meta mb-2">Turn strategy</label>
                   <div className="flex flex-col gap-2">
@@ -527,7 +546,7 @@ export default function ConversationsPage() {
                 <Button
                   type="submit"
                   variant="default"
-                  disabled={creating || selectedIds.length === 0}
+                  disabled={creating || selectedIds.length < (userParticipates ? 1 : 2)}
                 >
                   {creating ? (
                     <>

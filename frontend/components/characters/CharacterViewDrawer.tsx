@@ -118,7 +118,7 @@ export function CharacterViewDrawer({ character, onClose }: Props) {
   ];
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-ink-panel/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-ink-panel/40 backdrop-blur-sm" onClick={onClose}>
       <div
         className="bg-surface-1 border-l border-hair w-full max-w-xl h-full flex flex-col shadow-[var(--shadow-3)]"
         onClick={(e) => e.stopPropagation()}

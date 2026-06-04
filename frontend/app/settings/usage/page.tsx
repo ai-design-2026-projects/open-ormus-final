@@ -20,7 +20,19 @@ export default async function UsagePage({
   const { period: rawPeriod } = await searchParams
   const period = (VALID_PERIODS.has(rawPeriod ?? "") ? rawPeriod : "7d") as Period
 
-  const summary = await getUsageSummary(user.id, period)
+  let summary
+  try {
+    summary = await getUsageSummary(user.id, period)
+  } catch {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-[560px] mx-auto px-6 md:px-0 py-16 text-center">
+          <p className="t-h6 m-0 text-ink-dim">Couldn&apos;t load usage data</p>
+          <p className="t-body-s text-ink-mute mt-2">Something went wrong fetching your stats. Try refreshing.</p>
+        </div>
+      </div>
+    )
+  }
 
   return <UsageSummaryView summary={summary} period={period} />
 }

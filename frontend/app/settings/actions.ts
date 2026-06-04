@@ -8,6 +8,7 @@ import { z } from "zod"
 
 export type SettingsActionState = { error: string | null; success?: string }
 
+const displayNameSchema = z.object({ displayName: z.string().min(1, "Name is required").max(60) })
 const emailSchema = z.object({ email: z.string().email() })
 const passwordSchema = z
   .object({
@@ -23,6 +24,25 @@ const passwordSchema = z
     message: "New password must be different from your current password",
     path: ["password"],
   })
+
+export async function changeDisplayName(
+  _prev: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  const parsed = displayNameSchema.safeParse({ displayName: formData.get("displayName") })
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { displayName: parsed.data.displayName },
+  })
+
+  return { error: null, success: "Name updated." }
+}
 
 export async function changeEmail(
   _prev: SettingsActionState,

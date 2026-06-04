@@ -1,4 +1,4 @@
-const EMOTION_COLOR: Record<string, string> = {
+export const EMOTION_COLOR: Record<string, string> = {
   Joy: "var(--signal-warn)",
   Trust: "var(--signal-ok)",
   Fear: "var(--ink-dim)",

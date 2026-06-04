@@ -4,7 +4,7 @@ const SAMPLE_SCRIPT = [
   {
     char: "SHERLOCK HOLMES",
     emotion: "ANTICIPATION · LOW",
-    text: "You’re late, Professor. Twelve minutes is uncharacteristic — even of trains.",
+    text: "You're late, Professor. Twelve minutes is uncharacteristic — even of trains.",
   },
   {
     char: "JAMES MORIARTY",
@@ -27,22 +27,22 @@ const FEATURES = [
   },
   {
     label: "SCENE",
-    title: "Watch without intervening.",
-    body: "Put any two characters into a scene. Describe the setting. The stage is theirs. You read the screenplay as it unfolds — turn by turn, emotion by emotion.",
-    meta: "UP TO 10 CHARACTERS",
+    title: "Direct, or step in.",
+    body: "Set the stage, choose the cast, and run the scene. Watch characters unfold turn by turn, or join as a participant and speak your own lines. The AI orchestrator decides who speaks, or you set the order.",
+    meta: "ANY CAST SIZE · DIRECTOR OR PARTICIPANT",
   },
   {
-    label: "P-EVAL",
-    title: "Measure fidelity.",
-    body: "A research console that scores how faithfully the model embodies each character. Plutchik emotion heatmaps, anti-pattern flags, sliding-window coherence scores.",
-    meta: "JUDGE-DRIVEN · OFFLINE BATCH",
+    label: "ASSISTANT",
+    title: "Think through your cast.",
+    body: "Chat with the built-in assistant to develop a character's backstory, explore how two personalities would clash, or plan a scene before it runs. The same tool registry powers both.",
+    meta: "TOOL-AUGMENTED · SAME REGISTRY",
   },
 ]
 
 const CONTRASTS = [
-  { bad: "“You are Sherlock Holmes.”", good: "“The cast you’ve assembled.”" },
-  { bad: "“Roleplay as the character.”", good: "“Watch the scene unfold.”" },
-  { bad: "“Become the villain.”", good: "“The stage is theirs.”" },
+  { bad: 'System prompt: "You are Sherlock Holmes."', good: 'Traits, speech patterns, fears, goals. A structured sheet.' },
+  { bad: 'One character in a single chat window.', good: 'As many characters as the scene needs.' },
+  { bad: 'No record of how the exchange went.', good: 'Plutchik emotion per turn. Reasoning exposed.' },
 ]
 
 export function LandingPage() {
@@ -115,7 +115,7 @@ export function LandingPage() {
 
           {/* Left: text */}
           <div className="relative">
-            <p className="t-meta land-fade land-d1">A DIRECTOR’S STUDIO · MULTI-AGENT LLM</p>
+            <p className="t-meta land-fade land-d1">CHARACTER SIMULATION STUDIO · MULTI-AGENT LLM</p>
             <h1 className="t-h1 mt-3 mb-0 land-fade land-d2">
               The <em className="t-editorial">cast</em><br />you&apos;ve assembled.
             </h1>
@@ -123,11 +123,11 @@ export function LandingPage() {
               className="t-body-l text-ink-dim mt-5 land-fade land-d3"
               style={{ maxWidth: "460px", lineHeight: 1.6 }}
             >
-              Import fiction characters from the open web, or build them field by
-              field. Put any two — or up to ten — into a scene and watch.
+              Import characters from public-domain sources, or build them field by
+              field. Put two or more into a scene. Watch, direct, or step in yourself.
             </p>
             <p className="t-body-s text-ink-mute mt-3 land-fade land-d3" style={{ maxWidth: "400px" }}>
-              You are a director, never a participant. The stage is theirs.
+              Every turn logged: emotion, intensity, the reasoning behind each line.
             </p>
             <div className="flex items-center gap-3 mt-8 land-fade land-d4">
               <Link
@@ -149,9 +149,9 @@ export function LandingPage() {
               </Link>
             </div>
             <div className="flex items-center gap-3 mt-6 land-fade land-d5">
-              <span className="t-meta">LIBRARY · SCENE · P-EVAL</span>
+              <span className="t-meta">LIBRARY · SCENE · ASSISTANT</span>
               <span className="size-1 rounded-full bg-hair-strong" />
-              <span className="t-meta">ONE REGISTRY · THREE DOORS</span>
+              <span className="t-meta">ONE REGISTRY · THREE SURFACES</span>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ export function LandingPage() {
                   className="font-mono text-[11px] tracking-[0.05em] uppercase pb-4 mb-5 border-b"
                   style={{ color: "var(--on-ink-mute)", borderColor: "var(--hair-on-ink)" }}
                 >
-                  INT. KING’S CROSS PLATFORM 4 — DUSK · APRIL 1891
+                  INT. KING'S CROSS PLATFORM 4 — DUSK · APRIL 1891
                 </div>
                 <p
                   className="t-editorial text-[14px] mb-6"
@@ -261,13 +261,13 @@ export function LandingPage() {
         {/* ── Stats strip ── */}
         <div className="border-b border-hair bg-surface-1">
           <div className="max-w-[1280px] mx-auto px-8 py-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-            <span className="t-meta t-meta-bright">ONE REGISTRY</span>
+            <span className="t-meta t-meta-bright">CHARACTER-FIRST</span>
             <span className="size-1 rounded-full bg-hair-strong hidden sm:block" />
-            <span className="t-meta t-meta-bright">THREE SURFACES</span>
+            <span className="t-meta t-meta-bright">TWO OR MORE ON STAGE</span>
             <span className="size-1 rounded-full bg-hair-strong hidden sm:block" />
-            <span className="t-meta t-meta-bright">LIBRARY · SCENE · P-EVAL</span>
+            <span className="t-meta t-meta-bright">LIBRARY · SCENE · ASSISTANT</span>
             <div className="flex-1" />
-            <span className="t-meta">BUILT FOR DIRECTORS, NOT ROLEPLAYERS</span>
+            <span className="t-meta">DIRECT OR PARTICIPATE, YOUR CALL</span>
           </div>
         </div>
 
@@ -321,37 +321,42 @@ export function LandingPage() {
         <section className="max-w-[1280px] mx-auto px-8 py-20">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <p className="t-meta mb-4">THE DIRECTOR’S CHAIR</p>
+              <p className="t-meta mb-4">THE STAGE</p>
               <h2 className="t-h2 mb-6">
-                You <em className="t-editorial">watch.</em><br />You don&apos;t play.
+                You <em className="t-editorial">set</em> the scene.<br />You choose your role.
               </h2>
               <p
                 className="t-body-l text-ink-dim mb-8"
                 style={{ maxWidth: "460px", lineHeight: 1.65 }}
               >
-                OpenOrmus is built on one conviction — the user is a director, never
-                a participant. You assemble the cast, describe the setting, and
-                observe. The dialogue is theirs.
+                Assemble the cast, describe the setting, and decide how you want to
+                engage. Watch from outside as the characters run the scene, or join
+                as a participant and speak your own lines. Either way, every turn is
+                tracked: emotion, intensity, the Plutchik wheel.
               </p>
               <Link
                 href="/register"
                 className="inline-flex items-center h-10 px-5 rounded-[var(--r-lg)] text-[13.5px] font-medium text-ink border border-hair-strong hover:border-ink-faint transition-all duration-[120ms]"
                 style={{ boxShadow: "var(--shadow-inset), var(--shadow-1)" }}
               >
-                Start directing →
+                Open the stage →
               </Link>
             </div>
 
-            {/* Anti-pattern vs pattern */}
+            {/* Before / After */}
             <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3 mb-1">
+                <span className="t-meta px-1">GENERIC LLM ROLEPLAY</span>
+                <span className="t-meta px-1">OPENORMUS</span>
+              </div>
               {CONTRASTS.map((pair, i) => (
                 <div key={i} className="grid grid-cols-2 gap-3 text-[13px]">
                   <div
-                    className="rounded-[var(--r-md)] px-4 py-3 border border-dashed line-through"
+                    className="rounded-[var(--r-md)] px-4 py-3 border border-dashed"
                     style={{
-                      borderColor: "color-mix(in oklch, var(--signal-flag) 30%, var(--hair))",
+                      borderColor: "color-mix(in oklch, var(--signal-flag) 25%, var(--hair))",
                       color: "var(--ink-mute)",
-                      background: "color-mix(in oklch, var(--signal-flag) 4%, var(--surface-1))",
+                      background: "color-mix(in oklch, var(--signal-flag) 3%, var(--surface-1))",
                     }}
                   >
                     {pair.bad}
@@ -382,9 +387,9 @@ export function LandingPage() {
               style={{ background: "radial-gradient(700px 400px at 50% 50%, color-mix(in oklch, var(--accent-oo) 7%, transparent), transparent 70%)" }}
             />
             <div className="relative">
-              <p className="t-meta mb-4">READY TO RUN A SCENE?</p>
+              <p className="t-meta mb-4">READY TO OPEN THE STAGE?</p>
               <h2 className="t-h3 mb-3">
-                A library, a few characters,<br />and a <em className="t-editorial">stage.</em>
+                A library, a few characters,<br />and a <em className="t-editorial">scene.</em>
               </h2>
               <p className="text-[14px] text-ink-dim mb-8 max-w-[360px] mx-auto" style={{ lineHeight: 1.6 }}>
                 In under a minute.
@@ -404,7 +409,7 @@ export function LandingPage() {
                   href="/login"
                   className="inline-flex items-center h-11 px-5 text-[14px] font-medium text-ink-dim hover:text-ink transition-colors duration-[120ms]"
                 >
-                  Already a director →
+                  Sign in →
                 </Link>
               </div>
             </div>
@@ -419,7 +424,7 @@ export function LandingPage() {
                 <circle cx="10" cy="12" r="6.5" fill="none" stroke="var(--ink-faint)" strokeWidth="1.4" />
                 <circle cx="14" cy="12" r="6.5" fill="none" stroke="var(--ink-faint)" strokeWidth="1.4" />
               </svg>
-              <span className="t-meta">OPENORMUS · MULTI-AGENT EVALUATION STUDIO · 2026</span>
+              <span className="t-meta">OPENORMUS · CHARACTER SIMULATION STUDIO · 2026</span>
             </div>
             <div className="flex items-center gap-6">
               <Link href="/login" className="t-meta hover:text-ink-dim transition-colors duration-[120ms]">

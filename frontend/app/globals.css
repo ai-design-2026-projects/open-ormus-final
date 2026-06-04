@@ -242,4 +242,23 @@
   .shadow-glow        { box-shadow: var(--shadow-glow); }
   .shadow-glow-strong { box-shadow: var(--shadow-glow-strong); }
   .shadow-inset       { box-shadow: var(--shadow-inset); }
+
+  /* Scrollbar: hidden track, scroll still works */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  /* Scrollbar: subtle warm-gray for light paper surfaces — always visible */
+  .scrollbar-paper {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.80 0.008 80) transparent;
+    &::-webkit-scrollbar { width: 5px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      background: oklch(0.80 0.008 80);
+      border-radius: 3px;
+    }
+    &::-webkit-scrollbar-thumb:hover { background: oklch(0.68 0.010 80); }
+  }
 }

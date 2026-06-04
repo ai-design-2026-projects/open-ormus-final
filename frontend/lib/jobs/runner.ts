@@ -18,7 +18,7 @@ export interface JobHandlers {
   onDone: () => void;
   onError: (message: string) => void;
   onThinking?: () => void;
-  onThinkingDone?: () => void;
+  onThinkingDone?: (reasoning: string) => void;
   onUserTurn?: () => void;
   onUserTurnDone?: () => void;
 }
@@ -35,7 +35,7 @@ export function subscribeToJob(jobId: string, handlers: JobHandlers): () => void
   const onDone = () => handlers.onDone();
   const onError = (msg: string) => handlers.onError(msg);
   const onThinking = () => handlers.onThinking?.();
-  const onThinkingDone = () => handlers.onThinkingDone?.();
+  const onThinkingDone = (reasoning: string) => handlers.onThinkingDone?.(reasoning);
   const onUserTurn = () => handlers.onUserTurn?.();
   const onUserTurnDone = () => handlers.onUserTurnDone?.();
   const onEmotion = (e: { emotion: string; intensity: string; subtext: string }) =>
@@ -125,7 +125,7 @@ async function runTurns(
           } else if (event.type === "thinking") {
             emitter.emit(`${jobId}:thinking`);
           } else if (event.type === "thinking_done") {
-            emitter.emit(`${jobId}:thinking_done`);
+            emitter.emit(`${jobId}:thinking_done`, event.reasoning);
           }
           // Yield to event loop so Node.js can flush the HTTP write buffer
           // before processing the next token. Without this, tokens from the

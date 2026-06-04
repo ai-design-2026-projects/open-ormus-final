@@ -46,15 +46,14 @@ export function CharacterList({ characters, loading, onView, onEdit, onDelete }:
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {characters.map((c, i) => (
-        <div key={c.id} className={i === 0 ? "col-span-2 row-span-2 h-full" : ""}>
-          <CharacterCard
-            character={c}
-            onView={onView}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        </div>
+      {characters.map((c) => (
+        <CharacterCard
+          key={c.id}
+          character={c}
+          onView={onView}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );

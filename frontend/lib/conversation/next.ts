@@ -23,7 +23,7 @@ export class ConversationError extends Error {
 export type TurnEvent =
   | { type: "token"; text: string }
   | { type: "thinking" }
-  | { type: "thinking_done" };
+  | { type: "thinking_done"; reasoning: string };
 
 const FALLBACK_EMOTION: Emotion = { emotion: "Joy", intensity: "low", subtext: "" };
 const REASONING_TAG = "<|reasoning|>";
@@ -257,7 +257,7 @@ export async function* generateNextTurnStream(
           parsedEmotion = parseEmotionBlock(`${EMOTION_TAG}${emotionJson}${EMOTION_TAG}`);
           onEmotion?.(parsedEmotion ?? FALLBACK_EMOTION);
           parserState = "dialogue";
-          yield { type: "thinking_done" };
+          yield { type: "thinking_done", reasoning: reasoningText };
           if (rest) {
             content += rest;
             yield { type: "token", text: rest };
@@ -273,7 +273,7 @@ export async function* generateNextTurnStream(
 
     if (parsedEmotion === null) {
       onEmotion?.(FALLBACK_EMOTION);
-      yield { type: "thinking_done" };
+      yield { type: "thinking_done", reasoning: "" };
     }
 
     const cachedTokens = finalUsage?.prompt_tokens_details?.cached_tokens;

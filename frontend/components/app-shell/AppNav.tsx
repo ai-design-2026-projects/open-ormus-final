@@ -18,6 +18,26 @@ export function AppNav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+
+  function fetchUser() {
+    fetch("/api/user")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { displayName: string; email: string } | null) => {
+        if (!d) return;
+        setDisplayName(d.displayName);
+        setEmail(d.email);
+      })
+      .catch(() => undefined);
+  }
+
+  useEffect(() => { fetchUser(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    window.addEventListener("user-name-updated", fetchUser);
+    return () => window.removeEventListener("user-name-updated", fetchUser);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -76,22 +96,48 @@ export function AppNav() {
 
       {/* Right: user menu */}
       <div className="relative shrink-0" ref={menuRef}>
+        {email === null ? (
+          /* skeleton — shown only until first fetch resolves */
+          <div className="flex items-center gap-2 px-2 py-1 -mr-1">
+            <div className="size-[26px] rounded-[var(--r-md)] bg-surface-sunk animate-pulse" />
+            <div className="h-3.5 w-20 rounded bg-surface-sunk animate-pulse" />
+          </div>
+        ) : (
         <button
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
-          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-2 rounded-lg px-2 py-1 -mr-1 outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-bg-tinted transition-colors duration-[120ms]"
           aria-label="User menu"
           aria-expanded={menuOpen}
           aria-haspopup="menu"
         >
-          <Monogram name="User" size={28} />
+          <Monogram name={displayName || email || "User"} size={26} />
+          {(displayName || email) && (
+            <span className="text-[13px] font-medium text-ink-dim max-w-[120px] truncate">
+              {displayName || email.split("@")[0]}
+            </span>
+          )}
         </button>
+        )}
 
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full mt-1.5 w-44 bg-surface-1 border border-hair rounded-[var(--r-md)] shadow-[var(--shadow-2)] py-1 z-50"
+            className="absolute right-0 top-full mt-1.5 w-48 bg-surface-1 border border-hair rounded-[var(--r-md)] shadow-[var(--shadow-2)] py-1 z-50"
           >
+            {(displayName || email) && (
+              <>
+                <div className="px-3 py-2">
+                  {displayName && (
+                    <p className="text-[13px] font-medium text-ink truncate">{displayName}</p>
+                  )}
+                  {email && (
+                    <p className="text-[11px] text-ink-faint truncate mt-0.5">{email}</p>
+                  )}
+                </div>
+                <div className="border-t border-hair my-1" />
+              </>
+            )}
             <Link
               href="/settings"
               role="menuitem"

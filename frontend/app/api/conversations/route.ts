@@ -76,6 +76,10 @@ export async function POST(request: Request) {
 
   const { title, context, characterIds, turnStrategy, userParticipates, userTurnOrder } = parsed.data;
 
+  if (!userParticipates && characterIds.length < 2) {
+    return NextResponse.json({ error: "Select at least 2 characters when not joining as a participant" }, { status: 400 });
+  }
+
   const characters = await prisma.character.findMany({
     where: { id: { in: characterIds }, userId: user.id },
     select: { id: true },

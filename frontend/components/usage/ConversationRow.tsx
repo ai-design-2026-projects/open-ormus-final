@@ -14,7 +14,7 @@ export function ConversationRow({ item }: { item: ConversationBreakdown }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between py-2.5 text-left hover:bg-surface-hover rounded px-1 -mx-1 transition-colors"
+        className="w-full flex items-center justify-between py-2.5 text-left hover:bg-bg-tinted rounded-[var(--r-sm)] px-1 -mx-1 transition-colors duration-[120ms]"
       >
         <span className="flex items-center gap-2 min-w-0">
           <ChevronRight

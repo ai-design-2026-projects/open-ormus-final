@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Play, Square } from "lucide-react";
-import { EmotionDot } from "@/components/ui/emotion-dot";
+import { ArrowLeft, Maximize2, Play, Square, X } from "lucide-react";
+import { EmotionDot, EMOTION_COLOR } from "@/components/ui/emotion-dot";
 import { Monogram } from "@/components/ui/monogram";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -59,10 +59,15 @@ export default function ConversationPage() {
   const [expandedReasonings, setExpandedReasonings] = useState<Set<string>>(new Set());
   const [awaitingUserTurn, setAwaitingUserTurn] = useState(false);
   const [userInput, setUserInput] = useState("");
+  const [sceneModalOpen, setSceneModalOpen] = useState(false);
+  const [streamingHadThinking, setStreamingHadThinking] = useState(false);
+  const [streamingReasoning, setStreamingReasoning] = useState<string | null>(null);
+  const [streamingReasoningOpen, setStreamingReasoningOpen] = useState(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const streamingHadThinkingRef = useRef(false);
 
   function toggleReasoning(msgId: string) {
     setExpandedReasonings((prev) => {
@@ -74,9 +79,22 @@ export default function ConversationPage() {
   }
 
   async function loadConversation() {
-    const res = await fetch(`/api/conversations/${id}`);
-    if (res.ok) setConversation((await res.json()) as ConversationDetail);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/conversations/${id}`);
+      if (!res.ok) {
+        setError(res.status === 404 ? "Scene not found." : "Couldn't load this scene. Try refreshing.");
+        setLoading(false);
+        return null;
+      }
+      const data = (await res.json()) as ConversationDetail;
+      setConversation(data);
+      setLoading(false);
+      return data.messages;
+    } catch {
+      setError("Couldn't reach the server. Try refreshing.");
+      setLoading(false);
+      return null;
+    }
   }
 
   async function checkActiveJob() {
@@ -108,15 +126,27 @@ export default function ConversationPage() {
         void loadConversation().then(() => {
           setStreamingBuffer("");
           setStreamingEmotion(null);
+          setStreamingHadThinking(false);
+          setStreamingReasoning(null);
+          setStreamingReasoningOpen(false);
+          streamingHadThinkingRef.current = false;
           setActiveJob((prev) => prev ? { ...prev, doneTurns: doneTurns ?? prev.doneTurns } : prev);
         });
       } else if (data.type === "thinking") {
         setIsThinking(true);
       } else if (data.type === "thinking_done") {
         setIsThinking(false);
+        const reasoning = (data as { type: string; reasoning?: string }).reasoning ?? "";
+        if (reasoning) {
+          setStreamingReasoning(reasoning);
+          setStreamingHadThinking(true);
+          streamingHadThinkingRef.current = true;
+        }
       } else if (data.type === "done") {
         es.close(); eventSourceRef.current = null;
         setIsThinking(false); setActiveJob(null); setStreamingBuffer(""); setStreamingEmotion(null);
+        setStreamingHadThinking(false); setStreamingReasoning(null); setStreamingReasoningOpen(false);
+        streamingHadThinkingRef.current = false;
         void loadConversation();
       } else if (data.type === "user_turn") {
         setAwaitingUserTurn(true);
@@ -128,6 +158,8 @@ export default function ConversationPage() {
       } else if (data.type === "error") {
         es.close(); eventSourceRef.current = null;
         setIsThinking(false); setActiveJob(null); setStreamingBuffer(""); setStreamingEmotion(null);
+        setStreamingHadThinking(false); setStreamingReasoning(null); setStreamingReasoningOpen(false);
+        streamingHadThinkingRef.current = false;
         setError(data.message ?? "Job failed");
       }
     };
@@ -136,6 +168,7 @@ export default function ConversationPage() {
       es.close(); eventSourceRef.current = null;
       if (isMountedRef.current) {
         setIsThinking(false); setActiveJob(null); setStreamingBuffer(""); setStreamingEmotion(null);
+        setError("Connection lost. Try running the scene again.");
       }
     };
   }
@@ -170,21 +203,31 @@ export default function ConversationPage() {
     const content = userInput.trim();
     setUserInput("");
     setAwaitingUserTurn(false);
-    await fetch(`/api/conversations/${id}/user-message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: activeJob.id, content }),
-    });
+    try {
+      const res = await fetch(`/api/conversations/${id}/user-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: activeJob.id, content }),
+      });
+      if (!res.ok) setError("Failed to send your message. Try again.");
+    } catch {
+      setError("Couldn't reach the server. Check your connection.");
+    }
   }
 
   async function handleUserSkip() {
     if (!activeJob) return;
     setAwaitingUserTurn(false);
-    await fetch(`/api/conversations/${id}/user-message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: activeJob.id, content: null }),
-    });
+    try {
+      const res = await fetch(`/api/conversations/${id}/user-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: activeJob.id, content: null }),
+      });
+      if (!res.ok) setError("Failed to skip turn. Try again.");
+    } catch {
+      setError("Couldn't reach the server. Check your connection.");
+    }
   }
 
   async function handleStop() {
@@ -196,8 +239,54 @@ export default function ConversationPage() {
 
   // ─── loading / not found ──────────────────────────────────────────────────
 
-  if (loading) return <p className="p-8 text-ink-faint">Loading…</p>;
-  if (conversation === null) return <p className="p-8 text-ink-faint">Conversation not found.</p>;
+  if (loading) return (
+    <div className="h-screen overflow-hidden flex flex-col bg-background">
+      <nav className="flex-shrink-0 grid items-center gap-4 px-7 py-3.5 border-b border-hair" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
+        <div className="h-5 w-24 bg-surface-sunk animate-pulse rounded-[var(--r-md)]" />
+        <div className="h-4 w-40 bg-surface-sunk animate-pulse rounded-[var(--r-md)]" />
+        <div className="h-5 w-20 bg-surface-sunk animate-pulse rounded-[var(--r-md)] ml-auto" />
+      </nav>
+      <main className="flex-1 grid gap-6 p-8 overflow-hidden" style={{ gridTemplateColumns: "300px 1fr" }}>
+        <aside className="flex flex-col gap-4">
+          <div className="flex-shrink-0 h-[200px] bg-surface-sunk animate-pulse rounded-[var(--r-lg)]" />
+          <div className="flex-1 bg-surface-sunk animate-pulse rounded-[var(--r-lg)]" />
+          <div className="flex-shrink-0 h-[140px] bg-surface-sunk animate-pulse rounded-[var(--r-lg)]" />
+        </aside>
+        <div className="bg-surface-sunk animate-pulse rounded-[var(--r-xl)]" />
+      </main>
+    </div>
+  );
+  if (conversation === null) return (
+    <div className="h-screen overflow-hidden flex flex-col bg-background">
+      <nav
+        className="flex-shrink-0 grid items-center gap-4 px-7 py-3.5 border-b border-hair"
+        style={{ gridTemplateColumns: "1fr auto 1fr", background: "color-mix(in oklch, var(--surface-1) 85%, transparent)" }}
+      >
+        <button
+          type="button"
+          onClick={() => router.push("/conversations")}
+          className="flex items-center gap-2 text-ink-mute hover:text-ink transition-colors duration-[120ms] w-fit"
+        >
+          <ArrowLeft className="size-4" strokeWidth={1.5} />
+          <span className="text-[13px]">Scenes</span>
+        </button>
+      </nav>
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-8">
+        <p className="t-h6 m-0 text-ink-dim">{error ?? "Scene not found"}</p>
+        <p className="t-body-s text-ink-mute">
+          {error ? "Something went wrong loading this scene." : "This scene doesn't exist or you don't have access."}
+        </p>
+        {error && (
+          <button
+            onClick={() => { setError(null); setLoading(true); void loadConversation(); }}
+            className="mt-2 h-8 px-4 rounded-lg text-[12.5px] font-medium bg-ink-panel text-on-ink transition-opacity hover:opacity-80"
+          >
+            Try again
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   // ─── derived state ────────────────────────────────────────────────────────
 
@@ -213,14 +302,17 @@ export default function ConversationPage() {
   }
 
   // "Focus" pane: who to highlight and what label to show
+  const isOrchestrator = conversation.turnStrategy === "ORCHESTRATOR";
   const focusLabel = isActive ? "NOW SPEAKING" : conversation.messages.length > 0 ? "LAST SPOKE" : "ON DECK";
   const focusId = isActive
     ? (nextSpeaker?.characterId)
     : conversation.messages.length > 0
       ? conversation.messages[conversation.messages.length - 1]?.characterId
-      : sortedParticipants[0]?.characterId;
-  const focusSpeaker = sortedParticipants.find((p) => p.characterId === focusId) ?? sortedParticipants[0];
-  const focusEmotion = (isActive ? streamingEmotion : null) ?? (focusSpeaker?.characterId ? lastEmotionMap[focusSpeaker.characterId] : null);
+      : isOrchestrator ? null : sortedParticipants[0]?.characterId;
+  const focusSpeaker = sortedParticipants.find((p) => p.characterId === focusId);
+  const focusEmotion = isActive
+    ? streamingEmotion
+    : (focusSpeaker?.characterId != null ? lastEmotionMap[focusSpeaker.characterId] : null);
   const focusEmotionName = focusEmotion?.emotion?.toLowerCase() ?? "";
   const focusIntensity = focusEmotion?.intensity ?? "";
   const showEmotionGrid = focusLabel !== "ON DECK";
@@ -236,6 +328,14 @@ export default function ConversationPage() {
   const monoFont = "var(--font-mono), monospace";
   const sansFont = "var(--font-sans), system-ui, sans-serif";
   const serifFont = "var(--font-serif), Georgia, serif";
+
+  // Splits **stage direction** markers into italic parenthetical spans
+  const renderContent = (text: string, dirColor: string, dirFont: string) =>
+    text.split(/\*{1,2}([\s\S]+?)\*{1,2}/g).map((part, i) =>
+      i % 2 === 1
+        ? <em key={i} style={{ fontStyle: "italic", color: dirColor, fontFamily: dirFont }}>({part})</em>
+        : part
+    );
 
   // ─── render ───────────────────────────────────────────────────────────────
 
@@ -297,12 +397,12 @@ export default function ConversationPage() {
         />
 
         {/* ── Left panes ─────────────────────────────────────────────────── */}
-        <aside className="relative grid gap-4 content-start overflow-y-auto">
+        <aside className="relative flex flex-col gap-4 min-h-0 overflow-hidden">
 
           {/* Pane 1: Now Speaking / Last Spoke / On Deck */}
-          <div className="bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
+          <div className="flex-shrink-0 bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
             <div className={cn("t-meta mb-2.5", isActive ? "text-accent-deep" : "")}>{focusLabel}</div>
-            {focusSpeaker && (
+            {focusSpeaker ? (
               <div className={cn("flex items-center gap-3", focusLabel === "ON DECK" && "opacity-50")}>
                 <Monogram name={focusSpeaker.name} size={48} ring={isActive} />
                 <div>
@@ -314,6 +414,13 @@ export default function ConversationPage() {
                   )}
                 </div>
               </div>
+            ) : (
+              <div className="flex items-center gap-3 mt-1 opacity-40">
+                <div className="size-12 rounded-full border border-dashed border-hair-strong flex items-center justify-center flex-shrink-0">
+                  <span className="t-meta">?</span>
+                </div>
+                <span className="t-meta text-ink-faint">orchestrator decides</span>
+              </div>
             )}
             {showEmotionGrid && (
               <div className="grid grid-cols-2 gap-1.5 mt-3">
@@ -324,8 +431,8 @@ export default function ConversationPage() {
                       <span
                         className="size-2 rounded-full shrink-0"
                         style={{
-                          background: active ? "var(--accent-oo)" : "var(--hair-strong)",
-                          boxShadow: active ? "0 0 0 3px color-mix(in oklch, var(--accent-oo) 20%, transparent)" : "none",
+                          background: active ? (EMOTION_COLOR[e] ?? "var(--accent-oo)") : "var(--hair-strong)",
+                          boxShadow: active ? `0 0 0 3px color-mix(in oklch, ${EMOTION_COLOR[e] ?? "var(--accent-oo)"} 20%, transparent)` : "none",
                         }}
                       />
                       <span className={cn("t-meta", active ? "text-ink" : "text-ink-faint")}>{e}</span>
@@ -337,20 +444,33 @@ export default function ConversationPage() {
           </div>
 
           {/* Pane 2: Scene context */}
-          <div className="bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
-            <div className="t-meta mb-2">SCENE</div>
-            <p className="t-body-s italic text-ink-dim my-2 leading-relaxed">
-              {conversation.context || "No scene context provided."}
-            </p>
-            <div className="flex gap-3.5 mt-3">
+          <div className="flex flex-col flex-1 min-h-0 bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
+            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+              <div className="t-meta">SCENE</div>
+              <button
+                type="button"
+                onClick={() => setSceneModalOpen(true)}
+                className="flex items-center justify-center size-5 rounded text-ink-faint hover:text-ink hover:bg-bg-tinted transition-colors duration-[120ms]"
+                aria-label="Expand scene description"
+              >
+                <Maximize2 className="size-3" strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+              <p className="t-body-s italic text-ink-dim leading-relaxed break-words">
+                {conversation.context || "No scene context provided."}
+              </p>
+            </div>
+            <div className="flex gap-3.5 mt-3 flex-shrink-0">
               <span className="t-meta">TURN · {conversation.messages.length}</span>
               {isRunning && <span className="t-meta text-accent-deep">STREAMING · SSE</span>}
             </div>
           </div>
 
           {/* Pane 3: Cast State */}
-          <div className="bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
+          <div className="flex-shrink-0 bg-surface-1 border border-hair rounded-[var(--r-lg)] p-[18px] shadow-[var(--shadow-inset),var(--shadow-1)]">
             <div className="t-meta mb-1">CAST STATE</div>
+            <div className="overflow-y-auto max-h-[180px] scrollbar-hide">
             {sortedParticipants.map((p, i) => {
               const em = p.characterId ? lastEmotionMap[p.characterId] : undefined;
               return (
@@ -373,23 +493,26 @@ export default function ConversationPage() {
                 </div>
               );
             })}
+            </div>
           </div>
         </aside>
 
         {/* ── Screenplay + controls bar ───────────────────────────────────── */}
         <section className="relative grid gap-4 min-h-0" style={{ gridTemplateRows: "1fr auto" }}>
 
-          {/* Screenplay paper
-              overflow-x-hidden keeps the box shadow intact; overflow-y-auto scrolls.
+          {/* Screenplay paper — outer clips scrollbar within rounded corners, inner scrolls.
               NO fontFamily here — each element sets its own font to avoid inheritance bugs. */}
           <div
-            className="rounded-[var(--r-xl)] overflow-x-hidden overflow-y-auto"
+            className="relative rounded-[var(--r-xl)] overflow-hidden"
             style={{
               background: "linear-gradient(180deg, oklch(0.96 0.008 80) 0%, oklch(0.94 0.012 78) 100%)",
-              padding: "48px 64px",
               boxShadow: "var(--shadow-3), inset 0 0 0 1px rgba(255,255,255,0.4), inset 0 0 80px color-mix(in oklch, oklch(0.6 0.06 60) 8%, transparent)",
             }}
           >
+            <div
+              className="absolute inset-0 overflow-x-hidden overflow-y-auto scrollbar-paper"
+              style={{ padding: "48px 64px" }}
+            >
             {/* Inner wrapper stretches to at least the paper's visible height so that the
                 absolutely-positioned margin line always reaches the container bottom,
                 even when content is short. */}
@@ -442,7 +565,7 @@ export default function ConversationPage() {
                         </span>
                       </div>
                       <p className="text-center leading-relaxed m-0" style={{ fontFamily: sansFont, fontSize: 16, color: paperInk }}>
-                        {m.content}
+                        {renderContent(m.content, paperInkFaint, serifFont)}
                       </p>
                     </div>
                   ) : (
@@ -459,7 +582,7 @@ export default function ConversationPage() {
                         )}
                       </div>
                       <p className="text-center leading-relaxed m-0" style={{ fontFamily: sansFont, fontSize: 16, color: paperInk }}>
-                        {m.content}
+                        {renderContent(m.content, paperInkFaint, serifFont)}
                       </p>
                     </div>
                   )}
@@ -481,6 +604,25 @@ export default function ConversationPage() {
               {/* Streaming line (in-progress, dimmed) */}
               {streamingBuffer && (
                 <div style={{ maxWidth: "50ch", marginLeft: "auto", marginRight: "auto" }}>
+                {streamingHadThinking && streamingReasoning && (
+                  <div className="mb-2 text-center">
+                    <button
+                      onClick={() => setStreamingReasoningOpen((p) => !p)}
+                      className="inline-flex items-center gap-1.5 text-[10.5px] hover:opacity-80 transition-opacity"
+                      style={{ color: paperInkFaint, fontFamily: monoFont }}
+                    >
+                      💭 {streamingReasoningOpen ? "hide thoughts" : "show thoughts"}
+                    </button>
+                    {streamingReasoningOpen && (
+                      <p
+                        className="mt-1.5 text-[12.5px] italic leading-relaxed max-w-[50ch] mx-auto text-left"
+                        style={{ color: "oklch(0.45 0.01 80)", fontFamily: serifFont }}
+                      >
+                        {streamingReasoning}
+                      </p>
+                    )}
+                  </div>
+                )}
                   <div className="flex items-baseline gap-3 justify-center mb-1.5">
                     <span style={{ fontFamily: monoFont, fontSize: 13, letterSpacing: "0.08em", fontWeight: 500, color: paperInkMuted }}>
                       {(nextSpeaker?.name ?? "...").toUpperCase()}
@@ -492,12 +634,13 @@ export default function ConversationPage() {
                     )}
                   </div>
                   <p className="text-center leading-relaxed m-0" style={{ fontFamily: sansFont, fontSize: 16, color: paperInkMuted }}>
-                    {streamingBuffer}<span className="animate-pulse">▋</span>
+                    {renderContent(streamingBuffer, paperInkFaint, serifFont)}<span className="animate-pulse">▋</span>
                   </p>
                 </div>
               )}
 
               <div ref={messagesEndRef} />
+            </div>
             </div>
           </div>
 
@@ -588,6 +731,37 @@ export default function ConversationPage() {
           </div>
         </section>
       </main>
+
+      {/* Scene description modal */}
+      {sceneModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setSceneModalOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative z-10 bg-surface-1 border border-hair rounded-[var(--r-xl)] p-8 max-w-2xl w-full mx-8 max-h-[70vh] flex flex-col shadow-[var(--shadow-3)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5 flex-shrink-0">
+              <div className="t-meta">SCENE DESCRIPTION</div>
+              <button
+                type="button"
+                onClick={() => setSceneModalOpen(false)}
+                className="flex items-center justify-center size-7 rounded-lg text-ink-faint hover:text-ink hover:bg-bg-tinted transition-colors duration-[120ms]"
+                aria-label="Close"
+              >
+                <X className="size-4" strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <p className="t-body-s italic text-ink-dim leading-relaxed break-words">
+                {conversation.context || "No scene context provided."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

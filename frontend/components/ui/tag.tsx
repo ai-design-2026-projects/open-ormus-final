@@ -2,7 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const tagVariants = cva(
-  "inline-flex items-center h-[22px] px-2 rounded-[6px] font-mono text-[10.5px] tracking-[0.03em] font-medium",
+  "inline-flex items-center overflow-hidden h-[22px] px-2 rounded-[6px] font-mono text-[10.5px] tracking-[0.03em] font-medium",
   {
     variants: {
       tone: {
@@ -18,8 +18,9 @@ const tagVariants = cva(
 export interface TagProps extends VariantProps<typeof tagVariants> {
   children: React.ReactNode
   className?: string
+  title?: string
 }
 
-export function Tag({ children, tone, className }: TagProps) {
-  return <span className={cn(tagVariants({ tone }), className)}>{children}</span>
+export function Tag({ children, tone, className, title }: TagProps) {
+  return <span className={cn(tagVariants({ tone }), className)} title={title}>{children}</span>
 }

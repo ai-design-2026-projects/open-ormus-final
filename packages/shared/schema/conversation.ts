@@ -17,6 +17,14 @@ export const CreateConversationInputSchema = z.object({
   turnStrategy: TurnStrategySchema.optional().default('ORCHESTRATOR'),
   userParticipates: z.boolean().optional().default(false),
   userTurnOrder: z.number().int().min(0).optional(),
+}).superRefine((data, ctx) => {
+  if (!data.userParticipates && data.characterIds.length < 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Select at least 2 characters when not joining as a participant",
+      path: ["characterIds"],
+    });
+  }
 });
 export type CreateConversationInput = z.infer<typeof CreateConversationInputSchema>;
 

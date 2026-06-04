@@ -76,8 +76,8 @@ export async function GET(request: Request, { params }: RouteContext) {
         onThinking: () => {
           if (!closed) controller.enqueue(encode({ type: "thinking" }));
         },
-        onThinkingDone: () => {
-          if (!closed) controller.enqueue(encode({ type: "thinking_done" }));
+        onThinkingDone: (reasoning: string) => {
+          if (!closed) controller.enqueue(encode({ type: "thinking_done", reasoning }));
         },
         onUserTurn: () => {
           if (!closed) controller.enqueue(encode({ type: "user_turn" }));
