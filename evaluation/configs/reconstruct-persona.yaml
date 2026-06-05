@@ -1,0 +1,26 @@
+# Persona Reconstruction — Example Config
+# Run: bun evaluation/reconstruct_persona.ts evaluation/configs/reconstruct-persona.yaml
+# Required env: LLM_API_KEY
+#
+# NOTE: pair differentiation is most meaningful when both pair members (char_009/010,
+# char_011/012, char_013/014, char_015/016) appear under the same scenario_id.
+
+dataset_dir: "dataset-001"
+output_name: "reconstruct-run-001"
+base_url: "https://openrouter.ai/api"
+
+reconstructor:
+  model: "mistralai/mistral-nemo"
+
+comparators:
+  - model: "mistralai/mistral-nemo"
+  - model: "mistralai/mistral-nemo"
+
+# fields: optional — defaults to all 6 behavioural fields
+# fields:
+#   - personalityTraits
+#   - speechPatterns
+#   - values
+#   - fears
+#   - goals
+#   - copingStyle
