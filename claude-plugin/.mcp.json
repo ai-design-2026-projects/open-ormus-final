@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "openormus": {
+      "type": "http",
+      "url": "${OPENORMUS_URL:-http://localhost:3001}/mcp"
+    }
+  }
+}

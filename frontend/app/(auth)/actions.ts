@@ -58,7 +58,9 @@ export async function login(
     return { error: error.message }
   }
 
-  redirect("/")
+  const nextPath = (formData.get("next") as string | null) ?? "/"
+  // Prevent open redirect — only allow relative paths
+  redirect(nextPath.startsWith("/") ? nextPath : "/")
 }
 
 export async function register(

@@ -6,8 +6,10 @@ function mockReqRes() {
   const res = {
     statusCode: 200,
     body: null as unknown,
+    _headers: {} as Record<string, string>,
     status(code: number) { this.statusCode = code; return this; },
     json(body: unknown) { this.body = body; return this; },
+    set(key: string, val: string) { this._headers[key] = val; return this; },
   };
   let nextCalled = false;
   const next = () => { nextCalled = true; };
@@ -47,5 +49,56 @@ describe("createAuthMiddleware", () => {
 
     expect(isNextCalled()).toBe(false);
     expect(res.statusCode).toBe(401);
+  });
+
+  test("401 missing_token includes WWW-Authenticate header pointing to resource metadata", () => {
+    delete process.env["MCP_AUTH_DISABLED"];
+    process.env["JWT_SECRET"] = "test-secret";
+    process.env["MCP_PUBLIC_URL"] = "http://localhost:3001";
+    const middleware = createAuthMiddleware();
+    const headers: Record<string, string> = {};
+    const res = {
+      statusCode: 200,
+      body: null as unknown,
+      _headers: headers,
+      status(code: number) { this.statusCode = code; return this; },
+      json(body: unknown) { this.body = body; return this; },
+      set(key: string, val: string) { this._headers[key] = val; return this; },
+    };
+    const req: Record<string, unknown> = { headers: {} };
+    const next = () => {};
+
+    middleware(req as never, res as never, next);
+
+    expect(res.statusCode).toBe(401);
+    const wwwAuth = res._headers["WWW-Authenticate"] ?? "";
+    expect(wwwAuth).toContain("Bearer");
+    expect(wwwAuth).toContain("oauth-protected-resource");
+  });
+
+  test("401 invalid_token includes WWW-Authenticate header", () => {
+    delete process.env["MCP_AUTH_DISABLED"];
+    process.env["JWT_SECRET"] = "test-secret";
+    process.env["MCP_PUBLIC_URL"] = "http://localhost:3001";
+    const middleware = createAuthMiddleware();
+    const headers: Record<string, string> = {};
+    const res = {
+      statusCode: 200,
+      body: null as unknown,
+      _headers: headers,
+      status(code: number) { this.statusCode = code; return this; },
+      json(body: unknown) { this.body = body; return this; },
+      set(key: string, val: string) { this._headers[key] = val; return this; },
+    };
+    const req: Record<string, unknown> = {
+      headers: { authorization: "Bearer bad.token.here" },
+    };
+    const next = () => {};
+
+    middleware(req as never, res as never, next);
+
+    expect(res.statusCode).toBe(401);
+    const wwwAuth = res._headers["WWW-Authenticate"] ?? "";
+    expect(wwwAuth).toContain("Bearer");
   });
 });

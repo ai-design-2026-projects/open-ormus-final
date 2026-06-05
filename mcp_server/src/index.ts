@@ -25,6 +25,16 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// OAuth resource metadata (RFC 9728) — unauthenticated
+app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+  const mcpPublicUrl = process.env["MCP_PUBLIC_URL"] ?? `http://localhost:${PORT}`;
+  const frontendUrl = process.env["FRONTEND_INTERNAL_URL"] ?? "http://localhost:3000";
+  res.json({
+    resource: `${mcpPublicUrl}/mcp`,
+    authorization_servers: [frontendUrl],
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`MCP server running on http://localhost:${PORT}`);
   console.log(`Auth: ${process.env["MCP_AUTH_DISABLED"] === "true" ? "DISABLED (dev mode)" : "enabled"}`);

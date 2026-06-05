@@ -2,6 +2,7 @@
 
 import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { login, type AuthActionState } from "../actions"
 import Link from "next/link"
@@ -22,11 +23,14 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, initialState)
+  const searchParams = useSearchParams()
+  const next = searchParams.get("next") ?? "/"
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
       <form action={formAction} className="flex flex-col gap-4">
+        <input type="hidden" name="next" value={next} />
         <input
           name="email"
           type="email"

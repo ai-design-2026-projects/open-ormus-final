@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "character_delete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '\"⚠️  About to archive character \" + .tool_input.id + \". Ask the user to confirm before proceeding.\"'"
+          }
+        ]
+      }
+    ]
+  }
+}

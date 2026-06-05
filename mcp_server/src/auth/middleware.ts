@@ -17,6 +17,14 @@ type AuthMiddleware = (req: Request, res: Response, next: NextFunction) => void;
 
 const JwtPayloadSchema = z.object({ userId: z.string() });
 
+function setWwwAuthenticate(res: Response): void {
+  const mcpPublicUrl = process.env["MCP_PUBLIC_URL"] ?? "http://localhost:3001";
+  res.set(
+    "WWW-Authenticate",
+    `Bearer resource_metadata="${mcpPublicUrl}/.well-known/oauth-protected-resource"`
+  );
+}
+
 export function createAuthMiddleware(): AuthMiddleware {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authHeader = req.headers["authorization"];
@@ -42,6 +50,7 @@ export function createAuthMiddleware(): AuthMiddleware {
     }
 
     if (!authHeader?.startsWith("Bearer ")) {
+      setWwwAuthenticate(res);
       res.status(401).json({ error: "missing_token" });
       return;
     }
@@ -58,6 +67,7 @@ export function createAuthMiddleware(): AuthMiddleware {
       req.userId = payload.userId;
       next();
     } catch {
+      setWwwAuthenticate(res);
       res.status(401).json({ error: "invalid_token" });
     }
   };

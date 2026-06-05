@@ -8,6 +8,9 @@ const PUBLIC_PATHS = [
   "/api/auth/callback",
   "/api/internal",
   "/preview",
+  "/api/oauth",
+  "/.well-known",
+  "/oauth/authorized",
 ]
 
 export async function proxy(request: NextRequest) {

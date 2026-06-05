@@ -1,0 +1,11 @@
+{
+  "name": "openormus",
+  "description": "Full OpenOrmus integration — create characters, simulate multi-character conversations, evaluate LLM behavioural fidelity",
+  "version": "1.0.0",
+  "author": {
+    "name": "Davide Andreolli",
+    "email": "davide@andreolli.dev"
+  },
+  "homepage": "https://github.com/andreolli-davide/open-ormus",
+  "license": "MIT"
+}
