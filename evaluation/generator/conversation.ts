@@ -93,7 +93,7 @@ export async function runConversation(
 
   const resultMessages: ConversationMessage[] = [];
 
-  for (let i = 0; i < run.turns; i++) {
+  for (let i = 0; i < run.turns * run.characters.length; i++) {
     const gen = generateTurn(
       { participants, messages, context, turnStrategy: run.turn_strategy },
       config,

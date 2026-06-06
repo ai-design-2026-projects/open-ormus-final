@@ -85,9 +85,9 @@ describe("runConversation", () => {
     mockGenerateTurn.mockClear();
   });
 
-  it("calls generateTurn once per turn", async () => {
+  it("calls generateTurn turns × characters times", async () => {
     await runConversation(mockRun, "http://localhost:4000", "test-key", aliasMap);
-    expect(mockGenerateTurn.mock.calls.length).toBe(2);
+    expect(mockGenerateTurn.mock.calls.length).toBe(4); // turns: 2 × chars: 2
   });
 
   it("concatenates context and initial_prompt", async () => {
@@ -102,7 +102,7 @@ describe("runConversation", () => {
     expect(result.run_index).toBe(1);
     expect(result.scenario_id).toBe("scenario_001");
     expect(result.turns_requested).toBe(2);
-    expect(result.messages).toHaveLength(2);
+    expect(result.messages).toHaveLength(4); // turns: 2 × chars: 2
     expect(result.completed_at).toBeDefined();
   });
 
