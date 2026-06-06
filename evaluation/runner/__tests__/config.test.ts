@@ -153,6 +153,29 @@ runs:
     process.env["LLM_API_KEY"] = "test-key"; // restore
   });
 
+  it("does not accept a concurrency field — parallelism is unconditional", () => {
+    writeFileSync(
+      configPath,
+      `
+output_dir: "${freshDir()}"
+base_url: "http://localhost:4000"
+default_model: "claude-haiku-4-5"
+concurrency: 4
+runs:
+  - scenario: scenario_001
+    characters: [char_001, char_002]
+    turns: 2
+    turn_strategy: ROUND_ROBIN
+`,
+    );
+    // Zod strips unknown fields — concurrency is silently ignored, not an error.
+    // This test documents the intent: concurrency is not a config knob.
+    expect(() => loadConfig(configPath, tmpBase)).not.toThrow();
+    const config = loadConfig(configPath, tmpBase);
+    expect(config.outputDir).toBeDefined();
+    expect(config.runs).toHaveLength(1);
+  });
+
   it("throws if ORCHESTRATOR is used with 2 characters", () => {
     writeFileSync(
       configPath,

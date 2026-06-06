@@ -10,6 +10,7 @@ export function initOutputDir(resultsBase: string, outputDir: string, rawConfigT
   return runDir;
 }
 
+// index must be unique across concurrent callers — guaranteed by loadConfig (index = i + 1)
 export function writeConversation(conversationsDir: string, index: number, result: ConversationResult): void {
   const filename = String(index).padStart(3, "0") + ".yaml";
   const filePath = join(conversationsDir, filename);
