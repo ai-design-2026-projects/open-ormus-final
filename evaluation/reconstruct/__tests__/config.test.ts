@@ -67,4 +67,20 @@ describe("loadReconstructConfig", () => {
     const yaml = validYaml.replace(/comparators:[\s\S]*?(?=\n\w|$)/, "comparators: []");
     expect(() => loadReconstructConfig(yaml)).toThrow();
   });
+
+  it("defaults segments to 1 when omitted", () => {
+    const cfg = loadReconstructConfig(validYaml);
+    expect(cfg.segments).toBe(1);
+  });
+
+  it("accepts explicit segments value", () => {
+    const yaml = validYaml + "\nsegments: 3\n";
+    const cfg = loadReconstructConfig(yaml);
+    expect(cfg.segments).toBe(3);
+  });
+
+  it("throws when segments is 0", () => {
+    const yaml = validYaml + "\nsegments: 0\n";
+    expect(() => loadReconstructConfig(yaml)).toThrow();
+  });
 });

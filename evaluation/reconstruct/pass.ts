@@ -65,7 +65,7 @@ export async function runReconstructionPass(configPath: string): Promise<void> {
     }
 
     writeReconstructResults(outputDir, allResults);
-    writeSummary(outputDir, computeSummary(allResults, config.comparators.map((c) => c.model)));
+    writeSummary(outputDir, computeSummary(allResults, config.comparators.map((c) => c.model), config.segments));
 
     console.log(`\nDone. Results written to ${outputDir}/`);
   } catch (err) {

@@ -60,15 +60,15 @@ export function buildReconstructorUserMessage(
 }
 
 export function buildComparatorSystemPrompt(): string {
-  return `You are an expert semantic evaluator. Your task is to score reconstructed personality items against ground-truth profile items.
+  return `You are an expert semantic evaluator. Your task is to label reconstructed personality items against ground-truth profile items.
 
-For each reconstructed item, determine whether it is covered by the ground-truth:
+For each reconstructed item, determine whether it is covered by the ground-truth and assign one of three labels:
 
-  1 (MATCH): The reconstructed item expresses the same idea as at least one ground-truth item, even if worded differently. Paraphrase, synonym, and generalization all count as a match.
-  0 (NO MATCH): The reconstructed item is not covered by any ground-truth item. It may be a plausible trait not mentioned in the ground truth — that is fine.
- -1 (CONTRADICTION): The reconstructed item directly contradicts a ground-truth item. Use -1 only when the reconstructed item is incompatible with or the opposite of a ground-truth item.
+  match: The reconstructed item expresses the same idea as at least one ground-truth item, even if worded differently. Paraphrase, synonym, and generalization all count as a match.
+  no_match: The reconstructed item is not covered by any ground-truth item. It may be a plausible trait not mentioned in the ground truth — that is fine.
+  contradiction: The reconstructed item directly contradicts a ground-truth item. Use this only when the reconstructed item is incompatible with or the opposite of a ground-truth item.
 
-Important: reserve -1 for clear semantic contradictions. A trait absent from the ground-truth is a 0, not a -1. Ambiguous cases default to 0.
+Important: reserve "contradiction" for clear semantic contradictions. A trait absent from the ground-truth is "no_match", not "contradiction". Ambiguous cases default to "no_match".
 
 For each item provide a justification: which ground-truth item it matches, partially matches, is contradicted by, or why there is no match.`;
 }
@@ -87,8 +87,8 @@ export function buildComparatorUserMessage(
   gtItems.forEach((item, i) => parts.push(`${i + 1}. ${item}`));
   parts.push("");
 
-  parts.push("## Reconstructed Items to Score\n");
-  parts.push("Score each item as 1 (match), 0 (no match), or -1 (contradiction).\n");
+  parts.push("## Reconstructed Items to Label\n");
+  parts.push("Label each item as: match, no_match, or contradiction.\n");
   reconstructedItems.forEach((item, i) => parts.push(`${i + 1}. ${item}`));
 
   return parts.join("\n");

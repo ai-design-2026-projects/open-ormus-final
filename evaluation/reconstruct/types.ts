@@ -30,9 +30,7 @@ export type ReconstructorOutput = z.infer<typeof ReconstructorOutputSchema>;
 
 export const ComparatorItemSchema = z.object({
   reconstructed_item: z.string(),
-  score: z.number().refine((v) => v === 1 || v === 0 || v === -1, {
-    message: "score must be 1, 0, or -1",
-  }),
+  score: z.enum(["match", "no_match", "contradiction"]),
   justification: z.string().min(1),
 });
 
@@ -65,20 +63,32 @@ export type FieldScore = {
   item_scores: ItemScore[];
 };
 
-export type CharacterScore = {
-  mean_f1: number;
-  mean_precision: number;
-  mean_recall: number;
-  contradiction_count: number;
-  fields_not_observed: ProfileField[];
+// ── Drift output types ────────────────────────────────────────────────────────
+
+export type SegmentResult = {
+  segment_index: number;
+  turn_range: [number, number];
+  message_count: number;
+  field_scores: Record<ProfileField, FieldScore>;
 };
+
+export type FieldDriftScore = {
+  segment_f1s: Array<number | null>;
+  observed_segments: number[];
+  gt_divergence_slope: number | null;
+  internal_consistency: FieldScore | null;
+};
+
+// ── Per-character and per-conversation results ────────────────────────────────
 
 export type CharacterResult = {
   alias: string;
   real_name: string;
   difficulty_tier: string;
-  field_scores: Record<ProfileField, FieldScore>;
-  character_score: CharacterScore;
+  segments: SegmentResult[];
+  field_drift: Record<ProfileField, FieldDriftScore>;
+  mean_gt_divergence_slope: number | null;
+  mean_internal_consistency_f1: number | null;
 };
 
 export type ConversationReconstructionResult = {
@@ -87,6 +97,7 @@ export type ConversationReconstructionResult = {
   scenario_title: string;
   scenario_difficulty: string;
   scenario_stress_axes: string[];
+  segment_count: number;
   characters: CharacterResult[];
 };
 
@@ -104,5 +115,6 @@ export type ValidatedReconstructConfig = {
   reconstructorModel: string;
   comparators: ComparatorConfig[];
   fields: ProfileField[];
+  segments: number;
   rawConfigText: string;
 };

@@ -1,12 +1,14 @@
-import { describe, it, expect } from "bun:test";
+import { describe, test, it, expect } from "bun:test";
 import {
   majorityVote,
   computeAgreement,
   buildItemScores,
   computeFieldScore,
-  computeCharacterScore,
+  computeSlope,
+  computeFieldDriftScore,
+  computeSummary,
 } from "../scoring";
-import type { ItemScore } from "../types";
+import type { ItemScore, FieldScore, CharacterResult, ConversationReconstructionResult } from "../types";
 
 describe("majorityVote", () => {
   it("returns 1 when sum is positive", () => expect(majorityVote([1, 1, 0])).toBe(1));
@@ -27,13 +29,13 @@ describe("buildItemScores", () => {
   it("computes majority score and agreement per item", () => {
     const items = ["brave", "reckless"];
     const outputs = [
-      { model: "m1", scores: [{ reconstructed_item: "brave", score: 1, justification: "j1" }, { reconstructed_item: "reckless", score: 0, justification: "j2" }] },
-      { model: "m2", scores: [{ reconstructed_item: "brave", score: 1, justification: "j3" }, { reconstructed_item: "reckless", score: -1, justification: "j4" }] },
+      { model: "m1", scores: [{ reconstructed_item: "brave", score: "match", justification: "j1" }, { reconstructed_item: "reckless", score: "no_match", justification: "j2" }] },
+      { model: "m2", scores: [{ reconstructed_item: "brave", score: "match", justification: "j3" }, { reconstructed_item: "reckless", score: "contradiction", justification: "j4" }] },
     ];
     const result = buildItemScores(items, outputs);
     expect(result[0]!.score).toBe(1);
     expect(result[0]!.comparator_agreement).toBe(1.0);
-    expect(result[1]!.score).toBe(0); // majority of [0, -1] = 0 (tie → 0)
+    expect(result[1]!.score).toBe(0);
   });
 });
 
@@ -70,20 +72,206 @@ describe("computeFieldScore", () => {
   });
 });
 
-describe("computeCharacterScore", () => {
-  it("averages f1 across observed fields only", () => {
-    const fieldScores = {
-      personalityTraits: { not_observed: false, observed_count: 2, gt_count: 3, matched: 2, contradicted: 0, precision: 1, recall: 0.67, f1: 0.8, comparator_agreement: 1, item_scores: [] },
-      speechPatterns:    { not_observed: true,  observed_count: 0, gt_count: 2, matched: 0, contradicted: 0, precision: 0, recall: 0,    f1: 0,   comparator_agreement: 1, item_scores: [] },
-      values:            { not_observed: false, observed_count: 1, gt_count: 2, matched: 1, contradicted: 0, precision: 1, recall: 0.5,  f1: 0.67, comparator_agreement: 1, item_scores: [] },
-      fears:             { not_observed: true,  observed_count: 0, gt_count: 2, matched: 0, contradicted: 0, precision: 0, recall: 0,    f1: 0,   comparator_agreement: 1, item_scores: [] },
-      goals:             { not_observed: false, observed_count: 1, gt_count: 1, matched: 1, contradicted: 0, precision: 1, recall: 1,    f1: 1,   comparator_agreement: 1, item_scores: [] },
-      copingStyle:       { not_observed: false, observed_count: 1, gt_count: 2, matched: 0, contradicted: 1, precision: 0, recall: 0,    f1: 0,   comparator_agreement: 1, item_scores: [] },
-    } as any;
-    const score = computeCharacterScore(fieldScores);
-    expect(score.mean_f1).toBeCloseTo((0.8 + 0.67 + 1 + 0) / 4);
-    expect(score.contradiction_count).toBe(1);
-    expect(score.fields_not_observed).toEqual(["speechPatterns", "fears"]);
+// ── computeSlope ──────────────────────────────────────────────────────────────
+
+describe("computeSlope", () => {
+  test("returns null for empty input", () => {
+    expect(computeSlope([], [])).toBeNull();
+  });
+
+  test("returns null for single point", () => {
+    expect(computeSlope([0], [0.8])).toBeNull();
+  });
+
+  test("positive slope from two points", () => {
+    expect(computeSlope([0, 1], [0.5, 0.8])).toBeCloseTo(0.3, 5);
+  });
+
+  test("negative slope from three points", () => {
+    expect(computeSlope([0, 1, 2], [0.9, 0.6, 0.3])).toBeCloseTo(-0.3, 5);
+  });
+
+  test("flat line returns slope ~0", () => {
+    expect(computeSlope([0, 1, 2], [0.5, 0.5, 0.5])).toBeCloseTo(0, 5);
+  });
+
+  test("non-consecutive x indices (skipped segment)", () => {
+    expect(computeSlope([0, 2], [0.8, 0.4])).toBeCloseTo(-0.2, 5);
   });
 });
 
+// ── computeFieldDriftScore ────────────────────────────────────────────────────
+
+function makeFieldScore(f1: number): FieldScore {
+  return {
+    not_observed: false,
+    observed_count: 1,
+    gt_count: 1,
+    matched: 1,
+    contradicted: 0,
+    precision: f1,
+    recall: f1,
+    f1,
+    comparator_agreement: 1,
+    item_scores: [],
+  };
+}
+
+describe("computeFieldDriftScore", () => {
+  test("null slope when only 1 segment observed", () => {
+    const result = computeFieldDriftScore([0.7, null, null], null);
+    expect(result.gt_divergence_slope).toBeNull();
+    expect(result.observed_segments).toEqual([0]);
+    expect(result.segment_f1s).toEqual([0.7, null, null]);
+  });
+
+  test("computes slope across 3 observed segments", () => {
+    const result = computeFieldDriftScore([0.9, 0.6, 0.3], null);
+    expect(result.gt_divergence_slope).toBeCloseTo(-0.3, 5);
+    expect(result.observed_segments).toEqual([0, 1, 2]);
+  });
+
+  test("excludes null segments from slope — uses correct x indices", () => {
+    const result = computeFieldDriftScore([0.9, null, 0.3], null);
+    expect(result.gt_divergence_slope).toBeCloseTo(-0.3, 5);
+    expect(result.observed_segments).toEqual([0, 2]);
+  });
+
+  test("null slope when no segments observed", () => {
+    const result = computeFieldDriftScore([null, null, null], null);
+    expect(result.gt_divergence_slope).toBeNull();
+    expect(result.observed_segments).toEqual([]);
+  });
+
+  test("internal_consistency null is preserved", () => {
+    const result = computeFieldDriftScore([0.8, 0.5], null);
+    expect(result.internal_consistency).toBeNull();
+  });
+
+  test("internal_consistency FieldScore is preserved", () => {
+    const ic = makeFieldScore(0.75);
+    const result = computeFieldDriftScore([0.8, 0.5], ic);
+    expect(result.internal_consistency).toBe(ic);
+  });
+});
+
+// ── computeSummary ────────────────────────────────────────────────────────────
+
+function makeChar(
+  alias: string,
+  personalityF1s: Array<number | null>,
+  meanSlope: number | null,
+  meanIC: number | null,
+  tier = "tier-1",
+): CharacterResult {
+  const allNullDrift = computeFieldDriftScore([null, null], null);
+  return {
+    alias,
+    real_name: alias,
+    difficulty_tier: tier,
+    segments: [],
+    field_drift: {
+      personalityTraits: computeFieldDriftScore(personalityF1s, null),
+      speechPatterns: allNullDrift,
+      values: allNullDrift,
+      fears: allNullDrift,
+      goals: allNullDrift,
+      copingStyle: allNullDrift,
+    },
+    mean_gt_divergence_slope: meanSlope,
+    mean_internal_consistency_f1: meanIC,
+  };
+}
+
+function makeResult(
+  file: string,
+  char: CharacterResult,
+  difficulty = "medium",
+): ConversationReconstructionResult {
+  return {
+    conversation_file: file,
+    scenario_id: "scen_001",
+    scenario_title: "Test Scenario",
+    scenario_difficulty: difficulty,
+    scenario_stress_axes: [],
+    segment_count: 2,
+    characters: [char],
+  };
+}
+
+describe("computeSummary", () => {
+  test("total counts are correct", () => {
+    const results = [
+      makeResult("conv_001.yaml", makeChar("Alice", [0.8, 0.5], -0.3, 0.7)),
+      makeResult("conv_002.yaml", makeChar("Bob", [0.4, 0.6], 0.2, null)),
+    ];
+    const summary = computeSummary(results, ["model-a"], 2);
+    expect(summary.total_conversations).toBe(2);
+    expect(summary.total_characters_evaluated).toBe(2);
+    expect(summary.segment_count).toBe(2);
+  });
+
+  test("most_drifting excludes null-slope characters and sorts most-negative first", () => {
+    const results = [
+      makeResult("conv_001.yaml", makeChar("A", [0.9, 0.4], -0.5, null)),
+      makeResult("conv_002.yaml", makeChar("B", [null, null], null, null)),
+      makeResult("conv_003.yaml", makeChar("C", [0.8, 0.7], -0.1, 0.8)),
+    ];
+    const summary = computeSummary(results, ["m"], 2);
+    expect(summary.most_drifting).toHaveLength(2);
+    expect(summary.most_drifting[0]!.mean_gt_divergence_slope).toBeCloseTo(-0.5);
+    expect(summary.most_drifting[1]!.mean_gt_divergence_slope).toBeCloseTo(-0.1);
+  });
+
+  test("drifting_fraction denominator excludes characters with null slope", () => {
+    const results = [
+      makeResult("conv_001.yaml", makeChar("Alice", [0.8, 0.4], -0.4, null)),
+      makeResult("conv_002.yaml", makeChar("Bob", [0.4, 0.8], 0.4, null)),
+      makeResult("conv_003.yaml", makeChar("Carol", [null, null], null, null)),
+    ];
+    const summary = computeSummary(results, ["m"], 2);
+    expect(summary.field_aggregates.personalityTraits!.drifting_fraction).toBeCloseTo(0.5);
+  });
+
+  test("null vs 0 preserved — field with no observed segments stays null in aggregates", () => {
+    const results = [
+      makeResult("conv_001.yaml", makeChar("Alice", [null, null], null, null)),
+    ];
+    const summary = computeSummary(results, ["m"], 2);
+    expect(summary.field_aggregates.speechPatterns!.mean_gt_divergence_slope).toBeNull();
+    expect(summary.field_aggregates.personalityTraits!.mean_gt_divergence_slope).toBeNull();
+  });
+
+  test("segments=1: no slopes, empty most_drifting, drifting_fraction=0", () => {
+    const char: CharacterResult = {
+      alias: "Alice",
+      real_name: "Alice",
+      difficulty_tier: "tier-1",
+      segments: [],
+      field_drift: {
+        personalityTraits: computeFieldDriftScore([0.7], null),
+        speechPatterns: computeFieldDriftScore([null], null),
+        values: computeFieldDriftScore([null], null),
+        fears: computeFieldDriftScore([null], null),
+        goals: computeFieldDriftScore([null], null),
+        copingStyle: computeFieldDriftScore([null], null),
+      },
+      mean_gt_divergence_slope: null,
+      mean_internal_consistency_f1: null,
+    };
+    const result: ConversationReconstructionResult = {
+      conversation_file: "conv_001.yaml",
+      scenario_id: "scen_001",
+      scenario_title: "Test",
+      scenario_difficulty: "medium",
+      scenario_stress_axes: [],
+      segment_count: 1,
+      characters: [char],
+    };
+    const summary = computeSummary([result], ["model-a"], 1);
+    expect(summary.segment_count).toBe(1);
+    expect(summary.most_drifting).toHaveLength(0);
+    expect(summary.field_aggregates.personalityTraits!.mean_gt_divergence_slope).toBeNull();
+    expect(summary.field_aggregates.personalityTraits!.drifting_fraction).toBe(0);
+  });
+});

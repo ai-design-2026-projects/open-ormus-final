@@ -19,6 +19,7 @@ const ReconstructConfigSchema = z.object({
   base_url: z.string().min(1),
   reconstructor: z.object({ model: z.string().min(1) }),
   comparators: z.array(ComparatorInputSchema).min(1, "At least 1 comparator required").max(3, "At most 3 comparators allowed"),
+  segments: z.number().int().min(1).default(1),
   fields: z.array(z.enum(PROFILE_FIELDS)).optional(),
 });
 
@@ -62,6 +63,7 @@ export function loadReconstructConfig(
     baseUrl: input.base_url,
     reconstructorModel: input.reconstructor.model,
     comparators,
+    segments: input.segments,
     fields,
     rawConfigText,
   };

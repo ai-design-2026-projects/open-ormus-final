@@ -1,0 +1,17 @@
+# Drift Check — minimal run against test-run-001
+# Run: bun evaluation/drift_persona.ts evaluation/configs/drift-check.yaml
+dataset_dir: "test-run-001"
+output_name: "drift-check-001"
+base_url: "https://openrouter.ai/api"
+
+reconstructor:
+  model: "google/gemma-4-31b-it:free"
+
+comparators:
+  - model: "google/gemma-4-31b-it:free"
+
+segments: 2
+
+fields:
+  - personalityTraits
+  - speechPatterns

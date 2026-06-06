@@ -9,8 +9,8 @@ export function initReconstructOutputDir(
   outputName: string,
   rawConfigText: string,
 ): string {
-  const outputDir = join(datasetDir, "reconstruct_persona", outputName);
-  mkdirSync(outputDir, { recursive: true });
+  const outputDir = join(datasetDir, "reconst_persona", outputName);
+  mkdirSync(join(outputDir, "conversations"), { recursive: true });
   writeFileSync(join(outputDir, "config.yaml"), rawConfigText, "utf-8");
   return outputDir;
 }
@@ -19,7 +19,13 @@ export function writeReconstructResults(
   outputDir: string,
   results: ConversationReconstructionResult[],
 ): void {
-  writeFileSync(join(outputDir, "reconstruction_result.yaml"), stringify(results), "utf-8");
+  for (const result of results) {
+    writeFileSync(
+      join(outputDir, "conversations", result.conversation_file),
+      stringify(result),
+      "utf-8",
+    );
+  }
 }
 
 export function writeSummary(outputDir: string, summary: ReconstructionSummary): void {
