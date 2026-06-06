@@ -48,7 +48,8 @@ export type ValidatedRun = {
 };
 
 export type ValidatedConfig = {
-  outputDir: string;
+  datasetDir: string;
+  evalName: string;      // like "eval-01"
   baseUrl: string;
   runs: ValidatedRun[];
   rawConfigText: string; // copied verbatim into the output directory
@@ -89,63 +90,50 @@ const ALL_SCENARIOS = rawScenarios as ScenarioRecord[];
 
 // ---- Loader ----
 
+function resolveEvalName(resultsBase: string, datasetDir: string): string {
+  let n = 1;
+  while (true) {
+    const candidate = `eval-${String(n).padStart(2, "0")}`;
+    if (!existsSync(join(resultsBase, datasetDir, candidate))) return candidate;
+    n++;
+  }
+}
+
 export function loadConfig(
   configPath: string,
   resultsBasePath: string = join(process.cwd(), "evaluation", "results"),
 ): ValidatedConfig {
-  // 1. Read and parse config file
   const rawConfigText = readFileSync(configPath, "utf-8");
   const parsed: unknown = parseYaml(rawConfigText);
   const input = EvalConfigSchema.parse(parsed);
 
-  // 2. LLM env vars must be set
-  if (!process.env["LLM_API_KEY"]) {
-    throw new Error("LLM_API_KEY env var is not set");
-  }
+  if (!process.env["LLM_API_KEY"]) throw new Error("LLM_API_KEY env var is not set");
   const rawBaseUrl = process.env["LLM_BASE_URL"];
-  if (!rawBaseUrl) {
-    throw new Error("LLM_BASE_URL env var is not set");
-  }
+  if (!rawBaseUrl) throw new Error("LLM_BASE_URL env var is not set");
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
-  // 3. Output dir must not already exist
-  const outputPath = join(resultsBasePath, input.output_dir);
-  if (existsSync(outputPath)) {
-    throw new Error(
-      `Output directory already exists: ${outputPath}\nDelete it or choose a different output_dir.`,
-    );
-  }
+  const evalName = resolveEvalName(resultsBasePath, input.output_dir);
 
-  // 4. Validate each run
   const validatedRuns: ValidatedRun[] = input.runs.map((run, i) => {
     const idx = i + 1;
     const model = run.model ?? input.default_model;
-    if (!model) {
-      throw new Error(`Run ${idx}: no model specified and no default_model set in config`);
-    }
+    if (!model) throw new Error(`Run ${idx}: no model specified and no default_model set in config`);
 
     const scenario = ALL_SCENARIOS.find((s) => s.id === run.scenario);
-    if (!scenario) {
-      throw new Error(`Run ${idx}: scenario "${run.scenario}" not found in dataset`);
-    }
+    if (!scenario) throw new Error(`Run ${idx}: scenario "${run.scenario}" not found in dataset`);
 
     const characters = run.characters.map((charId) => {
       const char = ALL_CHARACTERS.find((c) => c.id === charId);
-      if (!char) {
-        throw new Error(`Run ${idx}: character "${charId}" not found in dataset`);
-      }
+      if (!char) throw new Error(`Run ${idx}: character "${charId}" not found in dataset`);
       return char;
     });
 
-    const turn_strategy = run.turn_strategy;
-    if (run.characters.length === 2 && turn_strategy === "ORCHESTRATOR") {
-      throw new Error(
-        `Run ${idx}: ORCHESTRATOR cannot be used with 2 characters — use ROUND_ROBIN`,
-      );
+    if (run.characters.length === 2 && run.turn_strategy === "ORCHESTRATOR") {
+      throw new Error(`Run ${idx}: ORCHESTRATOR cannot be used with 2 characters — use ROUND_ROBIN`);
     }
 
-    return { index: idx, scenario, characters, turns: run.turns, model, turn_strategy };
+    return { index: idx, scenario, characters, turns: run.turns, model, turn_strategy: run.turn_strategy };
   });
 
-  return { outputDir: input.output_dir, baseUrl, runs: validatedRuns, rawConfigText };
+  return { datasetDir: input.output_dir, evalName, baseUrl, runs: validatedRuns, rawConfigText };
 }

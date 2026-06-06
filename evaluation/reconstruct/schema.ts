@@ -50,7 +50,7 @@ export const comparatorResponseFormat = {
             type: "object",
             properties: {
               reconstructed_item: { type: "string" },
-              score: { type: "number" },
+              score: { type: "string", enum: ["match", "no_match", "contradiction"] },
               justification: { type: "string" },
             },
             required: ["reconstructed_item", "score", "justification"],

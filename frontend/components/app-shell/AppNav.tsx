@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, useEffect } from "react";
-import { Library, Clapperboard, Bot, Settings, BarChart2 } from "lucide-react";
+import { Library, Clapperboard, Bot, Settings, BarChart2, FlaskConical } from "lucide-react";
 import { Monogram } from "@/components/ui/monogram";
 import { logout } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export function AppNav() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [evalAllowed, setEvalAllowed] = useState(false);
 
   function fetchUser() {
     fetch("/api/user")
@@ -31,6 +32,13 @@ export function AppNav() {
       })
       .catch(() => undefined);
   }
+
+  useEffect(() => {
+    fetch("/api/eval-access")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { allowed: boolean } | null) => { if (d) setEvalAllowed(d.allowed); })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => { fetchUser(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -92,6 +100,21 @@ export function AppNav() {
             </Link>
           );
         })}
+        {evalAllowed && (
+          <Link
+            href="/evaluation"
+            aria-current={pathname.startsWith("/evaluation") ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors duration-[120ms]",
+              pathname.startsWith("/evaluation")
+                ? "bg-bg-tinted text-ink"
+                : "text-ink-mute hover:text-ink hover:bg-bg-tinted"
+            )}
+          >
+            <FlaskConical className="size-4" strokeWidth={1.5} />
+            Evaluation
+          </Link>
+        )}
       </div>
 
       {/* Right: user menu */}

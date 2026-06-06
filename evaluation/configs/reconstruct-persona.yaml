@@ -5,8 +5,7 @@
 # NOTE: pair differentiation is most meaningful when both pair members (char_009/010,
 # char_011/012, char_013/014, char_015/016) appear under the same scenario_id.
 
-dataset_dir: "dataset-001"
-output_name: "reconstruct-run-001"
+dataset_dir: "dataset-v2"
 
 reconstructor:
   model: "mistralai/mistral-nemo"

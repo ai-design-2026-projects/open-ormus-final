@@ -16,8 +16,7 @@ import { runDriftForConversation } from "../index";
 import type { ValidatedDriftConfig } from "../types";
 
 const mockConfig: ValidatedDriftConfig = {
-  datasetDir: "/tmp",
-  outputName: "test-run",
+  evalDir: "/tmp",
   baseUrl: "http://localhost",
   segments: 2,
   judges: [

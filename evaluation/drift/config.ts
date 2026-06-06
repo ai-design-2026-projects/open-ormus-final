@@ -5,28 +5,17 @@ import { join } from "node:path";
 import type { ValidatedDriftConfig, DriftJudgeConfig } from "./types";
 
 const DriftConfigSchema = z.object({
-  dataset_dir: z
-    .string()
-    .min(1)
-    .refine(
-      (v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."),
-      "dataset_dir must be a simple directory name",
-    ),
-  output_name: z
-    .string()
-    .min(1)
-    .refine(
-      (v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."),
-      "output_name must be a simple directory name",
-    ),
+  dataset_dir: z.string().min(1).refine(
+    (v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."),
+    "dataset_dir must be a simple directory name",
+  ),
   segments: z.number().int().min(2, "segments must be ≥ 2"),
-  judges: z
-    .array(z.object({ model: z.string().min(1) }))
-    .min(1, "at least 1 judge required"),
+  judges: z.array(z.object({ model: z.string().min(1) })).min(1, "at least 1 judge required"),
 });
 
 export function loadDriftConfig(
   rawConfigText: string,
+  evalName: string,
   resultsBasePath: string = join(process.cwd(), "evaluation", "results"),
 ): ValidatedDriftConfig {
   const parsed: unknown = parseYaml(rawConfigText);
@@ -37,20 +26,16 @@ export function loadDriftConfig(
   if (!rawBaseUrl) throw new Error("LLM_BASE_URL env var is not set");
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
-  const datasetDir = join(resultsBasePath, input.dataset_dir);
-  const conversationsDir = join(datasetDir, "conversations");
+  const evalDir = join(resultsBasePath, input.dataset_dir, evalName);
+  const conversationsDir = join(evalDir, "conversations");
 
   if (!existsSync(conversationsDir)) {
-    throw new Error(
-      `Dataset conversations directory not found: ${conversationsDir}\nRun the generate step first.`,
-    );
+    throw new Error(`Conversations directory not found: ${conversationsDir}\nRun the generate step first.`);
   }
 
-  const outputDir = join(datasetDir, "context_drift", input.output_name);
+  const outputDir = join(evalDir, "context_drift");
   if (existsSync(outputDir)) {
-    throw new Error(
-      `Output directory already exists: ${outputDir}\nDelete it or choose a different output_name.`,
-    );
+    throw new Error(`Drift output already exists: ${outputDir}`);
   }
 
   const judges: DriftJudgeConfig[] = input.judges.map((j, i) => ({
@@ -58,12 +43,5 @@ export function loadDriftConfig(
     model: j.model,
   }));
 
-  return {
-    datasetDir,
-    outputName: input.output_name,
-    baseUrl,
-    segments: input.segments,
-    judges,
-    rawConfigText,
-  };
+  return { evalDir, baseUrl, segments: input.segments, judges, rawConfigText };
 }

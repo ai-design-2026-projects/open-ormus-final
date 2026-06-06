@@ -2,17 +2,37 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stringify } from "yaml";
 import type { ConversationResult } from "./conversation";
+import type { ValidatedConfig } from "./config";
 
-export function initOutputDir(resultsBase: string, outputDir: string, rawConfigText: string): string {
-  const runDir = join(resultsBase, outputDir);
-  mkdirSync(join(runDir, "conversations"), { recursive: true });
-  writeFileSync(join(runDir, "config.yaml"), rawConfigText, "utf-8");
-  return runDir;
+export function initOutputDir(
+  resultsBase: string,
+  config: ValidatedConfig,
+): string {
+  const evalDir = join(resultsBase, config.datasetDir, config.evalName);
+  mkdirSync(join(evalDir, "conversations"), { recursive: true });
+
+  const meta = {
+    eval_name: config.evalName,
+    created_at: new Date().toISOString(),
+    dataset_dir: config.datasetDir,
+    passes: {
+      generate: {
+        model: config.runs[0]?.model ?? "unknown",
+        runs: config.runs.length,
+      },
+    },
+  };
+  writeFileSync(join(evalDir, "meta.yaml"), stringify(meta), "utf-8");
+  writeFileSync(join(evalDir, "generate-config.yaml"), config.rawConfigText, "utf-8");
+
+  return evalDir;
 }
 
-// index must be unique across concurrent callers — guaranteed by loadConfig (index = i + 1)
-export function writeConversation(conversationsDir: string, index: number, result: ConversationResult): void {
+export function writeConversation(
+  convsDir: string,
+  index: number,
+  result: ConversationResult,
+): void {
   const filename = String(index).padStart(3, "0") + ".yaml";
-  const filePath = join(conversationsDir, filename);
-  writeFileSync(filePath, stringify(result), "utf-8");
+  writeFileSync(join(convsDir, filename), stringify(result), "utf-8");
 }

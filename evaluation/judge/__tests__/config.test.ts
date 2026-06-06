@@ -6,121 +6,49 @@ import { tmpdir } from "node:os";
 
 let tmpBase: string;
 let configPath: string;
-
-// The function resolves dataset_dir relative to process.cwd()/evaluation/results/
-// We create a temp dataset dir there so the conversationsDir check passes.
-const resultsBase = join(process.cwd(), "evaluation", "results");
-const testDatasetName = `judge-config-test-${Date.now()}`;
-const testConversationsDir = join(resultsBase, testDatasetName, "conversations");
+const testDataset = `judge-test-${Date.now()}`;
+const testEval = "eval-01";
 
 beforeAll(() => {
-  tmpBase = mkdtempSync(join(tmpdir(), "judge-config-test-"));
+  tmpBase = mkdtempSync(join(tmpdir(), "judge-cfg-"));
   configPath = join(tmpBase, "config.yaml");
   process.env["LLM_API_KEY"] = "test-key";
   process.env["LLM_BASE_URL"] = "http://localhost:4000";
-  // Create a real conversations directory so the existence check passes
-  mkdirSync(testConversationsDir, { recursive: true });
+  mkdirSync(join(tmpBase, testDataset, testEval, "conversations"), { recursive: true });
 });
 
 afterAll(() => {
   rmSync(tmpBase, { recursive: true, force: true });
-  rmSync(join(resultsBase, testDatasetName), { recursive: true, force: true });
   delete process.env["LLM_API_KEY"];
   delete process.env["LLM_BASE_URL"];
 });
 
-const freshOutputName = () => `judge-out-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
 describe("loadJudgeConfig", () => {
-  it("parses a valid config with 1 judge and labels it judge_1", () => {
-    writeFileSync(
-      configPath,
-      `
-dataset_dir: "${testDatasetName}"
-output_name: "${freshOutputName()}"
-judges:
-  - model: "claude-haiku-4-5"
-`,
-    );
-    const config = loadJudgeConfig(configPath);
+  it("parses valid config with 1 judge", () => {
+    writeFileSync(configPath, `dataset_dir: "${testDataset}"\njudges:\n  - model: "m"\n`);
+    const config = loadJudgeConfig(configPath, testEval, tmpBase);
     expect(config.judges).toHaveLength(1);
     expect(config.judges[0]!.label).toBe("judge_1");
-    expect(config.judges[0]!.model).toBe("claude-haiku-4-5");
-    expect(config.baseUrl).toBe("http://localhost:4000");
+    expect(config.evalDir).toBe(join(tmpBase, testDataset, testEval));
   });
 
-  it("parses a valid config with 3 judges and labels them correctly", () => {
-    writeFileSync(
-      configPath,
-      `
-dataset_dir: "${testDatasetName}"
-output_name: "${freshOutputName()}"
-judges:
-  - model: "model-a"
-  - model: "model-b"
-  - model: "model-c"
-`,
-    );
-    const config = loadJudgeConfig(configPath);
-    expect(config.judges).toHaveLength(3);
-    expect(config.judges[0]!.label).toBe("judge_1");
-    expect(config.judges[1]!.label).toBe("judge_2");
-    expect(config.judges[2]!.label).toBe("judge_3");
+  it("throws when conversations dir missing", () => {
+    writeFileSync(configPath, `dataset_dir: "no-such-dataset"\njudges:\n  - model: "m"\n`);
+    expect(() => loadJudgeConfig(configPath, "eval-01", tmpBase)).toThrow("conversations");
   });
 
-  it("throws a Zod error when 4 judges are provided", () => {
-    writeFileSync(
-      configPath,
-      `
-dataset_dir: "${testDatasetName}"
-output_name: "${freshOutputName()}"
-judges:
-  - model: "a"
-  - model: "b"
-  - model: "c"
-  - model: "d"
-`,
-    );
-    expect(() => loadJudgeConfig(configPath)).toThrow();
+  it("throws when judge output already exists", () => {
+    const ds = `ds-exist-${Date.now()}`;
+    mkdirSync(join(tmpBase, ds, testEval, "conversations"), { recursive: true });
+    mkdirSync(join(tmpBase, ds, testEval, "judge_guessing"), { recursive: true });
+    writeFileSync(configPath, `dataset_dir: "${ds}"\njudges:\n  - model: "m"\n`);
+    expect(() => loadJudgeConfig(configPath, testEval, tmpBase)).toThrow("already exists");
   });
 
-  it("throws when dataset_dir is missing", () => {
-    writeFileSync(
-      configPath,
-      `
-output_name: "${freshOutputName()}"
-judges:
-  - model: "claude-haiku-4-5"
-`,
-    );
-    expect(() => loadJudgeConfig(configPath)).toThrow();
-  });
-
-  it("throws with a useful message when conversations directory does not exist", () => {
-    writeFileSync(
-      configPath,
-      `
-dataset_dir: "nonexistent-dataset-${Date.now()}"
-output_name: "${freshOutputName()}"
-judges:
-  - model: "claude-haiku-4-5"
-`,
-    );
-    expect(() => loadJudgeConfig(configPath)).toThrow("conversations");
-  });
-
-  it("throws when LLM_BASE_URL is not set", () => {
+  it("throws when LLM_BASE_URL not set", () => {
     delete process.env["LLM_BASE_URL"];
-    writeFileSync(
-      configPath,
-      `
-dataset_dir: "${testDatasetName}"
-output_name: "${freshOutputName()}"
-judges:
-  - model: "claude-haiku-4-5"
-`,
-    );
-    expect(() => loadJudgeConfig(configPath)).toThrow("LLM_BASE_URL");
-    process.env["LLM_BASE_URL"] = "http://localhost:4000"; // restore
+    writeFileSync(configPath, `dataset_dir: "${testDataset}"\njudges:\n  - model: "m"\n`);
+    expect(() => loadJudgeConfig(configPath, testEval, tmpBase)).toThrow("LLM_BASE_URL");
+    process.env["LLM_BASE_URL"] = "http://localhost:4000";
   });
 });

@@ -15,15 +15,15 @@ import rawScenarios from "../dataset/scenarios.yaml";
 const ALL_CHARACTERS = rawCharacters as CharacterRecord[];
 const ALL_SCENARIOS = rawScenarios as ScenarioRecord[];
 
-export async function runReconstructionPass(configPath: string): Promise<void> {
+export async function runReconstructionPass(configPath: string, evalName: string): Promise<void> {
   const rawConfigText = readFileSync(configPath, "utf-8");
-  const config = loadReconstructConfig(rawConfigText);
+  const config = loadReconstructConfig(rawConfigText, evalName);
   const apiKey = process.env["LLM_API_KEY"]!;
 
-  const outputDir = initReconstructOutputDir(config.datasetDir, config.outputName, rawConfigText);
+  const outputDir = initReconstructOutputDir(config.evalDir, config);
 
   try {
-    const conversationsDir = join(config.datasetDir, "conversations");
+    const conversationsDir = join(config.evalDir, "conversations");
     const files = readdirSync(conversationsDir).filter((f) => f.endsWith(".yaml")).sort();
 
     if (files.length === 0) {

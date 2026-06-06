@@ -1,17 +1,12 @@
 import { mock } from "bun:test";
 
-const mockGetStore = mock(() => "test-user-id" as string | undefined);
-
-mock.module("../../auth/context.js", () => ({
-  userIdStorage: { getStore: mockGetStore },
-}));
-
 mock.module("../../auth/internal-token.js", () => ({
   mintInternalToken: () => "mock-jwt-token",
 }));
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { conversationJobStatusHandler } from "./conversation_job_status.js";
+import { userIdStorage } from "../../auth/context.js";
 
 const mockRunningPayload = {
   status: "running",
@@ -28,7 +23,6 @@ const mockCompletedPayload = {
 
 describe("conversationJobStatusHandler", () => {
   beforeEach(() => {
-    mockGetStore.mockImplementation(() => "test-user-id");
     process.env["FRONTEND_INTERNAL_URL"] = "http://localhost:3000";
   });
 
@@ -39,7 +33,9 @@ describe("conversationJobStatusHandler", () => {
       json: async () => mockRunningPayload,
     } as unknown as Response));
 
-    const result = await conversationJobStatusHandler("job-abc");
+    const result = await userIdStorage.run("test-user-id", () =>
+      conversationJobStatusHandler("job-abc")
+    );
     expect(result.status).toBe("running");
     expect(result.doneTurns).toBe(2);
     expect(result.totalTurns).toBe(5);
@@ -53,7 +49,9 @@ describe("conversationJobStatusHandler", () => {
     } as unknown as Response));
     globalThis.fetch = mockFetch;
 
-    await conversationJobStatusHandler("job-xyz");
+    await userIdStorage.run("test-user-id", () =>
+      conversationJobStatusHandler("job-xyz")
+    );
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:3000/api/internal/conversation-jobs/job-xyz");
@@ -67,9 +65,11 @@ describe("conversationJobStatusHandler", () => {
       json: async () => ({ error: "Not found" }),
     } as unknown as Response));
 
-    await expect(conversationJobStatusHandler("missing-job")).rejects.toThrow(
-      "Job missing-job not found"
-    );
+    await expect(
+      userIdStorage.run("test-user-id", () =>
+        conversationJobStatusHandler("missing-job")
+      )
+    ).rejects.toThrow("Job missing-job not found");
   });
 
   test("throws on other non-ok status", async () => {
@@ -79,8 +79,10 @@ describe("conversationJobStatusHandler", () => {
       json: async () => ({}),
     } as unknown as Response));
 
-    await expect(conversationJobStatusHandler("job-abc")).rejects.toThrow(
-      "Failed to get job status: 500"
-    );
+    await expect(
+      userIdStorage.run("test-user-id", () =>
+        conversationJobStatusHandler("job-abc")
+      )
+    ).rejects.toThrow("Failed to get job status: 500");
   });
 });

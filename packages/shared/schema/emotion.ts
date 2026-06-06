@@ -6,7 +6,7 @@ export const EmotionSchema = z.object({
     "Sadness", "Disgust", "Anger", "Anticipation",
   ]),
   intensity: z.enum(["low", "medium", "high"]),
-  subtext: z.string().max(120),
+  subtext: z.string().max(200),
 });
 export type Emotion = z.infer<typeof EmotionSchema>;
 

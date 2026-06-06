@@ -6,8 +6,7 @@
 # Must be >= 2. Each segment boundary produces one drift delta.
 # Example: segments: 3 -> early / mid / late windows -> 2 deltas.
 
-dataset_dir: "dataset-001"
-output_name: "drift-run-001"
+dataset_dir: "dataset-v2"
 segments: 3
 
 judges:

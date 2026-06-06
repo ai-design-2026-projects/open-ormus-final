@@ -2,7 +2,6 @@
 # Run: bun evaluation/reconstruct_persona.ts evaluation/configs/drift-check.yaml
 # Required env: LLM_API_KEY, LLM_BASE_URL
 dataset_dir: "test-run-001"
-output_name: "drift-check-001"
 
 reconstructor:
   model: "google/gemma-4-31b-it:free"

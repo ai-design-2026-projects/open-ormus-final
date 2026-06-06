@@ -1,16 +1,29 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { stringify } from "yaml";
-import type { ConversationDriftResult, ScenarioDriftSummary } from "./types";
+import { stringify, parse as parseYaml } from "yaml";
+import type { ConversationDriftResult, ScenarioDriftSummary, ValidatedDriftConfig } from "./types";
 
 export function initDriftOutputDir(
-  datasetDir: string,
-  outputName: string,
-  rawConfigText: string,
+  evalDir: string,
+  config: ValidatedDriftConfig,
 ): string {
-  const outputDir = join(datasetDir, "context_drift", outputName);
+  const outputDir = join(evalDir, "context_drift");
   mkdirSync(outputDir, { recursive: true });
-  writeFileSync(join(outputDir, "config.yaml"), rawConfigText, "utf-8");
+  writeFileSync(join(outputDir, "config.yaml"), config.rawConfigText, "utf-8");
+
+  const metaPath = join(evalDir, "meta.yaml");
+  const existing = existsSync(metaPath)
+    ? (parseYaml(readFileSync(metaPath, "utf-8")) as Record<string, unknown>)
+    : {};
+  const passes = (existing["passes"] as Record<string, unknown>) ?? {};
+  passes["drift"] = {
+    judges: config.judges.length,
+    models: config.judges.map((j) => j.model),
+    segments: config.segments,
+  };
+  existing["passes"] = passes;
+  writeFileSync(metaPath, stringify(existing), "utf-8");
+
   return outputDir;
 }
 

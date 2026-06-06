@@ -2,8 +2,7 @@
 # Run: bun evaluation/judge_guessing.ts evaluation/configs/judge-guessing.yaml
 # Required env vars: LLM_API_KEY, LLM_BASE_URL
 
-dataset_dir: "dataset-001"      # must match an existing output_dir under evaluation/results/
-output_name: "judge-run-001"    # folder created under evaluation/results/<dataset_dir>/judge_guessing/
+dataset_dir: "dataset-v2"
 
 judges:
   - model: "mistralai/mistral-nemo"

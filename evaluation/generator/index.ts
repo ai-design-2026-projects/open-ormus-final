@@ -17,9 +17,7 @@ async function executeRun(
 ): Promise<void> {
   const label = `[${run.index}/${total}] ${run.scenario.id} · ${run.characters.map((c) => c.id).join(" + ")} · ${run.turns} turns`;
   const aliasMap = buildAliasMap(run.characters.map((c) => c.name));
-
   console.log(`${label} — started`);
-
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const result = await runConversation(run, baseUrl, apiKey, aliasMap);
@@ -38,26 +36,23 @@ async function executeRun(
 }
 
 export async function generateDataset(configPath: string): Promise<void> {
-  const config = loadConfig(configPath);
-  const apiKey = process.env["LLM_API_KEY"]!;
   const resultsBase = join(process.cwd(), "evaluation", "results");
-  const runDir = initOutputDir(resultsBase, config.outputDir, config.rawConfigText);
+  const config = loadConfig(configPath, resultsBase);
+  const apiKey = process.env["LLM_API_KEY"]!;
+
+  console.log(`Starting eval run: ${config.datasetDir}/${config.evalName}`);
+  const evalDir = initOutputDir(resultsBase, config);
 
   try {
-    const convsDir = join(runDir, "conversations");
+    const convsDir = join(evalDir, "conversations");
     const total = config.runs.length;
-
-    // On first failure Promise.all rejects immediately; sibling runs continue until
-    // they complete or fail on their own — they cannot be cancelled from here.
-    // The catch block deletes the output dir regardless of how many runs finished.
     await Promise.all(
       config.runs.map((run) => executeRun(run, total, convsDir, config.baseUrl, apiKey)),
     );
-
-    console.log("Completed.");
+    console.log(`\nCompleted. Results: ${evalDir}`);
   } catch (err) {
-    rmSync(runDir, { recursive: true, force: true });
-    console.error(`\nDataset generation failed — removed incomplete directory: ${runDir}`);
+    rmSync(evalDir, { recursive: true, force: true });
+    console.error(`\nDataset generation failed — removed incomplete directory: ${evalDir}`);
     throw err;
   }
 }

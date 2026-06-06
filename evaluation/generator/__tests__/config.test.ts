@@ -25,10 +25,11 @@ const freshDir = () => `test-output-${Date.now()}-${Math.random().toString(36).s
 
 describe("loadConfig", () => {
   it("parses a valid config and resolves characters and scenario", () => {
+    const dir = freshDir();
     writeFileSync(
       configPath,
       `
-output_dir: "${freshDir()}"
+output_dir: "${dir}"
 default_model: "claude-haiku-4-5"
 runs:
   - scenario: scenario_001
@@ -45,6 +46,8 @@ runs:
     expect(config.runs[0]!.model).toBe("claude-haiku-4-5");
     expect(config.runs[0]!.turn_strategy).toBe("ROUND_ROBIN");
     expect(config.rawConfigText).toContain("scenario_001");
+    expect(config.evalName).toBe("eval-01");
+    expect(config.datasetDir).toBe(dir);
   });
 
   it("per-run model overrides default_model", () => {
@@ -65,13 +68,13 @@ runs:
     expect(config.runs[0]!.model).toBe("override-model");
   });
 
-  it("throws if output_dir already exists", () => {
-    const existingDir = `existing-${Date.now()}`;
-    mkdirSync(join(tmpBase, existingDir), { recursive: true });
+  it("auto-increments evalName when eval-01 already exists", () => {
+    const dir = `test-ds-${Date.now()}`;
+    mkdirSync(join(tmpBase, dir, "eval-01"), { recursive: true });
     writeFileSync(
       configPath,
       `
-output_dir: "${existingDir}"
+output_dir: "${dir}"
 default_model: "m"
 runs:
   - scenario: scenario_001
@@ -80,7 +83,9 @@ runs:
     turn_strategy: ROUND_ROBIN
 `,
     );
-    expect(() => loadConfig(configPath, tmpBase)).toThrow("already exists");
+    const config = loadConfig(configPath, tmpBase);
+    expect(config.evalName).toBe("eval-02");
+    expect(config.datasetDir).toBe(dir);
   });
 
   it("throws if scenario not found in dataset", () => {
@@ -184,7 +189,7 @@ runs:
     // This test documents the intent: concurrency is not a config knob.
     expect(() => loadConfig(configPath, tmpBase)).not.toThrow();
     const config = loadConfig(configPath, tmpBase);
-    expect(config.outputDir).toBeDefined();
+    expect(config.datasetDir).toBeDefined();
     expect(config.runs).toHaveLength(1);
   });
 

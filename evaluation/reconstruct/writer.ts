@@ -1,17 +1,31 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { stringify } from "yaml";
+import { stringify, parse as parseYaml } from "yaml";
 import type { ConversationReconstructionResult } from "./types";
 import type { ReconstructionSummary } from "./scoring";
+import type { ValidatedReconstructConfig } from "./types";
 
 export function initReconstructOutputDir(
-  datasetDir: string,
-  outputName: string,
-  rawConfigText: string,
+  evalDir: string,
+  config: ValidatedReconstructConfig,
 ): string {
-  const outputDir = join(datasetDir, "reconst_persona", outputName);
+  const outputDir = join(evalDir, "reconstruct_persona");
   mkdirSync(join(outputDir, "conversations"), { recursive: true });
-  writeFileSync(join(outputDir, "config.yaml"), rawConfigText, "utf-8");
+  writeFileSync(join(outputDir, "config.yaml"), config.rawConfigText, "utf-8");
+
+  const metaPath = join(evalDir, "meta.yaml");
+  const existing = existsSync(metaPath)
+    ? (parseYaml(readFileSync(metaPath, "utf-8")) as Record<string, unknown>)
+    : {};
+  const passes = (existing["passes"] as Record<string, unknown>) ?? {};
+  passes["reconstruct"] = {
+    reconstructor: config.reconstructorModel,
+    comparators: config.comparators.map((c) => c.model),
+    segments: config.segments,
+  };
+  existing["passes"] = passes;
+  writeFileSync(metaPath, stringify(existing), "utf-8");
+
   return outputDir;
 }
 

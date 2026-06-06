@@ -3,8 +3,11 @@ import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadReconstructConfig } from "../config";
 
-const TMP = join(process.cwd(), "evaluation", "results", "__test_reconstruct_config__");
-const CONVERSATIONS = join(TMP, "conversations");
+const RESULTS_BASE = join(process.cwd(), "evaluation", "results");
+const TMP = join(RESULTS_BASE, "__test_reconstruct_config__");
+const EVAL_NAME = "eval-test";
+const EVAL_DIR = join(TMP, EVAL_NAME);
+const CONVERSATIONS = join(EVAL_DIR, "conversations");
 
 beforeEach(() => {
   mkdirSync(CONVERSATIONS, { recursive: true });
@@ -20,7 +23,6 @@ afterEach(() => {
 
 const validYaml = `
 dataset_dir: __test_reconstruct_config__
-output_name: run-001
 reconstructor:
   model: mistralai/mistral-nemo
 comparators:
@@ -30,8 +32,8 @@ comparators:
 
 describe("loadReconstructConfig", () => {
   it("loads a valid config", () => {
-    const cfg = loadReconstructConfig(validYaml);
-    expect(cfg.outputName).toBe("run-001");
+    const cfg = loadReconstructConfig(validYaml, EVAL_NAME, RESULTS_BASE);
+    expect(cfg.evalDir).toBe(EVAL_DIR);
     expect(cfg.reconstructorModel).toBe("mistralai/mistral-nemo");
     expect(cfg.comparators).toHaveLength(2);
     expect(cfg.comparators[0]!.label).toBe("comparator_1");
@@ -40,55 +42,55 @@ describe("loadReconstructConfig", () => {
 
   it("accepts optional fields override", () => {
     const yaml = validYaml + "\nfields:\n  - values\n  - fears\n";
-    const cfg = loadReconstructConfig(yaml);
+    const cfg = loadReconstructConfig(yaml, EVAL_NAME, RESULTS_BASE);
     expect(cfg.fields).toEqual(["values", "fears"]);
   });
 
   it("throws when LLM_API_KEY is missing", () => {
     delete process.env["LLM_API_KEY"];
-    expect(() => loadReconstructConfig(validYaml)).toThrow("LLM_API_KEY");
+    expect(() => loadReconstructConfig(validYaml, EVAL_NAME, RESULTS_BASE)).toThrow("LLM_API_KEY");
     process.env["LLM_API_KEY"] = "test-key"; // restore
   });
 
   it("throws when LLM_BASE_URL is missing", () => {
     delete process.env["LLM_BASE_URL"];
-    expect(() => loadReconstructConfig(validYaml)).toThrow("LLM_BASE_URL");
+    expect(() => loadReconstructConfig(validYaml, EVAL_NAME, RESULTS_BASE)).toThrow("LLM_BASE_URL");
     process.env["LLM_BASE_URL"] = "http://localhost:4000"; // restore
   });
 
   it("throws when output directory already exists", () => {
-    mkdirSync(join(TMP, "reconstruct_persona", "run-001"), { recursive: true });
-    expect(() => loadReconstructConfig(validYaml)).toThrow("already exists");
+    mkdirSync(join(EVAL_DIR, "reconstruct_persona"), { recursive: true });
+    expect(() => loadReconstructConfig(validYaml, EVAL_NAME, RESULTS_BASE)).toThrow("already exists");
   });
 
   it("throws when conversations directory is missing", () => {
     rmSync(CONVERSATIONS, { recursive: true });
-    expect(() => loadReconstructConfig(validYaml)).toThrow("conversations");
+    expect(() => loadReconstructConfig(validYaml, EVAL_NAME, RESULTS_BASE)).toThrow("conversations");
   });
 
   it("throws when dataset_dir contains a slash", () => {
     const yaml = validYaml.replace("__test_reconstruct_config__", "foo/bar");
-    expect(() => loadReconstructConfig(yaml)).toThrow();
+    expect(() => loadReconstructConfig(yaml, EVAL_NAME, RESULTS_BASE)).toThrow();
   });
 
   it("throws when no comparators are provided", () => {
     const yaml = validYaml.replace(/comparators:[\s\S]*?(?=\n\w|$)/, "comparators: []");
-    expect(() => loadReconstructConfig(yaml)).toThrow();
+    expect(() => loadReconstructConfig(yaml, EVAL_NAME, RESULTS_BASE)).toThrow();
   });
 
   it("defaults segments to 1 when omitted", () => {
-    const cfg = loadReconstructConfig(validYaml);
+    const cfg = loadReconstructConfig(validYaml, EVAL_NAME, RESULTS_BASE);
     expect(cfg.segments).toBe(1);
   });
 
   it("accepts explicit segments value", () => {
     const yaml = validYaml + "\nsegments: 3\n";
-    const cfg = loadReconstructConfig(yaml);
+    const cfg = loadReconstructConfig(yaml, EVAL_NAME, RESULTS_BASE);
     expect(cfg.segments).toBe(3);
   });
 
   it("throws when segments is 0", () => {
     const yaml = validYaml + "\nsegments: 0\n";
-    expect(() => loadReconstructConfig(yaml)).toThrow();
+    expect(() => loadReconstructConfig(yaml, EVAL_NAME, RESULTS_BASE)).toThrow();
   });
 });

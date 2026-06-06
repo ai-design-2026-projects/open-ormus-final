@@ -9,8 +9,7 @@ function makeMinimalConfig(segments: number): ValidatedReconstructConfig {
     reconstructorModel: "test-model",
     comparators: [{ label: "comparator_1", model: "test-model" }],
     fields: ["personalityTraits"],
-    datasetDir: "/tmp",
-    outputName: "test",
+    evalDir: "/tmp/eval-01",
     rawConfigText: "",
   };
 }

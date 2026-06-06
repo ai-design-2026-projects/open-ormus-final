@@ -109,8 +109,7 @@ export type ComparatorConfig = {
 };
 
 export type ValidatedReconstructConfig = {
-  datasetDir: string;
-  outputName: string;
+  evalDir: string;
   baseUrl: string;
   reconstructorModel: string;
   comparators: ComparatorConfig[];

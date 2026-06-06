@@ -15,14 +15,14 @@ import rawScenarios from "../dataset/scenarios.yaml";
 const ALL_CHARACTERS = rawCharacters as CharacterRecord[];
 const ALL_SCENARIOS = rawScenarios as ScenarioRecord[];
 
-export async function runJudgingPass(configPath: string): Promise<void> {
-  const config = loadJudgeConfig(configPath);
+export async function runJudgingPass(configPath: string, evalName: string): Promise<void> {
+  const config = loadJudgeConfig(configPath, evalName);
   const apiKey = process.env["LLM_API_KEY"]!;
 
-  const judgeRunDir = initJudgeOutputDir(config.datasetDir, config.outputName, config.rawConfigText);
+  const judgeRunDir = initJudgeOutputDir(config.evalDir, config);
 
   try {
-    const conversationsDir = join(config.datasetDir, "conversations");
+    const conversationsDir = join(config.evalDir, "conversations");
     const files = readdirSync(conversationsDir).filter((f) => f.endsWith(".yaml")).sort();
 
     if (files.length === 0) {
