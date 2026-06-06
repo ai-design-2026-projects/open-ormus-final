@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { segmentConversation } from "../segmenter";
-import type { ConversationMessage } from "../../runner/conversation";
+import type { ConversationMessage } from "../../generator/conversation";
 
 function makeMessages(count: number): ConversationMessage[] {
   return Array.from({ length: count }, (_, i) => ({

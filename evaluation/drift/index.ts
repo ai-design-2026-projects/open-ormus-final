@@ -15,8 +15,8 @@ import type {
   EngagementLabel,
   AlignmentLabel,
 } from "./types";
-import type { CharacterRecord, ScenarioRecord } from "../runner/config";
-import type { ConversationResult } from "../runner/conversation";
+import type { CharacterRecord, ScenarioRecord } from "../generator/config";
+import type { ConversationResult } from "../generator/conversation";
 
 export async function runDriftForConversation(
   result: ConversationResult,

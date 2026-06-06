@@ -1,8 +1,8 @@
-# Drift Check — minimal run against test-run-001
-# Run: bun evaluation/drift_persona.ts evaluation/configs/drift-check.yaml
+# Drift Check — minimal run against test-run-001 (reconstruct in segment mode)
+# Run: bun evaluation/reconstruct_persona.ts evaluation/configs/drift-check.yaml
+# Required env: LLM_API_KEY, LLM_BASE_URL
 dataset_dir: "test-run-001"
 output_name: "drift-check-001"
-base_url: "https://openrouter.ai/api"
 
 reconstructor:
   model: "google/gemma-4-31b-it:free"

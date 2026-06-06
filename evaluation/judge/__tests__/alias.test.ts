@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { buildAliasMap, reconstructAliasMap, realNameToAlias, ALIAS_POOL } from "../alias";
-import type { CharacterRecord } from "../../runner/config";
+import type { CharacterRecord } from "../../generator/config";
 
 const mockChar = (id: string, name: string): CharacterRecord => ({
   id,

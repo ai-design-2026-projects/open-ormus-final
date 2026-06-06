@@ -9,17 +9,18 @@ const CONVS = join(TMP, "dataset-001", "conversations");
 beforeAll(() => {
   mkdirSync(CONVS, { recursive: true });
   process.env["LLM_API_KEY"] = "test-key";
+  process.env["LLM_BASE_URL"] = "http://localhost:4000";
 });
 
 afterAll(() => {
   rmSync(TMP, { recursive: true });
   delete process.env["LLM_API_KEY"];
+  delete process.env["LLM_BASE_URL"];
 });
 
 const validYaml = `
 dataset_dir: "dataset-001"
 output_name: "drift-run-001"
-base_url: "http://localhost:11434/v1"
 segments: 3
 judges:
   - model: "model-a"
@@ -33,7 +34,7 @@ describe("loadDriftConfig", () => {
     expect(cfg.judges).toHaveLength(2);
     expect(cfg.judges[0]!.label).toBe("judge_1");
     expect(cfg.judges[1]!.model).toBe("model-b");
-    expect(cfg.baseUrl).toBe("http://localhost:11434/v1");
+    expect(cfg.baseUrl).toBe("http://localhost:4000");
   });
 
   it("throws when segments < 2", () => {
@@ -64,5 +65,11 @@ describe("loadDriftConfig", () => {
     delete process.env["LLM_API_KEY"];
     expect(() => loadDriftConfig(validYaml, TMP)).toThrow("LLM_API_KEY");
     process.env["LLM_API_KEY"] = "test-key";
+  });
+
+  it("throws when LLM_BASE_URL is not set", () => {
+    delete process.env["LLM_BASE_URL"];
+    expect(() => loadDriftConfig(validYaml, TMP)).toThrow("LLM_BASE_URL");
+    process.env["LLM_BASE_URL"] = "http://localhost:4000";
   });
 });

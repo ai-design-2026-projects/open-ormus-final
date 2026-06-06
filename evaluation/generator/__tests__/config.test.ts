@@ -11,11 +11,13 @@ beforeAll(() => {
   tmpBase = mkdtempSync(join(tmpdir(), "eval-config-test-"));
   configPath = join(tmpBase, "config.yaml");
   process.env["LLM_API_KEY"] = "test-key";
+  process.env["LLM_BASE_URL"] = "http://localhost:4000";
 });
 
 afterAll(() => {
   rmSync(tmpBase, { recursive: true, force: true });
   delete process.env["LLM_API_KEY"];
+  delete process.env["LLM_BASE_URL"];
 });
 
 // Unique output_dir that won't exist
@@ -27,7 +29,6 @@ describe("loadConfig", () => {
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "claude-haiku-4-5"
 runs:
   - scenario: scenario_001
@@ -51,7 +52,6 @@ runs:
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "default-model"
 runs:
   - scenario: scenario_001
@@ -72,7 +72,6 @@ runs:
       configPath,
       `
 output_dir: "${existingDir}"
-base_url: "http://localhost:4000"
 default_model: "m"
 runs:
   - scenario: scenario_001
@@ -89,7 +88,6 @@ runs:
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "m"
 runs:
   - scenario: scenario_999_nonexistent
@@ -106,7 +104,6 @@ runs:
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "m"
 runs:
   - scenario: scenario_001
@@ -123,7 +120,6 @@ runs:
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 runs:
   - scenario: scenario_001
     characters: [char_001, char_002]
@@ -140,7 +136,6 @@ runs:
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "m"
 runs:
   - scenario: scenario_001
@@ -153,12 +148,29 @@ runs:
     process.env["LLM_API_KEY"] = "test-key"; // restore
   });
 
+  it("throws if LLM_BASE_URL not set", () => {
+    delete process.env["LLM_BASE_URL"];
+    writeFileSync(
+      configPath,
+      `
+output_dir: "${freshDir()}"
+default_model: "m"
+runs:
+  - scenario: scenario_001
+    characters: [char_001, char_002]
+    turns: 1
+    turn_strategy: ROUND_ROBIN
+`,
+    );
+    expect(() => loadConfig(configPath, tmpBase)).toThrow("LLM_BASE_URL");
+    process.env["LLM_BASE_URL"] = "http://localhost:4000"; // restore
+  });
+
   it("does not accept a concurrency field — parallelism is unconditional", () => {
     writeFileSync(
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "claude-haiku-4-5"
 concurrency: 4
 runs:
@@ -181,7 +193,6 @@ runs:
       configPath,
       `
 output_dir: "${freshDir()}"
-base_url: "http://localhost:4000"
 default_model: "m"
 runs:
   - scenario: scenario_001

@@ -5,8 +5,8 @@ import { loadReconstructConfig } from "./config";
 import { runReconstructionForConversation } from "./index";
 import { initReconstructOutputDir, writeReconstructResults, writeSummary } from "./writer";
 import { computeSummary } from "./scoring";
-import type { CharacterRecord, ScenarioRecord } from "../runner/config";
-import type { ConversationResult } from "../runner/conversation";
+import type { CharacterRecord, ScenarioRecord } from "../generator/config";
+import type { ConversationResult } from "../generator/conversation";
 import type { ConversationReconstructionResult } from "./types";
 
 import rawCharacters from "../dataset/characters.yaml";

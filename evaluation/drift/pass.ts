@@ -5,8 +5,8 @@ import { loadDriftConfig } from "./config";
 import { runDriftForConversation } from "./index";
 import { initDriftOutputDir, writeConversationResults, writeSummary } from "./writer";
 import { computeScenarioSummaries } from "./scoring";
-import type { CharacterRecord, ScenarioRecord } from "../runner/config";
-import type { ConversationResult } from "../runner/conversation";
+import type { CharacterRecord, ScenarioRecord } from "../generator/config";
+import type { ConversationResult } from "../generator/conversation";
 import type { ConversationDriftResult } from "./types";
 
 import rawCharacters from "../dataset/characters.yaml";

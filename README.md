@@ -131,3 +131,9 @@ After setup, open [http://localhost:3000](http://localhost:3000).
 | `bun run typecheck`          | Type-check all workspaces (frontend + shared) |
 | `bun run typecheck:frontend` | Type-check the frontend only                  |
 | `bun run typecheck:shared`   | Type-check the shared package only            |
+
+---
+
+## Evaluation
+
+The offline evaluation pipeline measures LLM behavioural fidelity end-to-end across four sequential passes (generate → judge → reconstruct → drift). See [`evaluation/README.md`](evaluation/README.md) for the full reference.

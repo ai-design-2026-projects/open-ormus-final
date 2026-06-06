@@ -20,8 +20,8 @@ import type {
   SegmentResult,
   FieldDriftScore,
 } from "./types";
-import type { CharacterRecord, ScenarioRecord } from "../runner/config";
-import type { ConversationResult } from "../runner/conversation";
+import type { CharacterRecord, ScenarioRecord } from "../generator/config";
+import type { ConversationResult } from "../generator/conversation";
 
 function getGtItems(char: CharacterRecord, field: ProfileField): string[] {
   return (char[field as keyof CharacterRecord] as string[] | undefined) ?? [];

@@ -29,7 +29,6 @@ const JudgeConfigSchema = z.object({
     (v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."),
     "output_name must be a simple directory name",
   ),
-  base_url: z.string().min(1),
   judges: z.array(JudgeInputSchema).min(1, "At least 1 judge required").max(3, "At most 3 judges allowed"),
 });
 
@@ -41,6 +40,11 @@ export function loadJudgeConfig(configPath: string): ValidatedJudgeConfig {
   if (!process.env["LLM_API_KEY"]) {
     throw new Error("LLM_API_KEY env var is not set");
   }
+  const rawBaseUrl = process.env["LLM_BASE_URL"];
+  if (!rawBaseUrl) {
+    throw new Error("LLM_BASE_URL env var is not set");
+  }
+  const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
   const resultsBase = join(process.cwd(), "evaluation", "results");
   const datasetDir = join(resultsBase, input.dataset_dir);
@@ -67,7 +71,7 @@ export function loadJudgeConfig(configPath: string): ValidatedJudgeConfig {
   return {
     datasetDir,
     outputName: input.output_name,
-    baseUrl: input.base_url,
+    baseUrl,
     judges,
     rawConfigText,
   };

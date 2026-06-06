@@ -1,6 +1,6 @@
-import type { ScenarioRecord } from "../runner/config";
-import type { ConversationMessage } from "../runner/conversation";
-import type { CharacterRecord } from "../runner/config";
+import type { ScenarioRecord } from "../generator/config";
+import type { ConversationMessage } from "../generator/conversation";
+import type { CharacterRecord } from "../generator/config";
 
 export type PromptCharacter = {
   id: string;

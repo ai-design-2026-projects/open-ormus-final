@@ -17,6 +17,7 @@ beforeAll(() => {
   tmpBase = mkdtempSync(join(tmpdir(), "judge-config-test-"));
   configPath = join(tmpBase, "config.yaml");
   process.env["LLM_API_KEY"] = "test-key";
+  process.env["LLM_BASE_URL"] = "http://localhost:4000";
   // Create a real conversations directory so the existence check passes
   mkdirSync(testConversationsDir, { recursive: true });
 });
@@ -25,6 +26,7 @@ afterAll(() => {
   rmSync(tmpBase, { recursive: true, force: true });
   rmSync(join(resultsBase, testDatasetName), { recursive: true, force: true });
   delete process.env["LLM_API_KEY"];
+  delete process.env["LLM_BASE_URL"];
 });
 
 const freshOutputName = () => `judge-out-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -36,7 +38,6 @@ describe("loadJudgeConfig", () => {
       `
 dataset_dir: "${testDatasetName}"
 output_name: "${freshOutputName()}"
-base_url: "http://localhost:4000"
 judges:
   - model: "claude-haiku-4-5"
 `,
@@ -54,7 +55,6 @@ judges:
       `
 dataset_dir: "${testDatasetName}"
 output_name: "${freshOutputName()}"
-base_url: "http://localhost:4000"
 judges:
   - model: "model-a"
   - model: "model-b"
@@ -74,7 +74,6 @@ judges:
       `
 dataset_dir: "${testDatasetName}"
 output_name: "${freshOutputName()}"
-base_url: "http://localhost:4000"
 judges:
   - model: "a"
   - model: "b"
@@ -90,7 +89,6 @@ judges:
       configPath,
       `
 output_name: "${freshOutputName()}"
-base_url: "http://localhost:4000"
 judges:
   - model: "claude-haiku-4-5"
 `,
@@ -104,11 +102,25 @@ judges:
       `
 dataset_dir: "nonexistent-dataset-${Date.now()}"
 output_name: "${freshOutputName()}"
-base_url: "http://localhost:4000"
 judges:
   - model: "claude-haiku-4-5"
 `,
     );
     expect(() => loadJudgeConfig(configPath)).toThrow("conversations");
+  });
+
+  it("throws when LLM_BASE_URL is not set", () => {
+    delete process.env["LLM_BASE_URL"];
+    writeFileSync(
+      configPath,
+      `
+dataset_dir: "${testDatasetName}"
+output_name: "${freshOutputName()}"
+judges:
+  - model: "claude-haiku-4-5"
+`,
+    );
+    expect(() => loadJudgeConfig(configPath)).toThrow("LLM_BASE_URL");
+    process.env["LLM_BASE_URL"] = "http://localhost:4000"; // restore
   });
 });

@@ -1,4 +1,4 @@
-import { runEvaluation } from "./runner/index";
+import { generateDataset } from "./generator/index";
 
 const configPath = process.argv[2];
 if (!configPath) {
@@ -7,4 +7,4 @@ if (!configPath) {
   process.exit(1);
 }
 
-await runEvaluation(configPath);
+await generateDataset(configPath);

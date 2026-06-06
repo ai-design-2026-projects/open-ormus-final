@@ -9,17 +9,18 @@ const CONVERSATIONS = join(TMP, "conversations");
 beforeEach(() => {
   mkdirSync(CONVERSATIONS, { recursive: true });
   process.env["LLM_API_KEY"] = "test-key";
+  process.env["LLM_BASE_URL"] = "http://localhost:4000";
 });
 
 afterEach(() => {
   rmSync(TMP, { recursive: true, force: true });
   delete process.env["LLM_API_KEY"];
+  delete process.env["LLM_BASE_URL"];
 });
 
 const validYaml = `
 dataset_dir: __test_reconstruct_config__
 output_name: run-001
-base_url: https://openrouter.ai/api
 reconstructor:
   model: mistralai/mistral-nemo
 comparators:
@@ -46,6 +47,13 @@ describe("loadReconstructConfig", () => {
   it("throws when LLM_API_KEY is missing", () => {
     delete process.env["LLM_API_KEY"];
     expect(() => loadReconstructConfig(validYaml)).toThrow("LLM_API_KEY");
+    process.env["LLM_API_KEY"] = "test-key"; // restore
+  });
+
+  it("throws when LLM_BASE_URL is missing", () => {
+    delete process.env["LLM_BASE_URL"];
+    expect(() => loadReconstructConfig(validYaml)).toThrow("LLM_BASE_URL");
+    process.env["LLM_BASE_URL"] = "http://localhost:4000"; // restore
   });
 
   it("throws when output directory already exists", () => {

@@ -14,7 +14,7 @@ const mockGenerateTurn = mock(async function* () {
   };
 });
 
-// Path is relative to THIS test file (evaluation/runner/__tests__/),
+// Path is relative to THIS test file (evaluation/generator/__tests__/),
 // which is 3 levels up from the repo root — same absolute path as the
 // "../../packages/shared/conversation/turn" import in conversation.ts.
 mock.module("../../../packages/shared/conversation/turn", () => ({

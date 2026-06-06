@@ -1,6 +1,6 @@
 import type { ProfileField } from "./types";
-import type { ScenarioRecord } from "../runner/config";
-import type { ConversationMessage } from "../runner/conversation";
+import type { ScenarioRecord } from "../generator/config";
+import type { ConversationMessage } from "../generator/conversation";
 
 const FIELD_DEFINITIONS: Record<ProfileField, string> = {
   personalityTraits: "Stable character traits that show up across different situations — adjectives or short phrases describing how this character fundamentally is.",

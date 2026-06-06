@@ -7,7 +7,6 @@
 
 dataset_dir: "dataset-001"
 output_name: "reconstruct-run-001"
-base_url: "https://openrouter.ai/api"
 
 reconstructor:
   model: "mistralai/mistral-nemo"

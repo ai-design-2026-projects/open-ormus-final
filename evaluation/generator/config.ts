@@ -72,7 +72,6 @@ const EvalConfigSchema = z.object({
       (v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."),
       "output_dir must be a simple directory name (no slashes or '..')",
     ),
-  base_url: z.string().min(1),
   default_model: z.string().optional(),
   runs: z.array(RunInputSchema).min(1, "runs array must not be empty"),
 });
@@ -99,10 +98,15 @@ export function loadConfig(
   const parsed: unknown = parseYaml(rawConfigText);
   const input = EvalConfigSchema.parse(parsed);
 
-  // 2. LLM_API_KEY must be set
+  // 2. LLM env vars must be set
   if (!process.env["LLM_API_KEY"]) {
     throw new Error("LLM_API_KEY env var is not set");
   }
+  const rawBaseUrl = process.env["LLM_BASE_URL"];
+  if (!rawBaseUrl) {
+    throw new Error("LLM_BASE_URL env var is not set");
+  }
+  const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
   // 3. Output dir must not already exist
   const outputPath = join(resultsBasePath, input.output_dir);
@@ -143,5 +147,5 @@ export function loadConfig(
     return { index: idx, scenario, characters, turns: run.turns, model, turn_strategy };
   });
 
-  return { outputDir: input.output_dir, baseUrl: input.base_url, runs: validatedRuns, rawConfigText };
+  return { outputDir: input.output_dir, baseUrl, runs: validatedRuns, rawConfigText };
 }

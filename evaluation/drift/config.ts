@@ -19,7 +19,6 @@ const DriftConfigSchema = z.object({
       (v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."),
       "output_name must be a simple directory name",
     ),
-  base_url: z.string().min(1),
   segments: z.number().int().min(2, "segments must be ≥ 2"),
   judges: z
     .array(z.object({ model: z.string().min(1) }))
@@ -34,6 +33,9 @@ export function loadDriftConfig(
   const input = DriftConfigSchema.parse(parsed);
 
   if (!process.env["LLM_API_KEY"]) throw new Error("LLM_API_KEY env var is not set");
+  const rawBaseUrl = process.env["LLM_BASE_URL"];
+  if (!rawBaseUrl) throw new Error("LLM_BASE_URL env var is not set");
+  const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
   const datasetDir = join(resultsBasePath, input.dataset_dir);
   const conversationsDir = join(datasetDir, "conversations");
@@ -59,7 +61,7 @@ export function loadDriftConfig(
   return {
     datasetDir,
     outputName: input.output_name,
-    baseUrl: input.base_url,
+    baseUrl,
     segments: input.segments,
     judges,
     rawConfigText,

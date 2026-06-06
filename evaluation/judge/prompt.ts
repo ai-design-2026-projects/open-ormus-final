@@ -1,5 +1,5 @@
-import type { CharacterRecord, ScenarioRecord } from "../runner/config";
-import type { ConversationMessage } from "../runner/conversation";
+import type { CharacterRecord, ScenarioRecord } from "../generator/config";
+import type { ConversationMessage } from "../generator/conversation";
 
 export function buildJudgeSystemPrompt(): string {
   return `You are a behavioral analyst. Your task is to match anonymous aliases to fictional characters by identifying whose behavioral signature each alias displays in a conversation.

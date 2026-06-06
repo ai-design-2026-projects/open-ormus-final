@@ -1,4 +1,4 @@
-import type { CharacterRecord } from "../runner/config";
+import type { CharacterRecord } from "../generator/config";
 
 export const ALIAS_POOL = [
   "Alex", "Jordan", "Morgan", "Taylor", "Casey",

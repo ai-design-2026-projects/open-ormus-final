@@ -4,7 +4,6 @@
 
 dataset_dir: "dataset-001"      # must match an existing output_dir under evaluation/results/
 output_name: "judge-run-001"    # folder created under evaluation/results/<dataset_dir>/judge_guessing/
-base_url: "https://openrouter.ai/api"
 
 judges:
   - model: "mistralai/mistral-nemo"

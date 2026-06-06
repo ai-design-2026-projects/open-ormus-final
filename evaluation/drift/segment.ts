@@ -1,4 +1,4 @@
-import type { ConversationMessage } from "../runner/conversation";
+import type { ConversationMessage } from "../generator/conversation";
 
 export function splitIntoSegments(
   messages: ConversationMessage[],

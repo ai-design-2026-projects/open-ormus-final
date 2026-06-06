@@ -1,4 +1,4 @@
-import type { ConversationMessage } from "../runner/conversation";
+import type { ConversationMessage } from "../generator/conversation";
 
 export type Segment = {
   segment_index: number;

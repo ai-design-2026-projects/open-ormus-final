@@ -5,8 +5,8 @@ import { loadJudgeConfig } from "./config";
 import { reconstructAliasMap } from "./alias";
 import { runJudges } from "./index";
 import { initJudgeOutputDir, writeGuessingResult } from "./writer";
-import type { CharacterRecord, ScenarioRecord } from "../runner/config";
-import type { ConversationResult } from "../runner/conversation";
+import type { CharacterRecord, ScenarioRecord } from "../generator/config";
+import type { ConversationResult } from "../generator/conversation";
 import type { GuessingScenarioResult } from "./types";
 
 import rawCharacters from "../dataset/characters.yaml";

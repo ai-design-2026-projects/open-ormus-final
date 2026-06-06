@@ -37,7 +37,7 @@ async function executeRun(
   }
 }
 
-export async function runEvaluation(configPath: string): Promise<void> {
+export async function generateDataset(configPath: string): Promise<void> {
   const config = loadConfig(configPath);
   const apiKey = process.env["LLM_API_KEY"]!;
   const resultsBase = join(process.cwd(), "evaluation", "results");

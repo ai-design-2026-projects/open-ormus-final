@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { buildJudgeSystemPrompt, buildJudgeUserPrompt } from "../prompt";
-import type { ConversationMessage } from "../../runner/conversation";
+import type { ConversationMessage } from "../../generator/conversation";
 
 const scenario = {
   id: "s1",
