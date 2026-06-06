@@ -30,39 +30,50 @@ export async function runReconstructionPass(configPath: string): Promise<void> {
       throw new Error(`No conversation YAML files found in ${conversationsDir}`);
     }
 
-    const allResults: ConversationReconstructionResult[] = [];
+    // Parse all files synchronously upfront, then fan out LLM calls in parallel.
+    const entries = files.map((file, i) => ({
+      file,
+      result: parseYaml(readFileSync(join(conversationsDir, file), "utf-8")) as ConversationResult,
+      i,
+    }));
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]!;
-      const raw = readFileSync(join(conversationsDir, file), "utf-8");
-      const result = parseYaml(raw) as ConversationResult;
-
+    const processable = entries.filter(({ file, result, i }) => {
       if (!result.messages || result.messages.length === 0) {
         console.log(`[${i + 1}/${files.length}] ${file} — skipped (failed conversation)`);
-        continue;
+        return false;
       }
+      return true;
+    });
 
-      const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
-      if (!scenario) throw new Error(`Scenario "${result.scenario_id}" not found (from ${file})`);
-
-      const characters = result.characters.map((c) => {
-        const found = ALL_CHARACTERS.find((r) => r.id === c.id);
-        if (!found) throw new Error(`Character "${c.id}" not found (from ${file})`);
-        return found;
-      });
-
-      console.log(`[${i + 1}/${files.length}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`);
-
-      const convResult = await runReconstructionForConversation(
-        result,
-        file,
-        scenario,
-        characters,
-        config,
-        apiKey,
-      );
-      allResults.push(convResult);
+    if (processable.length === 0) {
+      throw new Error("No processable conversations found — all files were skipped or empty.");
     }
+
+    // On first failure Promise.all rejects immediately; sibling calls continue until
+    // they complete or fail on their own — they cannot be cancelled from here.
+    // The catch block removes the output dir regardless of how many finished.
+    const allResults: ConversationReconstructionResult[] = await Promise.all(
+      processable.map(async ({ file, result, i }) => {
+        const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
+        if (!scenario) throw new Error(`Scenario "${result.scenario_id}" not found (from ${file})`);
+
+        const characters = result.characters.map((c) => {
+          const found = ALL_CHARACTERS.find((r) => r.id === c.id);
+          if (!found) throw new Error(`Character "${c.id}" not found (from ${file})`);
+          return found;
+        });
+
+        const label = `[${i + 1}/${files.length}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`;
+        console.log(`${label} — started`);
+        try {
+          const convResult = await runReconstructionForConversation(result, file, scenario, characters, config, apiKey);
+          console.log(`${label} ✓`);
+          return convResult;
+        } catch (err) {
+          throw new Error(`${label} failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+        }
+      }),
+    );
 
     writeReconstructResults(outputDir, allResults);
     writeSummary(outputDir, computeSummary(allResults, config.comparators.map((c) => c.model), config.segments));
