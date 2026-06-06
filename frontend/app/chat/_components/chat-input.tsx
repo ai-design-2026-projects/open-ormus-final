@@ -1,6 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Paperclip, ArrowUp, Square } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { IconButton } from "@/components/ui/icon-button";
+import { Button } from "@/components/ui/button";
 import type { Attachment } from "@/lib/agent/attachment";
 
 interface ChatInputProps {
@@ -50,13 +54,13 @@ export function ChatInput({ onSend, onStop, isStreaming }: ChatInputProps) {
   };
 
   return (
-    <div className="border-t border-border p-3 flex flex-col gap-2">
+    <div className="border-t border-hair p-3 bg-surface-1 flex flex-col gap-2">
       {attachment && (
         <div className="flex items-center gap-2 px-1">
-          <span className="text-xs text-muted-foreground truncate max-w-xs">📎 {attachment.filename}</span>
+          <span className="t-meta text-ink-mute truncate max-w-xs">{attachment.filename}</span>
           <button
             onClick={clearAttachment}
-            className="text-xs text-muted-foreground hover:text-foreground leading-none"
+            className="t-meta text-ink-mute hover:text-ink transition-colors duration-[120ms]"
             aria-label="Remove attachment"
           >
             ✕
@@ -71,38 +75,39 @@ export function ChatInput({ onSend, onStop, isStreaming }: ChatInputProps) {
           className="hidden"
           onChange={handleFileChange}
         />
-        <button
+        <IconButton
           onClick={() => fileRef.current?.click()}
           disabled={isStreaming}
-          className="p-2 rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors shrink-0"
           aria-label="Attach PDF"
-          title="Attach PDF"
+          variant="ghost"
+          size="sm"
         >
-          📎
-        </button>
-        <textarea
+          <Paperclip />
+        </IconButton>
+        <Textarea
           ref={textRef}
           disabled={isStreaming}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-          rows={1}
-          className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 max-h-32 overflow-y-auto"
-          style={{ minHeight: "40px" }}
+          placeholder="Message… (Enter to send, Shift+Enter for newline)"
+          className="flex-1 min-h-10 max-h-32 border-hair resize-none overflow-y-auto"
         />
         {isStreaming ? (
-          <button
+          <IconButton
             onClick={onStop}
-            className="px-4 py-2 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors shrink-0"
+            aria-label="Stop generation"
+            variant="ghost"
+            size="sm"
           >
-            Stop
-          </button>
+            <Square />
+          </IconButton>
         ) : (
-          <button
+          <Button
             onClick={handleSend}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+            aria-label="Send message"
+            size="icon"
           >
-            Send
-          </button>
+            <ArrowUp />
+          </Button>
         )}
       </div>
     </div>

@@ -17,8 +17,11 @@ function Shimmer({ className }: { className?: string }) {
   );
 }
 
+const PAGE_SIZE = 4;
+
 export function ResultSummaryCard({ input, result, isLoading }: ToolRendererProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const query =
     typeof input === "object" &&
@@ -101,7 +104,7 @@ export function ResultSummaryCard({ input, result, isLoading }: ToolRendererProp
       {expanded && (
         <div className="border-t border-hair px-3 pb-3 pt-2 space-y-2">
           {savedList.success &&
-            savedList.data.map((char) => (
+            (showAll ? savedList.data : savedList.data.slice(0, PAGE_SIZE)).map((char) => (
               <CharacterCard
                 key={char.id}
                 input={null}
@@ -111,7 +114,10 @@ export function ResultSummaryCard({ input, result, isLoading }: ToolRendererProp
             ))}
           {!savedList.success &&
             savedListNoPictures.success &&
-            savedListNoPictures.data.map((char) => (
+            (showAll
+              ? savedListNoPictures.data
+              : savedListNoPictures.data.slice(0, PAGE_SIZE)
+            ).map((char) => (
               <CharacterCard
                 key={char.id}
                 input={null}
@@ -120,9 +126,19 @@ export function ResultSummaryCard({ input, result, isLoading }: ToolRendererProp
               />
             ))}
           {showResult.success &&
-            showResult.data.results.map((show, i) => (
-              <ShowCard key={i} show={show} />
-            ))}
+            (showAll ? showResult.data.results : showResult.data.results.slice(0, PAGE_SIZE)).map(
+              (show, i) => <ShowCard key={i} show={show} />
+            )}
+
+          {/* Show more / show less */}
+          {count !== null && count > PAGE_SIZE && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="w-full mt-1 py-2 t-meta text-ink-mute hover:text-ink border border-dashed border-hair hover:border-ink-faint rounded-[var(--r-md)] transition-colors duration-[120ms]"
+            >
+              {showAll ? "Show less ▲" : `Show ${count - PAGE_SIZE} more ▼`}
+            </button>
+          )}
         </div>
       )}
     </div>

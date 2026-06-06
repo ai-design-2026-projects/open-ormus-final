@@ -8,6 +8,7 @@ import { Tag } from "@/components/ui/tag";
 import type { ToolRendererProps } from "../tool-call-block";
 import type { MessageRecord } from "@open-ormus/shared";
 import { MessageRecordSchema } from "@open-ormus/shared";
+import { renderInline } from "@/lib/render-inline";
 
 function Shimmer({ className }: { className?: string }) {
   return (
@@ -180,7 +181,7 @@ function Turn({ turn }: { turn: MessageRecord }) {
             <Tag tone="neutral" className="ml-1">{turn.emotion}</Tag>
           )}
         </div>
-        <p className="t-body-s text-ink-dim mt-0.5 whitespace-pre-wrap">{turn.content}</p>
+        <p className="t-body-s text-ink-dim mt-0.5 whitespace-pre-wrap">{renderInline(turn.content)}</p>
       </div>
     </div>
   );

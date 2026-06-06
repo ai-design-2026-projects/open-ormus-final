@@ -6,7 +6,8 @@ export type StreamChunk =
   | { type: "tool_start"; tool: string; input: unknown }
   | { type: "tool_result"; tool: string; result: unknown }
   | { type: "error"; message: string }
-  | { type: "done"; sessionId: string };
+  | { type: "done"; sessionId: string }
+  | { type: "session_titled"; sessionId: string; title: string };
 
 const encoder = new TextEncoder();
 

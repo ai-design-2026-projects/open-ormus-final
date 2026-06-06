@@ -109,7 +109,7 @@ export async function listSessions(
   userId: string,
 ): Promise<AgentSessionSummary[]> {
   const sessions = await prisma.agentSession.findMany({
-    where: { userId },
+    where: { userId, turns: { some: {} } },
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, createdAt: true },
   });
@@ -118,6 +118,15 @@ export async function listSessions(
     title: s.title,
     createdAt: s.createdAt.toISOString(),
   }));
+}
+
+/** Deletes an AgentSession (turns cascade via DB). */
+export async function deleteSession(
+  prisma: PrismaClient,
+  sessionId: string,
+  userId: string,
+): Promise<void> {
+  await prisma.agentSession.deleteMany({ where: { id: sessionId, userId } });
 }
 
 /** Sets the title of an AgentSession. */

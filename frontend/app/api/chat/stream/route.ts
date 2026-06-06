@@ -44,7 +44,21 @@ export async function POST(request: Request) {
 
   const sessionId = incomingSessionId ?? (await createSession(prisma, user.id));
   const priorMessages = await getSessionMessages(prisma, sessionId, user.id);
-  const isFirstTurn = priorMessages.length === 0;
+
+  // Detect retry: if the last persisted turn is already a user message with the
+  // same content, the client is retrying a failed request. Slice it off so
+  // runAgent doesn't see the same user turn twice.
+  const lastPrior = priorMessages[priorMessages.length - 1];
+  const isRetry =
+    lastPrior !== undefined &&
+    typeof lastPrior === "object" &&
+    "role" in lastPrior &&
+    lastPrior.role === "user" &&
+    "content" in lastPrior &&
+    typeof lastPrior.content === "string" &&
+    lastPrior.content === message;
+  const effectivePrior = isRetry ? priorMessages.slice(0, -1) : priorMessages;
+  const isFirstTurn = effectivePrior.length === 0;
 
   const jwt = generateToolToken(user.id);
 
@@ -68,7 +82,7 @@ export async function POST(request: Request) {
         await mcp.connect();
 
         const { items, error } = await runAgent(
-          priorMessages,
+          effectivePrior,
           message,
           mcp,
           safeEnqueue,
@@ -85,14 +99,16 @@ export async function POST(request: Request) {
           console.error("Failed to persist AgentTurn:", err);
         }
 
-        if (isFirstTurn) {
-          void autoTitle(sessionId, message, user.id);
-        }
-
         if (error) {
           safeEnqueue(encodeChunk({ type: "error", message: error.message }));
         } else {
           safeEnqueue(encodeChunk({ type: "done", sessionId }));
+          if (isFirstTurn) {
+            const title = await autoTitle(sessionId, message, user.id);
+            if (title) {
+              safeEnqueue(encodeChunk({ type: "session_titled", sessionId, title }));
+            }
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Agent error";
@@ -121,7 +137,7 @@ export async function POST(request: Request) {
   });
 }
 
-async function autoTitle(sessionId: string, firstMessage: string, userId: string): Promise<void> {
+async function autoTitle(sessionId: string, firstMessage: string, userId: string): Promise<string | null> {
   const startTime = Date.now();
   try {
     const client = createLLMClient();
@@ -141,8 +157,9 @@ async function autoTitle(sessionId: string, firstMessage: string, userId: string
       ],
     });
     const text = response.choices[0]?.message.content ?? "";
-    if (text) {
-      await setSessionTitle(prisma, sessionId, text.slice(0, 100));
+    const title = text ? text.slice(0, 100) : null;
+    if (title) {
+      await setSessionTitle(prisma, sessionId, title);
     }
     const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens;
     const reasoningTokens = response.usage?.completion_tokens_details?.reasoning_tokens;
@@ -158,7 +175,9 @@ async function autoTitle(sessionId: string, firstMessage: string, userId: string
         latencyMs: Date.now() - startTime,
       },
     );
+    return title;
   } catch (err) {
     console.error("autoTitle failed:", err);
+    return null;
   }
 }
