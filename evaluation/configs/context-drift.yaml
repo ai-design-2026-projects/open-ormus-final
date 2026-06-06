@@ -1,0 +1,17 @@
+# Context Drift Evaluation — Example Config
+# Run: bun evaluation/context_drift.ts evaluation/configs/context-drift.yaml
+# Required env: LLM_API_KEY
+#
+# segments: number of equal time windows to split each conversation into.
+# Must be >= 2. Each segment boundary produces one drift delta.
+# Example: segments: 3 -> early / mid / late windows -> 2 deltas.
+
+dataset_dir: "dataset-001"
+output_name: "drift-run-001"
+base_url: "https://openrouter.ai/api"
+segments: 3
+
+judges:
+  - model: "mistralai/mistral-nemo"
+  - model: "mistralai/mistral-nemo"
+  - model: "google/gemma-2-9b-it"

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
+    "handlebars": "^4.7.9",
     "exa-js": "^2.12.1",
     "sharp": "^0.34.5",
     "zod": "^4.4.3"
