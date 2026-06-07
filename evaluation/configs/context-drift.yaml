@@ -6,11 +6,11 @@
 # Must be >= 2. Each segment boundary produces one drift delta.
 # Example: segments: 3 -> early / mid / late windows -> 2 deltas.
 
-dataset_dir: "dataset-v1"
-eval_name: "eval-01"
+dataset_dir: "dataset-v2"
+eval_name: "eval-02"
 segments: 2
 
 judges:
-  - model: "openai/gpt-oss-120b"
+  - model: "google/gemini-3.1-flash-lite-preview"
   - model: "deepseek/deepseek-v4-flash"
   - model: "qwen/qwen3.6-flash"

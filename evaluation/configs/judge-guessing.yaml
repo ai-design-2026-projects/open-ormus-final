@@ -2,10 +2,10 @@
 # Run: bun evaluation/judge_guessing.ts evaluation/configs/judge-guessing.yaml
 # Required env vars: LLM_API_KEY, LLM_BASE_URL
 
-dataset_dir: "dataset-v1"
-eval_name: "eval-01"
+dataset_dir: "dataset-v2"
+eval_name: "eval-02"
 
 judges:
-  - model: "openai/gpt-oss-120b"
+  - model: "google/gemini-3.1-flash-lite-preview"
   - model: "deepseek/deepseek-v4-flash"
   - model: "qwen/qwen3.6-flash"

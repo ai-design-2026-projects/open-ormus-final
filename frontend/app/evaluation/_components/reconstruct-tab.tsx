@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Sparkline, slopeBadge } from "@/app/evaluation/_components/sparkline";
 
 // ── Data types (mirrors evaluation/reconstruct/types.ts) ─────────────────────
 
@@ -97,27 +96,39 @@ function fmt(v: number) {
   return v.toFixed(2);
 }
 
-/** Mean F1 across all observed fields for a character across all segments. */
-function characterMeanF1(char: CharacterResult): number | null {
+/**
+ * Mean F1 across all observed field×segment instances for a set of CharacterResults.
+ * One real character can appear in multiple conversations under different aliases;
+ * pass all of them here to get the cross-conversation mean.
+ * Only non-not_observed fields contribute.
+ */
+function characterMeanF1(chars: CharacterResult[]): number | null {
   const f1s: number[] = [];
-  for (const seg of char.segments) {
-    for (const field of PROFILE_FIELDS) {
-      const fs = seg.field_scores[field];
-      if (fs && !fs.not_observed) f1s.push(fs.f1);
+  for (const char of chars) {
+    for (const seg of char.segments) {
+      for (const field of PROFILE_FIELDS) {
+        const fs = seg.field_scores[field];
+        if (fs && !fs.not_observed) f1s.push(fs.f1);
+      }
     }
   }
   if (f1s.length === 0) return null;
   return f1s.reduce((a, b) => a + b, 0) / f1s.length;
 }
 
-/** Per-field summary: average precision/recall/f1 across all segments. */
+/**
+ * Per-field summary: average precision/recall/f1 across all segments of all
+ * CharacterResults for one real character (pools across conversations).
+ */
 function fieldSummary(
-  char: CharacterResult,
+  chars: CharacterResult[],
   field: ProfileField,
 ): { f1: number; precision: number; recall: number } | null {
-  const scores = char.segments
-    .map((s) => s.field_scores[field])
-    .filter((fs): fs is FieldScore => fs !== undefined && !fs.not_observed);
+  const scores = chars.flatMap((char) =>
+    char.segments
+      .map((s) => s.field_scores[field])
+      .filter((fs): fs is FieldScore => fs !== undefined && !fs.not_observed),
+  );
   if (scores.length === 0) return null;
   const mean = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
   return {
@@ -136,20 +147,6 @@ function overallMeanF1(summary: ReconstructionSummary): number | null {
   return f1s.reduce((a, b) => a + b, 0) / f1s.length;
 }
 
-/** Sparkline values: non-null segment F1s for a field across drift data. */
-function sparklineValues(char: CharacterResult): number[] {
-  // Use mean of all observed-field F1s across segments as the sparkline
-  return char.segments
-    .map((seg) => {
-      const f1s = PROFILE_FIELDS.map((f) => seg.field_scores[f])
-        .filter((fs): fs is FieldScore => fs !== undefined && !fs.not_observed)
-        .map((fs) => fs.f1);
-      if (f1s.length === 0) return null;
-      return f1s.reduce((a, b) => a + b, 0) / f1s.length;
-    })
-    .filter((v): v is number => v !== null);
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Stat({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
@@ -161,11 +158,7 @@ function Stat({ label, value, tooltip }: { label: string; value: string; tooltip
   );
 }
 
-function MetricBadge({ label, color }: { label: string; color: string }) {
-  return <span className={`text-[11px] font-medium ${color}`}>{label}</span>;
-}
-
-function FieldTable({ char }: { char: CharacterResult }) {
+function FieldTable({ chars }: { chars: CharacterResult[] }) {
   const [expandedFields, setExpandedFields] = useState<Set<ProfileField>>(new Set());
 
   function toggleField(f: ProfileField) {
@@ -178,7 +171,7 @@ function FieldTable({ char }: { char: CharacterResult }) {
 
   const rows = PROFILE_FIELDS.map((field) => ({
     field,
-    scores: fieldSummary(char, field),
+    scores: fieldSummary(chars, field),
   }));
 
   return (
@@ -195,12 +188,15 @@ function FieldTable({ char }: { char: CharacterResult }) {
         <tbody>
           {rows.map(({ field, scores }) => {
             const isExpanded = expandedFields.has(field);
-            const allItems = char.segments.flatMap((seg, segIdx) => {
-              const fs = seg.field_scores[field];
-              if (!fs || fs.not_observed || !fs.item_scores) return [];
-              const label = char.segments.length > 1 ? `S${segIdx + 1}` : null;
-              return fs.item_scores.map((item) => ({ ...item, segLabel: label }));
-            });
+            // Pool item-level detail across all chars × conversations
+            const allItems = chars.flatMap((char) =>
+              char.segments.flatMap((seg, segIdx) => {
+                const fs = seg.field_scores[field];
+                if (!fs || fs.not_observed || !fs.item_scores) return [];
+                const segLabel = char.segments.length > 1 ? `S${segIdx + 1}` : null;
+                return fs.item_scores.map((item) => ({ ...item, segLabel }));
+              }),
+            );
 
             return (
               <React.Fragment key={field}>
@@ -302,18 +298,18 @@ function FieldTable({ char }: { char: CharacterResult }) {
 
 function ConversationDrilldown({
   conversations,
-  char,
+  realName,
 }: {
   conversations: ConversationReconstructionResult[];
-  char: CharacterResult;
+  realName: string;
 }) {
-  // Find all conversations that include this character (by alias)
+  // Find all conversations that include this real character (keyed by real_name)
   const convResults = conversations
-    .filter((conv) => conv.characters.some((c) => c.alias === char.alias))
+    .filter((conv) => conv.characters.some((c) => c.real_name === realName))
     .map((conv) => {
-      const c = conv.characters.find((c) => c.alias === char.alias)!;
-      const meanF1 = characterMeanF1(c);
-      return { conv, meanF1 };
+      const c = conv.characters.find((c) => c.real_name === realName)!;
+      const meanF1 = characterMeanF1([c]);
+      return { conv, meanF1, alias: c.alias };
     })
     .sort((a, b) => {
       if (a.meanF1 === null && b.meanF1 === null) return 0;
@@ -333,7 +329,7 @@ function ConversationDrilldown({
         Per-conversation F1
       </p>
       <div className="space-y-1.5">
-        {convResults.map(({ conv, meanF1 }, i) => {
+        {convResults.map(({ conv, meanF1, alias }, i) => {
           const isBest = i === 0 && convResults.length > 1;
           const isWorst = i === convResults.length - 1 && convResults.length > 1;
           return (
@@ -341,9 +337,14 @@ function ConversationDrilldown({
               key={conv.conversation_file}
               className="flex items-center justify-between text-[12px] rounded px-2 py-1 bg-muted/20"
             >
-              <span className="text-muted-foreground truncate max-w-[60%]">
-                {conv.scenario_title}
-              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-muted-foreground truncate max-w-[55%]">
+                  {conv.scenario_title}
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                  {alias}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 {isBest && (
                   <span className="text-[10px] text-green-600 font-medium">best</span>
@@ -372,42 +373,46 @@ function ConversationDrilldown({
 }
 
 interface AggregatedCharacter {
-  alias: string;
+  // NOTE: keyed by real_name — assumes names are unique within the dataset.
+  // CharacterResult carries no character id client-side; if a future dataset reuses names
+  // this grouping will silently merge distinct characters.
   real_name: string;
   difficulty_tier: string;
-  meanF1: number | null;
-  // The char from the first conversation for field table and sparkline
-  representativeChar: CharacterResult;
+  aliases: string[];           // distinct aliases this character used across conversations
+  chars: CharacterResult[];    // all CharacterResult instances across conversations
+  meanF1: number | null;       // flat mean of all observed field×segment F1s
 }
 
 function aggregateCharacters(
   conversations: ConversationReconstructionResult[],
 ): AggregatedCharacter[] {
-  const charMap = new Map<string, { chars: CharacterResult[]; difficulty_tier: string; real_name: string }>();
+  const charMap = new Map<
+    string,
+    { chars: CharacterResult[]; difficulty_tier: string; aliasSet: Set<string> }
+  >();
 
   for (const conv of conversations) {
     for (const char of conv.characters) {
-      if (!charMap.has(char.alias)) {
-        charMap.set(char.alias, { chars: [], difficulty_tier: char.difficulty_tier, real_name: char.real_name });
+      if (!charMap.has(char.real_name)) {
+        charMap.set(char.real_name, {
+          chars: [],
+          difficulty_tier: char.difficulty_tier,
+          aliasSet: new Set(),
+        });
       }
-      charMap.get(char.alias)!.chars.push(char);
+      const entry = charMap.get(char.real_name)!;
+      entry.chars.push(char);
+      entry.aliasSet.add(char.alias);
     }
   }
 
-  return Array.from(charMap.entries()).map(([alias, { chars, difficulty_tier, real_name }]) => {
-    const allF1s = chars.flatMap((c) => {
-      const f = characterMeanF1(c);
-      return f !== null ? [f] : [];
-    });
-    const meanF1 = allF1s.length > 0 ? allF1s.reduce((a, b) => a + b, 0) / allF1s.length : null;
-    return {
-      alias,
-      real_name,
-      difficulty_tier,
-      meanF1,
-      representativeChar: chars[0]!,
-    };
-  });
+  return Array.from(charMap.entries()).map(([real_name, { chars, difficulty_tier, aliasSet }]) => ({
+    real_name,
+    difficulty_tier,
+    aliases: Array.from(aliasSet).sort(),
+    chars,
+    meanF1: characterMeanF1(chars),
+  }));
 }
 
 function CharacterCard({
@@ -421,11 +426,6 @@ function CharacterCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { representativeChar } = aggChar;
-  const f1Values = sparklineValues(representativeChar);
-  const badge = slopeBadge(f1Values);
-  const hasSparkline = f1Values.length >= 2;
-
   return (
     <div className="border rounded-lg p-4">
       <div
@@ -433,44 +433,39 @@ function CharacterCard({
         onClick={onToggle}
       >
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-[14px] truncate">{aggChar.real_name}</p>
-            <span className="text-[11px] text-muted-foreground font-mono shrink-0">
-              {aggChar.alias}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[11px] text-muted-foreground">{aggChar.difficulty_tier}</span>
-            {aggChar.meanF1 !== null && (
-              <span className="text-[11px] text-muted-foreground">
-                · mean F1{" "}
-                <span className="tabular-nums font-medium text-foreground">
-                  {fmt(aggChar.meanF1)}
-                </span>
+            {aggChar.aliases.map((a) => (
+              <span
+                key={a}
+                className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0"
+              >
+                {a}
               </span>
-            )}
+            ))}
+          </div>
+          <div className="mt-0.5">
+            <span className="text-[11px] text-muted-foreground">{aggChar.difficulty_tier}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-3 ml-4 shrink-0">
-          {hasSparkline ? (
-            <>
-              <div style={{ width: 80 }}>
-                <Sparkline data={f1Values} height={36} />
-              </div>
-              <MetricBadge label={badge.label} color={badge.color} />
-            </>
-          ) : f1Values.length === 1 ? (
-            <span className="tabular-nums text-[13px] font-medium">{fmt(f1Values[0]!)}</span>
-          ) : null}
+          {aggChar.meanF1 !== null && (
+            <span
+              className="tabular-nums text-[13px] font-medium"
+              title="Mean F1 across all observed field×segment instances for this character"
+            >
+              {fmt(aggChar.meanF1)}
+            </span>
+          )}
           <span className="text-[12px] text-muted-foreground">{expanded ? "▲" : "▼"}</span>
         </div>
       </div>
 
       {expanded && (
         <>
-          <FieldTable char={representativeChar} />
-          <ConversationDrilldown conversations={conversations} char={representativeChar} />
+          <FieldTable chars={aggChar.chars} />
+          <ConversationDrilldown conversations={conversations} realName={aggChar.real_name} />
         </>
       )}
     </div>
@@ -505,7 +500,7 @@ export function ReconstructTab({ dataset, evalName }: { dataset: string; evalNam
   const [data, setData] = useState<ReconstructPassData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedAlias, setExpandedAlias] = useState<string | null>(null);
+  const [expandedName, setExpandedName] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -554,7 +549,8 @@ export function ReconstructTab({ dataset, evalName }: { dataset: string; evalNam
           />
           <Stat
             label="Characters evaluated"
-            value={summary ? String(summary.total_characters_evaluated) : String(aggChars.length)}
+            value={String(aggChars.length)}
+            tooltip="Unique characters (each alias appearance counts once per real character)"
           />
         </div>
         <MetricsLegend />
@@ -566,12 +562,12 @@ export function ReconstructTab({ dataset, evalName }: { dataset: string; evalNam
         <div className="space-y-3">
           {aggChars.map((aggChar) => (
             <CharacterCard
-              key={aggChar.alias}
+              key={aggChar.real_name}
               aggChar={aggChar}
               conversations={conversations}
-              expanded={expandedAlias === aggChar.alias}
+              expanded={expandedName === aggChar.real_name}
               onToggle={() =>
-                setExpandedAlias(expandedAlias === aggChar.alias ? null : aggChar.alias)
+                setExpandedName(expandedName === aggChar.real_name ? null : aggChar.real_name)
               }
             />
           ))}
