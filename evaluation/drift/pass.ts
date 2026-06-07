@@ -10,6 +10,7 @@ import { fetchPassCosts } from "../cost/fetcher";
 import type { CharacterRecord, ScenarioRecord } from "../generator/config";
 import type { ConversationResult } from "../generator/conversation";
 import type { ConversationDriftResult } from "./types";
+import { ProgressReporter } from "../progress";
 
 import rawCharacters from "../dataset/characters.yaml";
 import rawScenarios from "../dataset/scenarios.yaml";
@@ -55,30 +56,43 @@ export async function runDriftPass(configPath: string, evalName: string): Promis
       throw new Error("No conversations were successfully processed.");
     }
 
-    const allResults: ConversationDriftResult[] = await Promise.all(
-      processable.map(async ({ file, result, i }) => {
-        const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
-        if (!scenario) throw new Error(`Scenario "${result.scenario_id}" not found (${file})`);
+    const progress = new ProgressReporter("drift", processable.length);
 
-        const characters = result.characters.map((c) => {
-          const found = ALL_CHARACTERS.find((r) => r.id === c.id);
-          if (!found) throw new Error(`Character "${c.id}" not found (${file})`);
-          return found;
-        });
+    let allResults: ConversationDriftResult[];
+    try {
+      allResults = await Promise.all(
+        processable.map(async ({ file, result }, idx) => {
+          const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
+          if (!scenario) throw new Error(`Scenario "${result.scenario_id}" not found (${file})`);
 
-        const label = `[${i + 1}/${files.length}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`;
-        const conversationId = file.replace(".yaml", "");
+          const characters = result.characters.map((c) => {
+            const found = ALL_CHARACTERS.find((r) => r.id === c.id);
+            if (!found) throw new Error(`Character "${c.id}" not found (${file})`);
+            return found;
+          });
 
-        console.log(`${label} — started`);
-        try {
-          const convResult = await runDriftForConversation(result, file, scenario, characters, config, apiKey, tracker, conversationId);
-          console.log(`${label} ✓`);
-          return convResult;
-        } catch (err) {
-          throw new Error(`${label} failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
-        }
-      }),
-    );
+          const label = `[${idx + 1}/${processable.length}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`;
+          const conversationId = file.replace(".yaml", "");
+
+          const buf = progress.itemBuffer();
+          buf.push(`${label} — started\n`);
+          try {
+            const convResult = await runDriftForConversation(
+              result, file, scenario, characters, config, apiKey, tracker, conversationId,
+              (line) => buf.push(line),
+            );
+            buf.push(`${label} ✓\n`);
+            return convResult;
+          } catch (err) {
+            throw new Error(`${label} failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+          } finally {
+            progress.tick();
+          }
+        }),
+      );
+    } finally {
+      progress.flush();
+    }
 
     writeConversationResults(outputDir, allResults);
     writeSummary(outputDir, computeScenarioSummaries(allResults));

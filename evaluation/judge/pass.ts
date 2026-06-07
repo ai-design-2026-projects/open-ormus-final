@@ -8,6 +8,7 @@ import { initJudgeOutputDir, writeGuessingResult } from "./writer";
 import { CostTracker } from "../cost/tracker";
 import { fetchPassCosts } from "../cost/fetcher";
 import { termColors } from "../utils";
+import { ProgressReporter } from "../progress";
 import type { CharacterRecord, ScenarioRecord } from "../generator/config";
 import type { ConversationResult } from "../generator/conversation";
 import type { GuessingScenarioResult } from "./types";
@@ -43,42 +44,49 @@ export async function runJudgingPass(configPath: string, evalName: string): Prom
       i,
     }));
 
-    const guessingResults: GuessingScenarioResult[] = await Promise.all(
-      entries.map(async ({ file, result, i }) => {
-        const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
-        if (!scenario) throw new Error(`Scenario "${result.scenario_id}" not found in dataset (from ${file})`);
+    const progress = new ProgressReporter("judge", total);
 
-        const convCharIds = result.characters.map((c) => c.id);
-        const characters = convCharIds.map((id) => {
-          const found = ALL_CHARACTERS.find((c) => c.id === id);
-          if (!found) throw new Error(`Character "${id}" not found in dataset (from ${file})`);
-          return found;
-        });
+    let guessingResults: GuessingScenarioResult[];
+    try {
+      guessingResults = await Promise.all(
+        entries.map(async ({ file, result, i }) => {
+          const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
+          if (!scenario) throw new Error(`Scenario "${result.scenario_id}" not found in dataset (from ${file})`);
 
-        const aliasMap = reconstructAliasMap(result.characters, ALL_CHARACTERS);
-        const label = `[${i + 1}/${total}] ${result.scenario_id} · ${result.characters.map((ch) => ch.name).join(" + ")}`;
-        const conversationId = file.replace(".yaml", "");
+          const convCharIds = result.characters.map((c) => c.id);
+          const characters = convCharIds.map((id) => {
+            const found = ALL_CHARACTERS.find((c) => c.id === id);
+            if (!found) throw new Error(`Character "${id}" not found in dataset (from ${file})`);
+            return found;
+          });
 
-        const lines: string[] = [];
-        try {
-          const guessingResult = await runJudges(result, aliasMap, characters, scenario, config.judges, config.baseUrl, apiKey, tracker, conversationId, (line) => lines.push(line));
-          const allCorrect = guessingResult.judges.every((j) => j.all_correct);
-          const wrongCount = guessingResult.judges.filter((j) => !j.all_correct).length;
-          const status = allCorrect
-            ? `${col.green}✓${col.reset}`
-            : `${col.red}✗ ${wrongCount}/${guessingResult.judges.length} judges wrong${col.reset}`;
-          process.stdout.write(`${label}  ${status}\n`);
-          for (const line of lines) process.stdout.write(line);
-          process.stdout.write("\n");
-          return guessingResult;
-        } catch (err) {
-          process.stdout.write(`${col.boldRed}${label}  ✗ failed${col.reset}\n`);
-          for (const line of lines) process.stdout.write(line);
-          process.stdout.write("\n");
-          throw new Error(`${label} failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
-        }
-      }),
-    );
+          const aliasMap = reconstructAliasMap(result.characters, ALL_CHARACTERS);
+          const label = `[${i + 1}/${total}] ${result.scenario_id} · ${result.characters.map((ch) => ch.name).join(" + ")}`;
+          const conversationId = file.replace(".yaml", "");
+
+          const buf = progress.itemBuffer();
+          try {
+            const guessingResult = await runJudges(result, aliasMap, characters, scenario, config.judges, config.baseUrl, apiKey, tracker, conversationId, (line) => buf.push(line));
+            const allCorrect = guessingResult.judges.every((j) => j.all_correct);
+            const wrongCount = guessingResult.judges.filter((j) => !j.all_correct).length;
+            const status = allCorrect
+              ? `${col.green}✓${col.reset}`
+              : `${col.red}✗ ${wrongCount}/${guessingResult.judges.length} judges wrong${col.reset}`;
+            buf.push(`${label}  ${status}\n`);
+            buf.push("\n");
+            return guessingResult;
+          } catch (err) {
+            buf.push(`${col.boldRed}${label}  ✗ failed${col.reset}\n`);
+            buf.push("\n");
+            throw new Error(`${label} failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+          } finally {
+            progress.tick();
+          }
+        }),
+      );
+    } finally {
+      progress.flush();
+    }
 
     writeGuessingResult(judgeRunDir, guessingResults);
 

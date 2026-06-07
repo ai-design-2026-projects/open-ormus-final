@@ -36,52 +36,52 @@ export async function runJudges(
   const systemPrompt = buildJudgeSystemPrompt();
   const userMessage = buildJudgeUserMessage(aliasMap, characters, scenario, result.messages);
 
-  const judgeResults: JudgeResult[] = [];
+  const judgeResults: JudgeResult[] = await Promise.all(
+    judges.map(async (judgeConfig) => {
+      const retryLines: string[] = [];
+      const { output, usage } = await callJudge(
+        client, judgeConfig.model, systemPrompt, userMessage, judgeConfig.label,
+        (line) => retryLines.push(line),
+      );
 
-  for (const judgeConfig of judges) {
-    const retryLines: string[] = [];
-    const { output, usage } = await callJudge(
-      client, judgeConfig.model, systemPrompt, userMessage, judgeConfig.label,
-      (line) => retryLines.push(line),
-    );
+      if (usage) {
+        tracker.record({
+          conversationId,
+          segmentIdx: null,
+          role: "judge",
+          ...usage,
+        });
+      }
 
-    if (usage) {
-      tracker.record({
-        conversationId,
-        segmentIdx: null,
-        role: "judge",
-        ...usage,
+      const assignments: JudgeAssignmentResult[] = output.assignments.map((a) => {
+        const real_name_actual = aliasMap[a.alias] ?? "(unknown alias)";
+        return {
+          alias: a.alias,
+          real_name_guessed: a.real_name,
+          real_name_actual,
+          correct: a.real_name === real_name_actual,
+          reasons: a.reasons,
+        };
       });
-    }
 
-    const assignments: JudgeAssignmentResult[] = output.assignments.map((a) => {
-      const real_name_actual = aliasMap[a.alias] ?? "(unknown alias)";
-      return {
-        alias: a.alias,
-        real_name_guessed: a.real_name,
-        real_name_actual,
-        correct: a.real_name === real_name_actual,
-        reasons: a.reasons,
-      };
-    });
+      const all_correct = assignments.every((a) => a.correct);
+      const wrongCount = assignments.filter((a) => !a.correct).length;
+      const resultStr = all_correct
+        ? `${col.green}✓ all correct${col.reset}`
+        : `${col.red}✗ ${wrongCount}/${assignments.length} wrong${col.reset}`;
+      const retryNote = retryLines.length > 0
+        ? ` ${col.dim}(↻ ${retryLines.length} retr${retryLines.length === 1 ? "y" : "ies"})${col.reset}`
+        : "";
+      const model = judgeConfig.model.length > 34 ? judgeConfig.model.slice(0, 34) + "…" : judgeConfig.model;
 
-    const all_correct = assignments.every((a) => a.correct);
-    judgeResults.push({ label: judgeConfig.label, model: judgeConfig.model, assignments, all_correct });
+      log(`  [${judgeConfig.label}] ${model.padEnd(37)} ${resultStr}${retryNote}\n`);
+      for (const line of retryLines) {
+        log(`    ${col.dim}↻ ${line}${col.reset}\n`);
+      }
 
-    const wrongCount = assignments.filter((a) => !a.correct).length;
-    const resultStr = all_correct
-      ? `${col.green}✓ all correct${col.reset}`
-      : `${col.red}✗ ${wrongCount}/${assignments.length} wrong${col.reset}`;
-    const retryNote = retryLines.length > 0
-      ? ` ${col.dim}(↻ ${retryLines.length} retr${retryLines.length === 1 ? "y" : "ies"})${col.reset}`
-      : "";
-    const model = judgeConfig.model.length > 34 ? judgeConfig.model.slice(0, 34) + "…" : judgeConfig.model;
-
-    log(`  [${judgeConfig.label}] ${model.padEnd(37)} ${resultStr}${retryNote}\n`);
-    for (const line of retryLines) {
-      log(`    ${col.dim}↻ ${line}${col.reset}\n`);
-    }
-  }
+      return { label: judgeConfig.label, model: judgeConfig.model, assignments, all_correct };
+    }),
+  );
 
   return {
     scenario_id: result.scenario_id,
