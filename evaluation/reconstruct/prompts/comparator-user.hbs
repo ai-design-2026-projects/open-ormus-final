@@ -1,0 +1,17 @@
+## Field: {{field}}
+
+**Definition:** {{definition}}
+
+## Ground-Truth Items
+
+{{#each gtItems}}
+{{addOne @index}}. {{{this}}}
+{{/each}}
+
+## Reconstructed Items to Label
+
+Label each of the {{reconstructedItems.length}} items below as exactly: match, no_match, or contradiction. Your response must have exactly {{reconstructedItems.length}} entries in item_scores.
+
+{{#each reconstructedItems}}
+{{addOne @index}}. {{{this}}}
+{{/each}}

@@ -8,7 +8,8 @@ import {
 } from "./prompt";
 import { buildItemScores, computeFieldScore, computeFieldDriftScore } from "./scoring";
 import { reconstructAliasMap } from "../judge/alias";
-import { segmentConversation } from "./segmenter";
+import { segmentConversation } from "../shared/segmenter";
+import type { Segment } from "../shared/segmenter";
 import { PROFILE_FIELDS } from "./types";
 import type {
   ProfileField,
@@ -25,7 +26,169 @@ import type { ConversationResult } from "../generator/conversation";
 import type { CostTracker } from "../cost/tracker";
 
 function getGtItems(char: CharacterRecord, field: ProfileField): string[] {
-  return (char[field as keyof CharacterRecord] as string[] | undefined) ?? [];
+  const value = char[field as keyof CharacterRecord];
+  return Array.isArray(value) ? value : [];
+}
+
+async function processSegment(
+  alias: string,
+  scenario: ScenarioRecord,
+  seg: Segment,
+  config: ValidatedReconstructConfig,
+  client: OpenAI,
+  reconstructorSysPrompt: string,
+  comparatorSysPrompt: string,
+  charRecord: CharacterRecord,
+  tracker: CostTracker | undefined,
+  conversationId: string,
+  log?: (line: string) => void,
+): Promise<{ segmentResult: SegmentResult; reconFields: Partial<Record<ProfileField, ReconstructedField>> }> {
+  const userMsg = buildReconstructorUserMessage(alias, scenario, seg.messages, config.fields);
+
+  const { output: reconstruction, usage: reconUsage } = await callReconstructor(
+    client,
+    config.reconstructorModel,
+    reconstructorSysPrompt,
+    userMsg,
+    `reconstructor:${alias}:seg${seg.segment_index}`,
+    log,
+  );
+
+  if (reconUsage) {
+    tracker?.record({ conversationId, segmentIdx: seg.segment_index, role: "reconstructor", ...reconUsage });
+  }
+
+  const fieldScores: Partial<Record<ProfileField, FieldScore>> = {};
+  const reconFields: Partial<Record<ProfileField, ReconstructedField>> = {};
+
+  for (const field of config.fields) {
+    const reconField = reconstruction.fields[field];
+    reconFields[field] = reconField;
+    const notObserved = !reconField || reconField.not_observed || reconField.items.length === 0;
+
+    if (notObserved) {
+      fieldScores[field] = computeFieldScore(true, getGtItems(charRecord, field), []);
+      continue;
+    }
+
+    const gtItems = getGtItems(charRecord, field);
+    const comparatorOutputs = await Promise.all(
+      config.comparators.map(async (comp) => {
+        const compUserMsg = buildComparatorUserMessage(field, gtItems, reconField.items);
+        const { output, usage: compUsage } = await callComparator(
+          client,
+          comp.model,
+          comparatorSysPrompt,
+          compUserMsg,
+          `${comp.label}:${alias}:seg${seg.segment_index}:${field}`,
+          log,
+        );
+        if (compUsage) {
+          tracker?.record({ conversationId, segmentIdx: seg.segment_index, role: "comparator", ...compUsage });
+        }
+        return { model: comp.model, scores: output.item_scores };
+      }),
+    );
+
+    const itemScores = buildItemScores(reconField.items, comparatorOutputs);
+    fieldScores[field] = computeFieldScore(false, gtItems, itemScores);
+  }
+
+  for (const field of PROFILE_FIELDS) {
+    if (!fieldScores[field]) fieldScores[field] = computeFieldScore(true, [], []);
+  }
+
+  return {
+    segmentResult: {
+      segment_index: seg.segment_index,
+      turn_range: seg.turn_range,
+      message_count: seg.messages.length,
+      field_scores: fieldScores as Record<ProfileField, FieldScore>,
+    },
+    reconFields,
+  };
+}
+
+async function processCharacter(
+  convChar: ConversationResult["characters"][number],
+  charRecord: CharacterRecord,
+  aliasMap: Record<string, string>,
+  segments: Segment[],
+  scenario: ScenarioRecord,
+  config: ValidatedReconstructConfig,
+  client: OpenAI,
+  reconstructorSysPrompt: string,
+  comparatorSysPrompt: string,
+  tracker: CostTracker | undefined,
+  conversationId: string,
+  log: (line: string) => void,
+): Promise<CharacterResult> {
+  const alias = convChar.name;
+  const realName = aliasMap[alias] ?? alias;
+
+  const segmentPairs = await Promise.all(
+    segments.map((seg) =>
+      processSegment(alias, scenario, seg, config, client, reconstructorSysPrompt, comparatorSysPrompt, charRecord, tracker, conversationId, log),
+    ),
+  );
+  const segmentResults = segmentPairs.map((p) => p.segmentResult);
+  const segmentFields = segmentPairs.map((p) => p.reconFields);
+
+  const hasMultipleSegments = segmentFields.length >= 2;
+  const seg0Fields = segmentFields[0] ?? {};
+  const segNFields = segmentFields[segmentFields.length - 1] ?? {};
+  const fieldDrift: Partial<Record<ProfileField, FieldDriftScore>> = {};
+
+  for (const field of PROFILE_FIELDS) {
+    const segmentF1s: Array<number | null> = segmentResults.map((sr) => {
+      const fs = sr.field_scores[field];
+      return fs && !fs.not_observed ? fs.f1 : null;
+    });
+
+    let internalConsistency: FieldScore | null = null;
+    const seg0Field = seg0Fields[field];
+    const segNField = segNFields[field];
+
+    if (
+      hasMultipleSegments &&
+      seg0Field && !seg0Field.not_observed && seg0Field.items.length > 0 &&
+      segNField && !segNField.not_observed && segNField.items.length > 0
+    ) {
+      const compOutputs = await Promise.all(
+        config.comparators.map(async (comp) => {
+          const compUserMsg = buildComparatorUserMessage(field, seg0Field.items, segNField.items);
+          const { output, usage: compUsage } = await callComparator(
+            client, comp.model, comparatorSysPrompt, compUserMsg,
+            `${comp.label}:${alias}:internal:${field}`,
+            log,
+          );
+          if (compUsage) {
+            tracker?.record({ conversationId, segmentIdx: null, role: "comparator", ...compUsage });
+          }
+          return { model: comp.model, scores: output.item_scores };
+        }),
+      );
+      const itemScores = buildItemScores(segNField.items, compOutputs);
+      internalConsistency = computeFieldScore(false, seg0Field.items, itemScores);
+    }
+
+    fieldDrift[field] = computeFieldDriftScore(segmentF1s, internalConsistency);
+  }
+
+  const slopes = PROFILE_FIELDS.map((f) => fieldDrift[f]?.gt_divergence_slope ?? null)
+    .filter((s): s is number => s !== null);
+  const icF1s = PROFILE_FIELDS.map((f) => fieldDrift[f]?.internal_consistency?.f1 ?? null)
+    .filter((f): f is number => f !== null);
+
+  return {
+    alias,
+    real_name: realName,
+    difficulty_tier: charRecord.difficultyTier,
+    segments: segmentResults,
+    field_drift: fieldDrift as Record<ProfileField, FieldDriftScore>,
+    mean_gt_divergence_slope: slopes.length > 0 ? slopes.reduce((s, v) => s + v, 0) / slopes.length : null,
+    mean_internal_consistency_f1: icF1s.length > 0 ? icF1s.reduce((s, v) => s + v, 0) / icF1s.length : null,
+  };
 }
 
 export async function runReconstructionForConversation(
@@ -39,11 +202,7 @@ export async function runReconstructionForConversation(
   conversationId = "",
   log: (line: string) => void = (l) => process.stdout.write(l),
 ): Promise<ConversationReconstructionResult> {
-  const strippedMessages = result.messages.map((m) => ({
-    ...m,
-    reasoning: "",
-    subtext: "",
-  }));
+  const strippedMessages = result.messages.map((m) => ({ ...m, reasoning: "", subtext: "" }));
 
   if (strippedMessages.length < config.segments * 2) {
     throw new Error(
@@ -59,177 +218,14 @@ export async function runReconstructionForConversation(
   const comparatorSysPrompt = buildComparatorSystemPrompt();
 
   const charResults: CharacterResult[] = await Promise.all(
-    result.characters.map(async (convChar) => {
-      const alias = convChar.name;
-      const realName = aliasMap[alias] ?? alias;
+    result.characters.map((convChar) => {
       const charRecord = characters.find((c) => c.id === convChar.id);
       if (!charRecord) throw new Error(`Character ${convChar.id} not found in dataset`);
-
-      log(`  [${alias} → ${realName}] reconstructing ${config.segments} segments…\n`);
-
-      const segmentPairs = await Promise.all(
-        segments.map(async (seg) => {
-          const userMsg = buildReconstructorUserMessage(alias, scenario, seg.messages, config.fields);
-
-          const { output: reconstruction, usage: reconUsage } = await callReconstructor(
-            client,
-            config.reconstructorModel,
-            reconstructorSysPrompt,
-            userMsg,
-            config.fields,
-            `reconstructor:${alias}:seg${seg.segment_index}`,
-          );
-
-          if (reconUsage) {
-            tracker?.record({
-              conversationId,
-              segmentIdx: seg.segment_index,
-              role: "reconstructor",
-              ...reconUsage,
-            });
-          }
-
-          const fieldScores: Partial<Record<ProfileField, FieldScore>> = {};
-          const reconFields: Partial<Record<ProfileField, ReconstructedField>> = {};
-
-          for (const field of config.fields) {
-            const reconField = reconstruction.fields[field];
-            reconFields[field] = reconField;
-
-            const notObserved =
-              !reconField || reconField.not_observed || reconField.items.length === 0;
-
-            if (notObserved) {
-              fieldScores[field] = computeFieldScore(true, getGtItems(charRecord, field), []);
-              continue;
-            }
-
-            const gtItems = getGtItems(charRecord, field);
-            const comparatorOutputs = await Promise.all(
-              config.comparators.map(async (comp) => {
-                const compUserMsg = buildComparatorUserMessage(field, gtItems, reconField.items);
-                const { output, usage: compUsage } = await callComparator(
-                  client,
-                  comp.model,
-                  comparatorSysPrompt,
-                  compUserMsg,
-                  `${comp.label}:${alias}:seg${seg.segment_index}:${field}`,
-                );
-                if (compUsage) {
-                  tracker?.record({
-                    conversationId,
-                    segmentIdx: seg.segment_index,
-                    role: "comparator",
-                    ...compUsage,
-                  });
-                }
-                return { model: comp.model, scores: output.item_scores };
-              }),
-            );
-
-            const itemScores = buildItemScores(reconField.items, comparatorOutputs);
-            fieldScores[field] = computeFieldScore(false, gtItems, itemScores);
-          }
-
-          for (const field of PROFILE_FIELDS) {
-            if (!fieldScores[field]) {
-              fieldScores[field] = computeFieldScore(true, [], []);
-            }
-          }
-
-          return {
-            segmentResult: {
-              segment_index: seg.segment_index,
-              turn_range: seg.turn_range,
-              message_count: seg.messages.length,
-              field_scores: fieldScores as Record<ProfileField, FieldScore>,
-            } satisfies SegmentResult,
-            reconFields,
-          };
-        }),
+      return processCharacter(
+        convChar, charRecord, aliasMap, segments, scenario, config,
+        client, reconstructorSysPrompt, comparatorSysPrompt,
+        tracker, conversationId, log,
       );
-
-      const segmentResults = segmentPairs.map((p) => p.segmentResult);
-      const segmentFields = segmentPairs.map((p) => p.reconFields);
-
-      const hasMultipleSegments = segmentFields.length >= 2;
-      const seg0Fields = segmentFields[0] ?? {};
-      const segNFields = segmentFields[segmentFields.length - 1] ?? {};
-
-      const fieldDrift: Partial<Record<ProfileField, FieldDriftScore>> = {};
-
-      for (const field of PROFILE_FIELDS) {
-        const segmentF1s: Array<number | null> = segmentResults.map((sr) => {
-          const fs = sr.field_scores[field];
-          return fs && !fs.not_observed ? fs.f1 : null;
-        });
-
-        let internalConsistency: FieldScore | null = null;
-        const seg0Field = seg0Fields[field];
-        const segNField = segNFields[field];
-
-        if (
-          hasMultipleSegments &&
-          seg0Field &&
-          !seg0Field.not_observed &&
-          seg0Field.items.length > 0 &&
-          segNField &&
-          !segNField.not_observed &&
-          segNField.items.length > 0
-        ) {
-          const compOutputs = await Promise.all(
-            config.comparators.map(async (comp) => {
-              const compUserMsg = buildComparatorUserMessage(
-                field,
-                seg0Field.items,
-                segNField.items,
-              );
-              const { output, usage: compUsage } = await callComparator(
-                client,
-                comp.model,
-                comparatorSysPrompt,
-                compUserMsg,
-                `${comp.label}:${alias}:internal:${field}`,
-              );
-              if (compUsage) {
-                tracker?.record({
-                  conversationId,
-                  segmentIdx: null,
-                  role: "comparator",
-                  ...compUsage,
-                });
-              }
-              return { model: comp.model, scores: output.item_scores };
-            }),
-          );
-
-          const itemScores = buildItemScores(segNField.items, compOutputs);
-          internalConsistency = computeFieldScore(false, seg0Field.items, itemScores);
-          log(`    [${field}] internal consistency seg0 vs segN… done\n`);
-        }
-
-        fieldDrift[field] = computeFieldDriftScore(segmentF1s, internalConsistency);
-      }
-
-      const slopes = PROFILE_FIELDS.map(
-        (f) => fieldDrift[f]?.gt_divergence_slope ?? null,
-      ).filter((s): s is number => s !== null);
-
-      const icF1s = PROFILE_FIELDS.map(
-        (f) => fieldDrift[f]?.internal_consistency?.f1 ?? null,
-      ).filter((f): f is number => f !== null);
-
-      return {
-        alias,
-        real_name: realName,
-        difficulty_tier: charRecord.difficultyTier,
-        segments: segmentResults,
-        field_drift: fieldDrift as Record<ProfileField, FieldDriftScore>,
-        mean_gt_divergence_slope:
-          slopes.length > 0 ? slopes.reduce((s, v) => s + v, 0) / slopes.length : null,
-        mean_internal_consistency_f1:
-          icF1s.length > 0 ? icF1s.reduce((s, v) => s + v, 0) / icF1s.length : null,
-      } satisfies CharacterResult;
     }),
   );
 

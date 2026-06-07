@@ -6,10 +6,12 @@ export type Segment = {
   messages: ConversationMessage[];
 };
 
-export function segmentConversation(messages: ConversationMessage[], n: number): Segment[] {
+export function segmentConversation(
+  messages: ConversationMessage[],
+  n: number,
+): Segment[] {
   if (messages.length === 0) return [];
 
-  // Clamp to avoid empty slices when messages < n
   const effectiveN = Math.min(n, messages.length);
   const sliceSize = Math.floor(messages.length / effectiveN);
   const segments: Segment[] = [];
@@ -18,7 +20,6 @@ export function segmentConversation(messages: ConversationMessage[], n: number):
     const start = i * sliceSize;
     const end = i === effectiveN - 1 ? messages.length : start + sliceSize;
     const slice = messages.slice(start, end);
-
     segments.push({
       segment_index: i,
       turn_range: [slice[0]!.turn, slice[slice.length - 1]!.turn],

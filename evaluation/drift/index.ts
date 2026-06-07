@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { splitIntoSegments } from "./segment";
+import { segmentConversation } from "../shared/segmenter";
 import {
   majorityVoteEngagement,
   majorityVoteAlignment,
@@ -52,20 +52,12 @@ export async function runDriftForConversation(
       aliasToRecord.get(m.character_name)?.name ?? m.character_name,
   }));
 
-  const segments = splitIntoSegments(realNameMessages, config.segments);
+  const segments = segmentConversation(realNameMessages, config.segments);
   const systemPrompt = buildJudgeSystemPrompt();
 
-  const segmentOffsets: number[] = [];
-  let segOffset = 0;
-  for (const seg of segments) {
-    segmentOffsets.push(segOffset);
-    segOffset += seg.length;
-  }
-
   const segmentScores: SegmentScore[] = await Promise.all(
-    segments.map(async (segMessages, segIdx) => {
-      const firstTurn = segmentOffsets[segIdx]! + 1;
-      const lastTurn = segmentOffsets[segIdx]! + segMessages.length;
+    segments.map(async (seg) => {
+      const { segment_index: segIdx, turn_range: [firstTurn, lastTurn], messages: segMessages } = seg;
       const priorMessages = realNameMessages.slice(0, firstTurn - 1);
 
       const userPrompt = buildJudgeUserPrompt(
@@ -87,6 +79,7 @@ export async function runDriftForConversation(
             systemPrompt,
             userPrompt,
             `${judge.label}:seg${segIdx + 1}`,
+            log,
           ),
         ),
       );
@@ -136,7 +129,7 @@ export async function runDriftForConversation(
         };
       });
 
-      log(`  [seg ${segIdx + 1}/${segments.length}] judging… ${engResult.label} (${successfulOutputs.length}/${config.judges.length} judges)\n`);
+      // segment detail intentionally omitted — only failures surface in the terminal
 
       return {
         index: segIdx + 1,

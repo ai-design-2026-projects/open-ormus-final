@@ -1,0 +1,40 @@
+## Scenario
+
+stress_axes: [{{{scenario.stressAxes}}}]
+social_context: {{{scenario.socialContext}}}
+pressure_source: {{{scenario.pressureSource}}}
+initial_prompt: "{{{scenario.initialPrompt}}}"
+
+## Characters
+
+{{#each characters}}
+{{{this.name}}} (character_id: {{this.id}}) — {{{this.archetype}}}
+  personalityTraits: [{{{this.traitsStr}}}]
+  values: [{{{this.valuesStr}}}]
+  fears: [{{{this.fearsStr}}}]
+  goals: [{{{this.goalsStr}}}]
+  copingStyle: [{{{this.copingStr}}}]
+  speechPatterns: [{{{this.speechStr}}}]
+
+{{/each}}
+{{#if hasPrior}}
+## Prior Conversation (turns 1–{{priorEnd}})
+
+{{#each priorMessages}}
+[{{{this.character_name}}}]: {{{this.content}}}
+{{/each}}
+
+{{/if}}
+## Current Segment — Segment {{segmentIndex}} of {{totalSegments}} (turns {{firstTurn}}–{{lastTurn}})
+
+{{#each currentSegment}}
+[{{{this.character_name}}}] ({{{this.emotion}}}, {{{this.intensity}}}): {{{this.content}}}
+{{/each}}
+
+## Task
+{{#if hasPrior}}
+Score scenario_engagement and character_alignment for the Current Segment only (turns {{firstTurn}}–{{lastTurn}}). Use the Prior Conversation to understand established references and dynamics, but base your scores on what happens in the Current Segment.
+{{else}}
+Score scenario_engagement and character_alignment for the Current Segment only (turns {{firstTurn}}–{{lastTurn}}).
+{{/if}}
+Score character_alignment for each of: {{characterIds}}

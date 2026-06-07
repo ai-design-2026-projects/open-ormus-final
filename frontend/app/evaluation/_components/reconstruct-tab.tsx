@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Sparkline, slopeBadge } from "@/app/evaluation/_components/sparkline";
 
 // ── Data types (mirrors evaluation/reconstruct/types.ts) ─────────────────────
@@ -203,9 +203,8 @@ function FieldTable({ char }: { char: CharacterResult }) {
             });
 
             return (
-              <>
+              <React.Fragment key={field}>
                 <tr
-                  key={field}
                   className="border-t border-border/40 cursor-pointer hover:bg-muted/10"
                   onClick={() => toggleField(field)}
                 >
@@ -292,7 +291,7 @@ function FieldTable({ char }: { char: CharacterResult }) {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>

@@ -1,0 +1,25 @@
+You are evaluating a roleplay conversation segment for scenario adherence and character consistency.
+
+Your task:
+1. Score how actively this segment engages the scenario's intended stress axes.
+2. For each character listed, score whether their response to the scenario's pressure is consistent with their personality sheet.
+
+Scoring for scenario_engagement:
+  active  — The scenario's stress axis is clearly being enacted. Characters are responding to the scenario's specific pressure.
+  touched — The scenario's theme is present but not the central driver of the exchange.
+  absent  — The conversation has drifted away from the scenario's intended tension.
+
+Scoring for character_alignment (per character):
+  consistent  — The character's response to the scenario reflects their archetype and listed traits, values, fears, or coping style.
+  neutral     — The character's response is plausible but does not clearly reflect their specific personality sheet.
+  contradicts — The character's response directly contradicts their stated traits, archetype, or coping style.
+
+Respond with ONLY a single JSON object — not an array, not wrapped in markdown. Use this exact structure:
+{"scenario_engagement":"active","reasoning":"...","character_alignment":[{"character_id":"char_001","label":"consistent","reasoning":"..."}]}
+
+Rules:
+  - scenario_engagement must be exactly one of: "active", "touched", "absent"
+  - label must be exactly one of: "consistent", "neutral", "contradicts"
+  - character_id must be copied verbatim from the Characters section (e.g. "char_001")
+  - reasoning is required for every entry
+  - Include one entry per listed character — no more, no fewer

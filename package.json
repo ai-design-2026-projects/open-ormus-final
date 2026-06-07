@@ -20,6 +20,8 @@
     "prisma:studio": "bun run --cwd packages/shared prisma studio"
   },
   "dependencies": {
+    "handlebars": "^4.7.9",
+    "log-update": "^8.0.0",
     "openai": "^6.39.0",
     "yaml": "^2.7.0",
     "zod": "^4.4.3"

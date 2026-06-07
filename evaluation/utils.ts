@@ -1,3 +1,26 @@
+export function buildFailureBlock(
+  pass: string,
+  item: string,
+  err: unknown,
+  detail: string[],
+): string {
+  const errMsg = err instanceof Error ? err.message : String(err);
+  const rootMsg = errMsg.replace(/^.*Last error:\s*/s, "");
+  const firstLine = (rootMsg.split("\n")[0] ?? rootMsg).slice(0, 200);
+
+  const lines: string[] = [`✗ [${pass}] ${item} ${firstLine}`];
+
+  const attemptLines = detail
+    .filter((l) => /attempt \d+\/\d+:/.test(l))
+    .map((l) => "  " + l.replace(/\x1b\[[0-9;]*m/g, "").trim());
+
+  if (attemptLines.length > 0) {
+    lines.push(...attemptLines);
+  }
+
+  return lines.join("\n");
+}
+
 export function termColors(tty = process.stdout.isTTY ?? false) {
   const e = tty ? (s: string) => s : () => "";
   return {

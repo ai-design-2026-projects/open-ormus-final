@@ -1,74 +1,88 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { ProgressReporter } from "../progress";
+import { track, permanentWrite, _resetForTesting } from "../progress";
 
-describe("ProgressReporter", () => {
-  let stderrLines: string[];
+// In test environments process.stdout.isTTY is falsy, so log-update's in-place
+// rendering is skipped and output goes to plain stdout writes.
+
+describe("track() — non-TTY mode", () => {
   let stdoutLines: string[];
-  const origStderrWrite = process.stderr.write.bind(process.stderr);
-  const origStdoutWrite = process.stdout.write.bind(process.stdout);
+  const origWrite = process.stdout.write.bind(process.stdout);
 
   beforeEach(() => {
-    stderrLines = [];
+    _resetForTesting();
     stdoutLines = [];
-    (process.stderr as any).write = (chunk: string) => { stderrLines.push(chunk); return true; };
-    (process.stdout as any).write = (chunk: string) => { stdoutLines.push(chunk); return true; };
+    (process.stdout as NodeJS.WriteStream).write = (chunk: unknown) => {
+      stdoutLines.push(String(chunk));
+      return true;
+    };
   });
 
   afterEach(() => {
-    (process.stderr as any).write = origStderrWrite;
-    (process.stdout as any).write = origStdoutWrite;
+    (process.stdout as NodeJS.WriteStream).write = origWrite;
   });
 
-  it("tick() writes label and count to stderr", () => {
-    const r = new ProgressReporter("judge", 3);
-    r.tick();
-    expect(stderrLines).toEqual(["  [judge] 1/3\n"]);
+  it("tick(true) writes label and count to stdout", () => {
+    const h = track("judge", 3);
+    h.tick(true);
+    expect(stdoutLines).toContain("[judge] 1/3\n");
   });
 
-  it("tick() increments count on each call", () => {
-    const r = new ProgressReporter("drift", 5);
-    r.tick();
-    r.tick();
-    r.tick();
-    expect(stderrLines).toEqual([
-      "  [drift] 1/5\n",
-      "  [drift] 2/5\n",
-      "  [drift] 3/5\n",
-    ]);
+  it("tick(false) also increments the counter", () => {
+    const h = track("drift", 5);
+    h.tick(true);
+    h.tick(false);
+    h.tick(true);
+    const counterLines = stdoutLines.filter((l) => l.startsWith("[drift]"));
+    expect(counterLines).toEqual(["[drift] 1/5\n", "[drift] 2/5\n", "[drift] 3/5\n"]);
   });
 
-  it("flush() writes buffered lines to stdout in registration order", () => {
-    const r = new ProgressReporter("reconstruct", 2);
-    const buf1 = r.itemBuffer();
-    const buf2 = r.itemBuffer();
-    buf1.push("a\n");
-    buf2.push("b\n");
-    buf1.push("c\n");
-    r.flush();
-    // buf1 items first (a, c), then buf2 items (b)
-    expect(stdoutLines).toEqual(["a\n", "c\n", "b\n"]);
+  it("fail() writes the block to stdout", () => {
+    const h = track("reconstruct", 2);
+    h.fail("✗ [reconstruct] scenario_001 · Alex\n  scene: /path/file.yaml:1");
+    expect(stdoutLines.join("")).toContain("✗ [reconstruct]");
   });
 
-  it("flush() on empty reporter writes nothing", () => {
-    const r = new ProgressReporter("judge", 2);
-    r.flush();
-    expect(stdoutLines).toEqual([]);
+  it("print() writes the line to stdout", () => {
+    const h = track("judge", 4);
+    h.print("[1/4] conv.yaml — skipped (no messages)");
+    expect(stdoutLines.join("")).toContain("skipped");
   });
 
-  it("flush() on registered but empty buffers writes nothing", () => {
-    const r = new ProgressReporter("judge", 2);
-    r.itemBuffer();
-    r.itemBuffer();
-    r.flush();
-    expect(stdoutLines).toEqual([]);
+  it("multiple registered passes each write their own label", () => {
+    const j = track("judge", 2);
+    const d = track("drift", 3);
+    j.tick(true);
+    d.tick(true);
+    expect(stdoutLines).toContain("[judge] 1/2\n");
+    expect(stdoutLines).toContain("[drift] 1/3\n");
+  });
+});
+
+describe("permanentWrite() — non-TTY mode", () => {
+  let stdoutLines: string[];
+  const origWrite = process.stdout.write.bind(process.stdout);
+
+  beforeEach(() => {
+    _resetForTesting();
+    stdoutLines = [];
+    (process.stdout as NodeJS.WriteStream).write = (chunk: unknown) => {
+      stdoutLines.push(String(chunk));
+      return true;
+    };
   });
 
-  it("itemBuffer() returns independent arrays", () => {
-    const r = new ProgressReporter("judge", 2);
-    const buf1 = r.itemBuffer();
-    const buf2 = r.itemBuffer();
-    buf1.push("only in buf1\n");
-    expect(buf2).toEqual([]);
-    expect(buf1).toEqual(["only in buf1\n"]);
+  afterEach(() => {
+    (process.stdout as NodeJS.WriteStream).write = origWrite;
+  });
+
+  it("writes text with trailing newline", () => {
+    permanentWrite("some line");
+    expect(stdoutLines.join("")).toContain("some line\n");
+  });
+
+  it("does not double-newline if text already ends with \\n", () => {
+    permanentWrite("already\n");
+    const joined = stdoutLines.join("");
+    expect(joined).toBe("already\n");
   });
 });

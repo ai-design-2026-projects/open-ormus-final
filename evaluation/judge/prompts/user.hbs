@@ -1,0 +1,46 @@
+## Scenario
+
+**Title:** {{{scenario.title}}}
+**Context:** {{{scenario.context}}}
+**Opening prompt:** {{{scenario.initialPrompt}}}
+
+## Conversation Transcript
+
+Read the following exchanges carefully. Note each alias's language, framing, and choices before proceeding.
+
+{{#each transcript}}
+**{{{this.character_name}}}**: {{{this.content}}}
+{{/each}}
+
+## Character Profiles
+
+The following profiles describe the characters in this conversation. Presented in shuffled order with no name or alias labels. Fields are ordered from most to least directly observable in dialogue.
+
+{{#each profiles}}
+### Profile {{this.profileNumber}}
+**Speech patterns:** {{{this.speechPatternsStr}}}
+**Notable quotes:** {{{this.notableQuotesStr}}}
+**Personality traits:** {{{this.personalityTraitsStr}}}
+**Values:** {{{this.valuesStr}}}
+**Goals:** {{{this.goalsStr}}}
+**Fears:** {{{this.fearsStr}}}
+**Coping style:** {{{this.copingStyleStr}}}
+**Archetype:** {{{this.archetype}}}
+**Backstory:** {{{this.backstory}}}
+
+{{/each}}
+## Real Character Names
+
+The following are the real names of the characters in the transcript. Not listed in the same order as the profiles above.
+
+{{#each realNames}}
+- {{{this}}}
+{{/each}}
+
+## Aliases to Assign
+
+Assign each alias to one real character name. Provide 1–3 reasons per assignment in the required format.
+
+{{#each aliases}}
+- {{{this}}}
+{{/each}}

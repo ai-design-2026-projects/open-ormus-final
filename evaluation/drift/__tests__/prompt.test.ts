@@ -44,6 +44,13 @@ describe("buildJudgeSystemPrompt", () => {
     expect(prompt).toContain("contradicts");
     expect(prompt).toContain("character_id");
   });
+
+  it("includes a JSON structure example with all required fields", () => {
+    const prompt = buildJudgeSystemPrompt();
+    expect(prompt).toContain("scenario_engagement");
+    expect(prompt).toContain("character_alignment");
+    expect(prompt).toContain("reasoning");
+  });
 });
 
 describe("buildJudgeUserPrompt", () => {
@@ -78,6 +85,12 @@ describe("buildJudgeUserPrompt", () => {
     expect(prompt).toContain("char_001");
   });
 
+  it("uses 'character_alignment' (not 'personality_alignment') in the task instruction", () => {
+    const prompt = buildJudgeUserPrompt(scenario, characters, [], messages, 1, 3, 1, 5);
+    expect(prompt).toContain("character_alignment");
+    expect(prompt).not.toContain("personality_alignment");
+  });
+
   it("omits Prior Conversation section for segment 1 (empty priorMessages)", () => {
     const prompt = buildJudgeUserPrompt(scenario, characters, [], messages, 1, 3, 1, 5);
     expect(prompt).not.toContain("Prior Conversation");
@@ -92,5 +105,57 @@ describe("buildJudgeUserPrompt", () => {
     expect(prompt).toContain("I have always stood by my beliefs.");
     expect(prompt).toContain("Current Segment");
     expect(prompt).toContain("Use the Prior Conversation");
+  });
+
+  it("passes special characters in message content through unescaped", () => {
+    const specialMessages = [
+      { character_name: "Kael Veth", content: "I want truth & justice, not <compromise>.", emotion: "anger", intensity: "high", reasoning: "", subtext: "" },
+    ] as any[];
+    const prompt = buildJudgeUserPrompt(scenario, characters, [], specialMessages, 1, 1, 1, 1);
+    expect(prompt).toContain("I want truth & justice, not <compromise>.");
+    expect(prompt).not.toContain("&amp;");
+    expect(prompt).not.toContain("&lt;");
+  });
+
+  it("passes special characters in scenario metadata through unescaped", () => {
+    const specialScenario = {
+      ...scenario,
+      initial_prompt: "Alice & Bob said <go>.",
+      stress_axes: ["truth & lies"],
+      social_context: "A > B dynamic",
+      pressure_source: "internal & external",
+    };
+    const prompt = buildJudgeUserPrompt(specialScenario as any, characters, [], messages, 1, 1, 1, 1);
+    expect(prompt).toContain("Alice & Bob said <go>.");
+    expect(prompt).toContain("truth & lies");
+    expect(prompt).toContain("A > B dynamic");
+    expect(prompt).not.toContain("&amp;");
+    expect(prompt).not.toContain("&lt;");
+    expect(prompt).not.toContain("&gt;");
+  });
+
+  it("passes special characters in character traits through unescaped", () => {
+    const specialChars = [{
+      ...characters[0],
+      record: {
+        ...characters[0]!.record,
+        personalityTraits: ["defiant & bold"],
+        values: ["<justice>"],
+      } as any,
+    }];
+    const prompt = buildJudgeUserPrompt(scenario, specialChars as any, [], messages, 1, 1, 1, 1);
+    expect(prompt).toContain("defiant & bold");
+    expect(prompt).toContain("<justice>");
+    expect(prompt).not.toContain("&amp;");
+    expect(prompt).not.toContain("&lt;");
+  });
+
+  it("passes special characters in prior message character name through unescaped", () => {
+    const prior = [
+      { turn: 1, character_id: "char_001", character_name: "Kael & Mira", content: "We agreed.", emotion: "calm", intensity: "low", reasoning: null, subtext: "" },
+    ] as any[];
+    const prompt = buildJudgeUserPrompt(scenario, characters, prior, messages, 2, 2, 2, 2);
+    expect(prompt).toContain("Kael & Mira");
+    expect(prompt).not.toContain("&amp;");
   });
 });

@@ -29,7 +29,7 @@ export type ReconstructorOutput = z.infer<typeof ReconstructorOutputSchema>;
 // ── Comparator output ─────────────────────────────────────────────────────────
 
 export const ComparatorItemSchema = z.object({
-  reconstructed_item: z.string(),
+  reconstructed_item: z.string().optional().default(""),
   score: z.enum(["match", "no_match", "contradiction"]),
   justification: z.string().min(1),
 });

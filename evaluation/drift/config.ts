@@ -20,6 +20,7 @@ export function loadDriftConfig(
     if (!process.env.EVAL_RESULTS_PATH) throw new Error("EVAL_RESULTS_PATH is not set");
     return process.env.EVAL_RESULTS_PATH;
   })(),
+  datasetDir?: string,
 ): ValidatedDriftConfig {
   const parsed: unknown = parseYaml(rawConfigText);
   const input = DriftConfigSchema.parse(parsed);
@@ -29,8 +30,9 @@ export function loadDriftConfig(
   if (!rawBaseUrl) throw new Error("LLM_BASE_URL env var is not set");
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
-  const evalDir = join(resultsBasePath, input.dataset_dir, evalName);
-  const conversationsDir = join(resultsBasePath, input.dataset_dir, "conversations");
+  const resolvedDatasetDir = datasetDir ?? input.dataset_dir;
+  const evalDir = join(resultsBasePath, resolvedDatasetDir, evalName);
+  const conversationsDir = join(resultsBasePath, resolvedDatasetDir, "conversations");
 
   if (!existsSync(conversationsDir)) {
     throw new Error(`Conversations directory not found: ${conversationsDir}\nRun the generate step first.`);

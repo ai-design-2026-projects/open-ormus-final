@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { CostRecord } from "./types";
-
-const COST_RETRY_DELAYS_MS = [3000, 6000, 12000];
+import { COST_RETRY_DELAYS_MS } from "../shared/constants";
+import { permanentWrite } from "../progress";
 
 async function fetchOpenRouterCost(generationId: string, apiKey: string): Promise<number | null> {
   for (let attempt = 0; attempt <= COST_RETRY_DELAYS_MS.length; attempt++) {
@@ -26,16 +26,10 @@ async function fetchOpenRouterCost(generationId: string, apiKey: string): Promis
 
 export async function fetchPassCosts(yamlPath: string): Promise<void> {
   const apiKey = process.env["LLM_API_KEY"];
-  if (!apiKey) {
-    process.stderr.write("[fetchPassCosts] LLM_API_KEY not set — skipping cost fetch\n");
-    return;
-  }
+  if (!apiKey) return;
 
   const baseUrl = process.env["LLM_BASE_URL"] ?? "";
-  if (!baseUrl.includes("openrouter.ai")) {
-    process.stderr.write("[fetchPassCosts] Not using OpenRouter — costUsd will remain null\n");
-    return;
-  }
+  if (!baseUrl.includes("openrouter.ai")) return;
 
   const parsed = parseYaml(readFileSync(yamlPath, "utf-8")) as { records: CostRecord[] };
   const records = parsed.records ?? [];
@@ -43,21 +37,18 @@ export async function fetchPassCosts(yamlPath: string): Promise<void> {
 
   if (needsFetch.length === 0) return;
 
-  process.stdout.write(`[costs] Fetching costs for ${needsFetch.length} records…\n`);
-
   await Promise.all(
     needsFetch.map(async (record) => {
       try {
         const costUsd = await fetchOpenRouterCost(record.generationId, apiKey);
         record.costUsd = costUsd;
       } catch (err) {
-        process.stderr.write(
-          `[fetchPassCosts] Failed for ${record.generationId}: ${err instanceof Error ? err.message : String(err)}\n`,
+        permanentWrite(
+          `[costs] Failed for ${record.generationId}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }),
   );
 
   writeFileSync(yamlPath, stringifyYaml({ records }), "utf-8");
-  process.stdout.write("[costs] Done.\n");
 }

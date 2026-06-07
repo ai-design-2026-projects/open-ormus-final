@@ -37,6 +37,13 @@ export function buildItemScores(
   reconstructedItems: string[],
   comparatorOutputs: ComparatorOutput[],
 ): ItemScore[] {
+  for (const comp of comparatorOutputs) {
+    if (comp.scores.length !== reconstructedItems.length) {
+      process.stderr.write(
+        `[warn] comparator ${comp.model} returned ${comp.scores.length} scores for ${reconstructedItems.length} items — missing scores default to no_match\n`,
+      );
+    }
+  }
   return reconstructedItems.map((item, idx) => {
     const comparatorScores = comparatorOutputs.map((c) => {
       const score = labelToScore(c.scores[idx]?.score ?? "no_match");

@@ -1,0 +1,20 @@
+## Scenario
+
+**Title:** {{{scenario.title}}}
+**Context:** {{{scenario.context}}}
+
+## Conversation Transcript
+
+Read the following exchanges. You will reconstruct the profile for **{{{alias}}}** only.
+
+{{#each transcript}}
+**{{{this.character_name}}}** [{{{this.emotion}}}, {{{this.intensity}}}]: {{{this.content}}}
+{{/each}}
+
+## Task: Reconstruct profile for alias "{{{alias}}}"
+
+For each field below, output reconstructed items or mark not_observed.
+
+{{#each fields}}
+**{{this.name}}:** {{this.definition}}
+{{/each}}

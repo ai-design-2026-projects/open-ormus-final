@@ -347,14 +347,15 @@ function ScenarioDetailTable({ scenarios }: { scenarios: GuessingScenarioResult[
     <section>
       <h2 className="text-[14px] font-medium mb-3">Scenario detail</h2>
       <div className="space-y-1">
-        {scenarios.map((s) => {
-          const isOpen = expanded.has(s.scenario_id);
+        {scenarios.map((s, i) => {
+          const rowId = `${s.scenario_id}-${i}`;
+          const isOpen = expanded.has(rowId);
           const anyWrong = s.judges.some((j) => !j.all_correct);
           return (
-            <div key={s.scenario_id} className="border rounded-lg overflow-hidden text-[13px]">
+            <div key={rowId} className="border rounded-lg overflow-hidden text-[13px]">
               <button
                 className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/20"
-                onClick={() => toggle(s.scenario_id)}
+                onClick={() => toggle(rowId)}
               >
                 <span className="text-[10px] text-muted-foreground">{isOpen ? "▲" : "▼"}</span>
                 <span className="font-medium flex-1">{s.scenario_title}</span>

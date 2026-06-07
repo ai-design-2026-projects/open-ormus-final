@@ -33,6 +33,7 @@ export function loadJudgeConfig(
     if (!process.env.EVAL_RESULTS_PATH) throw new Error("EVAL_RESULTS_PATH is not set");
     return process.env.EVAL_RESULTS_PATH;
   })(),
+  datasetDir?: string,
 ): ValidatedJudgeConfig {
   const rawConfigText = readFileSync(configPath, "utf-8");
   const parsed: unknown = parseYaml(rawConfigText);
@@ -43,8 +44,9 @@ export function loadJudgeConfig(
   if (!rawBaseUrl) throw new Error("LLM_BASE_URL env var is not set");
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
-  const evalDir = join(resultsBasePath, input.dataset_dir, evalName);
-  const conversationsDir = join(resultsBasePath, input.dataset_dir, "conversations");
+  const resolvedDatasetDir = datasetDir ?? input.dataset_dir;
+  const evalDir = join(resultsBasePath, resolvedDatasetDir, evalName);
+  const conversationsDir = join(resultsBasePath, resolvedDatasetDir, "conversations");
 
   if (!existsSync(conversationsDir)) {
     throw new Error(

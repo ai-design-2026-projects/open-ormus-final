@@ -8,7 +8,46 @@ import {
   computeFieldDriftScore,
   computeSummary,
 } from "../scoring";
+import { ComparatorItemSchema, ComparatorOutputSchema } from "../types";
 import type { ItemScore, FieldScore, CharacterResult, ConversationReconstructionResult } from "../types";
+
+describe("ComparatorItemSchema", () => {
+  it("parses a full item with reconstructed_item present", () => {
+    const result = ComparatorItemSchema.parse({
+      reconstructed_item: "defiant",
+      score: "match",
+      justification: "matches the ground truth",
+    });
+    expect(result.reconstructed_item).toBe("defiant");
+    expect(result.score).toBe("match");
+  });
+
+  it("parses successfully when reconstructed_item is absent (defaults to empty string)", () => {
+    const result = ComparatorItemSchema.parse({
+      score: "no_match",
+      justification: "not found in ground truth",
+    });
+    expect(result.reconstructed_item).toBe("");
+    expect(result.score).toBe("no_match");
+  });
+
+  it("rejects an invalid score label", () => {
+    expect(() =>
+      ComparatorItemSchema.parse({ score: "wrong", justification: "j" }),
+    ).toThrow();
+  });
+
+  it("ComparatorOutputSchema parses item_scores without reconstructed_item fields", () => {
+    const result = ComparatorOutputSchema.parse({
+      item_scores: [
+        { score: "match", justification: "j1" },
+        { score: "no_match", justification: "j2" },
+      ],
+    });
+    expect(result.item_scores).toHaveLength(2);
+    expect(result.item_scores[0]!.reconstructed_item).toBe("");
+  });
+});
 
 describe("majorityVote", () => {
   it("returns 1 when sum is positive", () => expect(majorityVote([1, 1, 0])).toBe(1));
@@ -36,6 +75,35 @@ describe("buildItemScores", () => {
     expect(result[0]!.score).toBe(1);
     expect(result[0]!.comparator_agreement).toBe(1.0);
     expect(result[1]!.score).toBe(0);
+  });
+
+  it("returns one ItemScore per reconstructed item regardless of comparator count", () => {
+    const result = buildItemScores(["a", "b", "c"], []);
+    expect(result).toHaveLength(3);
+  });
+
+  it("defaults missing comparator scores to no_match (score 0) without throwing", () => {
+    const items = ["a", "b", "c"];
+    const outputs = [
+      { model: "m1", scores: [{ reconstructed_item: "a", score: "match", justification: "j" }] },
+    ];
+    const result = buildItemScores(items, outputs);
+    expect(result).toHaveLength(3);
+    expect(result[0]!.score).toBe(1);
+    expect(result[1]!.score).toBe(0);
+    expect(result[2]!.score).toBe(0);
+  });
+
+  it("picks justification from the comparator that agrees with majority", () => {
+    const items = ["brave"];
+    const outputs = [
+      { model: "m1", scores: [{ reconstructed_item: "brave", score: "match", justification: "from-m1" }] },
+      { model: "m2", scores: [{ reconstructed_item: "brave", score: "no_match", justification: "from-m2" }] },
+      { model: "m3", scores: [{ reconstructed_item: "brave", score: "match", justification: "from-m3" }] },
+    ];
+    const result = buildItemScores(items, outputs);
+    expect(result[0]!.score).toBe(1);
+    expect(result[0]!.justification).toMatch(/from-m[13]/);
   });
 });
 

@@ -15,6 +15,7 @@ import type {
   CharacterDriftSummary,
   ScenarioDriftSummary,
 } from "./types";
+import { DRIFT_THRESHOLD_DEGRADING, DRIFT_THRESHOLD_IMPROVING } from "../shared/constants";
 
 export function labelToScore(label: EngagementLabel | AlignmentLabel): number {
   if (label === "active" || label === "consistent") return 1.0;
@@ -65,8 +66,8 @@ export function majorityVoteAlignment(votes: AlignmentLabel[]): {
 }
 
 export function computeVerdict(totalDrift: number): Verdict {
-  if (totalDrift < -0.25) return "degrading";
-  if (totalDrift > 0.25) return "improving";
+  if (totalDrift < DRIFT_THRESHOLD_DEGRADING) return "degrading";
+  if (totalDrift > DRIFT_THRESHOLD_IMPROVING) return "improving";
   return "stable";
 }
 
