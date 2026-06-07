@@ -26,7 +26,10 @@ Rules:
 3. Focus only on the character identified by the specified alias. Ignore other characters.
 4. 2–5 items per field is typical. Match the abstraction level of the field definition.
 5. For speechPatterns: describe observable language features (not interpretations).
-6. For values/fears/goals: infer from what the character chooses, refuses, or defends — not from what they say they believe.`;
+6. For values/fears/goals: infer from what the character chooses, refuses, or defends — not from what they say they believe.
+
+Respond with ONLY valid JSON — no markdown, no explanation. Use this structure:
+{"fields":{"personalityTraits":{"not_observed":false,"items":["..."]},"speechPatterns":{"not_observed":false,"items":["..."]}}}`;
 }
 
 export function buildReconstructorUserMessage(
@@ -70,7 +73,10 @@ For each reconstructed item, determine whether it is covered by the ground-truth
 
 Important: reserve "contradiction" for clear semantic contradictions. A trait absent from the ground-truth is "no_match", not "contradiction". Ambiguous cases default to "no_match".
 
-For each item provide a justification: which ground-truth item it matches, partially matches, is contradicted by, or why there is no match.`;
+For each item provide a justification: which ground-truth item it matches, partially matches, is contradicted by, or why there is no match.
+
+Respond with ONLY valid JSON — no markdown, no explanation. Use this structure:
+{"item_scores":[{"reconstructed_item":"...","score":"match","justification":"..."}]}`;
 }
 
 export function buildComparatorUserMessage(

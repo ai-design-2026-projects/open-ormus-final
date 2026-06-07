@@ -5,6 +5,8 @@ import { loadReconstructConfig } from "./config";
 import { runReconstructionForConversation } from "./index";
 import { initReconstructOutputDir, writeReconstructResults, writeSummary } from "./writer";
 import { computeSummary } from "./scoring";
+import { CostTracker } from "../cost/tracker";
+import { fetchPassCosts } from "../cost/fetcher";
 import type { CharacterRecord, ScenarioRecord } from "../generator/config";
 import type { ConversationResult } from "../generator/conversation";
 import type { ConversationReconstructionResult } from "./types";
@@ -21,16 +23,16 @@ export async function runReconstructionPass(configPath: string, evalName: string
   const apiKey = process.env["LLM_API_KEY"]!;
 
   const outputDir = initReconstructOutputDir(config.evalDir, config);
+  const tracker = new CostTracker();
 
   try {
-    const conversationsDir = join(config.evalDir, "conversations");
+    const { conversationsDir } = config;
     const files = readdirSync(conversationsDir).filter((f) => f.endsWith(".yaml")).sort();
 
     if (files.length === 0) {
       throw new Error(`No conversation YAML files found in ${conversationsDir}`);
     }
 
-    // Parse all files synchronously upfront, then fan out LLM calls in parallel.
     const entries = files.map((file, i) => ({
       file,
       result: parseYaml(readFileSync(join(conversationsDir, file), "utf-8")) as ConversationResult,
@@ -49,9 +51,6 @@ export async function runReconstructionPass(configPath: string, evalName: string
       throw new Error("No processable conversations found — all files were skipped or empty.");
     }
 
-    // On first failure Promise.all rejects immediately; sibling calls continue until
-    // they complete or fail on their own — they cannot be cancelled from here.
-    // The catch block removes the output dir regardless of how many finished.
     const allResults: ConversationReconstructionResult[] = await Promise.all(
       processable.map(async ({ file, result, i }) => {
         const scenario = ALL_SCENARIOS.find((s) => s.id === result.scenario_id);
@@ -64,9 +63,11 @@ export async function runReconstructionPass(configPath: string, evalName: string
         });
 
         const label = `[${i + 1}/${files.length}] ${result.scenario_id} · ${result.characters.map((c) => c.name).join(" + ")}`;
+        const conversationId = file.replace(".yaml", "");
+
         console.log(`${label} — started`);
         try {
-          const convResult = await runReconstructionForConversation(result, file, scenario, characters, config, apiKey);
+          const convResult = await runReconstructionForConversation(result, file, scenario, characters, config, apiKey, tracker, conversationId);
           console.log(`${label} ✓`);
           return convResult;
         } catch (err) {
@@ -77,6 +78,12 @@ export async function runReconstructionPass(configPath: string, evalName: string
 
     writeReconstructResults(outputDir, allResults);
     writeSummary(outputDir, computeSummary(allResults, config.comparators.map((c) => c.model), config.segments));
+
+    const costsPath = join(config.evalDir, "costs", "reconstruct_persona.yaml");
+    await tracker.flush(costsPath);
+    try { await fetchPassCosts(costsPath); } catch (err) {
+      process.stderr.write(`[costs] Cost fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
+    }
 
     console.log(`\nDone. Results written to ${outputDir}/`);
   } catch (err) {

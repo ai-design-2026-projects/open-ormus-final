@@ -6,7 +6,7 @@ export const EmotionSchema = z.object({
     "Sadness", "Disgust", "Anger", "Anticipation",
   ]),
   intensity: z.enum(["low", "medium", "high"]),
-  subtext: z.string().max(200),
+  subtext: z.string().max(300),
 });
 export type Emotion = z.infer<typeof EmotionSchema>;
 
@@ -14,7 +14,8 @@ export function parseEmotionBlock(text: string): Emotion | null {
   const match = text.match(/<\|emotion\|>([\s\S]*?)<\|emotion\|>/);
   if (!match?.[1]) return null;
   try {
-    return EmotionSchema.parse(JSON.parse(match[1]));
+    const sanitized = match[1].replace(/\r?\n/g, " ");
+    return EmotionSchema.parse(JSON.parse(sanitized));
   } catch {
     return null;
   }

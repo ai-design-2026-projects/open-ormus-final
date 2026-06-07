@@ -1,4 +1,5 @@
 import { buildHistoryLine } from "./parse-turn";
+import { SCENE_START, buildContinuePrompt } from "./prompts";
 
 export type ConversationTurn =
   | { role: "user"; content: string }
@@ -13,8 +14,6 @@ type ConversationMessage = {
   subtext: string;
   reasoning: string | null;
 };
-
-const SCENE_START = "(The scene has just begun — no lines have been spoken yet.)";
 
 /**
  * Builds a per-character alternating MessageParam array for use as the
@@ -77,8 +76,7 @@ export function buildCharacterMessages(
   const contextLines =
     pendingOthers.length > 0 ? pendingOthers.join("\n") : SCENE_START;
 
-  const continuePrompt = `Continue as ${speakingCharacterName}. Write only their next line.`;
-  result.push({ role: "user", content: `${contextLines}\n\n${continuePrompt}` });
+  result.push({ role: "user", content: `${contextLines}\n\n${buildContinuePrompt(speakingCharacterName)}` });
 
   return result;
 }

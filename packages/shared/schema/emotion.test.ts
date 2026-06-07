@@ -29,11 +29,11 @@ describe("EmotionSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  test("rejects subtext longer than 120 chars", () => {
+  test("rejects subtext longer than 300 chars", () => {
     const result = EmotionSchema.safeParse({
       emotion: "Joy",
       intensity: "low",
-      subtext: "x".repeat(121),
+      subtext: "x".repeat(301),
     });
     expect(result.success).toBe(false);
   });
@@ -63,6 +63,14 @@ describe("parseEmotionBlock", () => {
 
   test("returns null for malformed JSON inside block", () => {
     expect(parseEmotionBlock("<|emotion|>{bad json}<|emotion|>")).toBeNull();
+  });
+
+  test("parses emotion with literal newline in subtext", () => {
+    const text = `<|emotion|>{"emotion":"Fear","intensity":"high","subtext":"The models were preventing\n collapse; this will be cited in post-mortems"}<|emotion|>`;
+    const result = parseEmotionBlock(text);
+    expect(result).not.toBeNull();
+    expect(result?.emotion).toBe("Fear");
+    expect(result?.subtext).toContain("preventing  collapse");
   });
 
   test("returns null if emotion value is invalid", () => {

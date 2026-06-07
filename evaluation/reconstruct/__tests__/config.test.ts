@@ -7,7 +7,7 @@ const RESULTS_BASE = join(process.cwd(), "evaluation", "results");
 const TMP = join(RESULTS_BASE, "__test_reconstruct_config__");
 const EVAL_NAME = "eval-test";
 const EVAL_DIR = join(TMP, EVAL_NAME);
-const CONVERSATIONS = join(EVAL_DIR, "conversations");
+const CONVERSATIONS = join(TMP, "conversations");
 
 beforeEach(() => {
   mkdirSync(CONVERSATIONS, { recursive: true });
@@ -92,5 +92,27 @@ describe("loadReconstructConfig", () => {
   it("throws when segments is 0", () => {
     const yaml = validYaml + "\nsegments: 0\n";
     expect(() => loadReconstructConfig(yaml, EVAL_NAME, RESULTS_BASE)).toThrow();
+  });
+
+  it("throws when EVAL_RESULTS_PATH is not set and resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    delete process.env.EVAL_RESULTS_PATH;
+    try {
+      expect(() => loadReconstructConfig(validYaml, EVAL_NAME)).toThrow("EVAL_RESULTS_PATH");
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+    }
+  });
+
+  it("uses EVAL_RESULTS_PATH when resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    process.env.EVAL_RESULTS_PATH = RESULTS_BASE;
+    try {
+      const cfg = loadReconstructConfig(validYaml, EVAL_NAME);
+      expect(cfg.evalDir).toBe(EVAL_DIR);
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+      else delete process.env.EVAL_RESULTS_PATH;
+    }
   });
 });

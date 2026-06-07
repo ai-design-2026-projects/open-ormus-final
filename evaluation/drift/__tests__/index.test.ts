@@ -2,11 +2,14 @@
 import { mock } from "bun:test";
 
 const mockCallJudge = mock(async (_client: any, _model: string, _sys: string, _user: string, _label: string) => ({
-  scenario_engagement: "active" as const,
-  reasoning: "test",
-  character_alignment: [
-    { character_id: "char_001", label: "consistent" as const, reasoning: "test" },
-  ],
+  output: {
+    scenario_engagement: "active" as const,
+    reasoning: "test",
+    character_alignment: [
+      { character_id: "char_001", label: "consistent" as const, reasoning: "test" },
+    ],
+  },
+  usage: null,
 }));
 
 mock.module("../call.js", () => ({ callJudge: mockCallJudge }));
@@ -161,15 +164,21 @@ describe("runDriftForConversation", () => {
   it("sets low_confidence=true when only 1 of 2 judges succeeds", async () => {
     mockCallJudge
       .mockResolvedValueOnce({
-        scenario_engagement: "active" as const,
-        reasoning: "ok",
-        character_alignment: [{ character_id: "char_001", label: "consistent" as const, reasoning: "ok" }],
+        output: {
+          scenario_engagement: "active" as const,
+          reasoning: "ok",
+          character_alignment: [{ character_id: "char_001", label: "consistent" as const, reasoning: "ok" }],
+        },
+        usage: null,
       })
       .mockRejectedValueOnce(new Error("judge failed"))
       .mockResolvedValueOnce({
-        scenario_engagement: "active" as const,
-        reasoning: "ok",
-        character_alignment: [{ character_id: "char_001", label: "consistent" as const, reasoning: "ok" }],
+        output: {
+          scenario_engagement: "active" as const,
+          reasoning: "ok",
+          character_alignment: [{ character_id: "char_001", label: "consistent" as const, reasoning: "ok" }],
+        },
+        usage: null,
       })
       .mockRejectedValueOnce(new Error("judge failed"));
 

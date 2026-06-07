@@ -5,6 +5,8 @@ import type { ValidatedRun } from "./config";
 import { runConversation } from "./conversation";
 import { initOutputDir, writeConversation } from "./writer";
 import { buildAliasMap } from "../judge/alias";
+import { CostTracker } from "../cost/tracker";
+import { fetchPassCosts } from "../cost/fetcher";
 
 const MAX_ATTEMPTS = 3;
 
@@ -14,13 +16,14 @@ async function executeRun(
   convsDir: string,
   baseUrl: string,
   apiKey: string,
+  tracker: CostTracker,
 ): Promise<void> {
   const label = `[${run.index}/${total}] ${run.scenario.id} · ${run.characters.map((c) => c.id).join(" + ")} · ${run.turns} turns`;
   const aliasMap = buildAliasMap(run.characters.map((c) => c.name));
   console.log(`${label} — started`);
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const result = await runConversation(run, baseUrl, apiKey, aliasMap);
+      const result = await runConversation(run, baseUrl, apiKey, aliasMap, tracker);
       writeConversation(convsDir, run.index, result);
       console.log(`${label} ✓`);
       return;
@@ -36,23 +39,30 @@ async function executeRun(
 }
 
 export async function generateDataset(configPath: string): Promise<void> {
-  const resultsBase = join(process.cwd(), "evaluation", "results");
-  const config = loadConfig(configPath, resultsBase);
+  const config = loadConfig(configPath);
   const apiKey = process.env["LLM_API_KEY"]!;
 
-  console.log(`Starting eval run: ${config.datasetDir}/${config.evalName}`);
-  const evalDir = initOutputDir(resultsBase, config);
+  console.log(`Generating dataset: ${config.datasetDir}`);
+  const datasetDir = initOutputDir(process.env.EVAL_RESULTS_PATH!, config);
+  const tracker = new CostTracker();
 
   try {
-    const convsDir = join(evalDir, "conversations");
+    const convsDir = join(datasetDir, "conversations");
     const total = config.runs.length;
     await Promise.all(
-      config.runs.map((run) => executeRun(run, total, convsDir, config.baseUrl, apiKey)),
+      config.runs.map((run) => executeRun(run, total, convsDir, config.baseUrl, apiKey, tracker)),
     );
-    console.log(`\nCompleted. Results: ${evalDir}`);
+
+    const costsPath = join(datasetDir, "costs", "generation.yaml");
+    await tracker.flush(costsPath);
+    try { await fetchPassCosts(costsPath); } catch (err) {
+      process.stderr.write(`[costs] Cost fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
+    }
+
+    console.log(`\nCompleted. Dataset: ${datasetDir}`);
   } catch (err) {
-    rmSync(evalDir, { recursive: true, force: true });
-    console.error(`\nDataset generation failed — removed incomplete directory: ${evalDir}`);
+    rmSync(datasetDir, { recursive: true, force: true });
+    console.error(`\nDataset generation failed — removed incomplete directory: ${datasetDir}`);
     throw err;
   }
 }

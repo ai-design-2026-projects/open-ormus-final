@@ -34,7 +34,7 @@ export async function GET(
 
   try {
     if (pass === "conversations") {
-      const convsDir = join(evalDir, "conversations");
+      const convsDir = join(base, dataset, "conversations");
       if (!existsSync(convsDir)) return NextResponse.json([]);
       const files = readdirSync(convsDir).filter((f) => f.endsWith(".yaml")).sort();
       const conversations = files.map((f) =>

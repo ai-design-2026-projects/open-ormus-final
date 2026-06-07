@@ -332,6 +332,85 @@ function CharacterConfusionTable({
   );
 }
 
+function ScenarioDetailTable({ scenarios }: { scenarios: GuessingScenarioResult[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  return (
+    <section>
+      <h2 className="text-[14px] font-medium mb-3">Scenario detail</h2>
+      <div className="space-y-1">
+        {scenarios.map((s) => {
+          const isOpen = expanded.has(s.scenario_id);
+          const anyWrong = s.judges.some((j) => !j.all_correct);
+          return (
+            <div key={s.scenario_id} className="border rounded-lg overflow-hidden text-[13px]">
+              <button
+                className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/20"
+                onClick={() => toggle(s.scenario_id)}
+              >
+                <span className="text-[10px] text-muted-foreground">{isOpen ? "▲" : "▼"}</span>
+                <span className="font-medium flex-1">{s.scenario_title}</span>
+                <span className={`text-[11px] ${anyWrong ? "text-orange-500" : "text-green-600 dark:text-green-400"}`}>
+                  {anyWrong ? "some wrong" : "all correct"}
+                </span>
+              </button>
+              {isOpen && (
+                <div className="border-t divide-y">
+                  {s.judges.map((judge) => (
+                    <div key={judge.label} className="px-3 py-3">
+                      <p className="text-[11px] text-muted-foreground font-medium mb-2">
+                        {judge.label} · {judge.model}
+                      </p>
+                      <div className="space-y-2">
+                        {judge.assignments.map((a) => (
+                          <div
+                            key={a.alias}
+                            className={`rounded-md p-2 ${a.correct ? "bg-green-50 dark:bg-green-950/20" : "bg-orange-50 dark:bg-orange-950/20"}`}
+                          >
+                            <p className="text-[12px] mb-1">
+                              <span className="font-mono text-muted-foreground">{a.alias}</span>
+                              <span className="mx-1 text-muted-foreground">→</span>
+                              <span className={a.correct ? "text-green-700 dark:text-green-400" : "text-orange-600"}>
+                                {a.real_name_guessed}
+                              </span>
+                              {!a.correct && (
+                                <span className="text-muted-foreground text-[11px] ml-1">
+                                  (actual: {a.real_name_actual})
+                                </span>
+                              )}
+                            </p>
+                            {a.reasons.length > 0 && (
+                              <ul className="space-y-1 pl-2 border-l-2 border-muted ml-1">
+                                {a.reasons.map((r, i) => (
+                                  <li key={i} className="text-[11px] text-muted-foreground leading-relaxed">
+                                    {r}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 // ----- Main component -----
 
 export function JudgeTab({ dataset, evalName }: { dataset: string; evalName: string }) {
@@ -367,8 +446,8 @@ export function JudgeTab({ dataset, evalName }: { dataset: string; evalName: str
   if (loading) return <p className="text-muted-foreground text-[13px]">Loading…</p>;
   if (scenarios === null) {
     return (
-      <p className="text-muted-foreground text-[13px]">
-        No judge results found for this evaluation.
+      <p className="text-red-500 text-[13px]">
+        Judge pass not run — this evaluation is incomplete.
       </p>
     );
   }
@@ -405,6 +484,9 @@ export function JudgeTab({ dataset, evalName }: { dataset: string; evalName: str
         expandedChar={expandedChar}
         setExpandedChar={setExpandedChar}
       />
+
+      {/* Per-scenario judge reasoning */}
+      <ScenarioDetailTable scenarios={scenarios} />
     </div>
   );
 }

@@ -46,7 +46,6 @@ runs:
     expect(config.runs[0]!.model).toBe("claude-haiku-4-5");
     expect(config.runs[0]!.turn_strategy).toBe("ROUND_ROBIN");
     expect(config.rawConfigText).toContain("scenario_001");
-    expect(config.evalName).toBe("eval-01");
     expect(config.datasetDir).toBe(dir);
   });
 
@@ -66,26 +65,6 @@ runs:
     );
     const config = loadConfig(configPath, tmpBase);
     expect(config.runs[0]!.model).toBe("override-model");
-  });
-
-  it("auto-increments evalName when eval-01 already exists", () => {
-    const dir = `test-ds-${Date.now()}`;
-    mkdirSync(join(tmpBase, dir, "eval-01"), { recursive: true });
-    writeFileSync(
-      configPath,
-      `
-output_dir: "${dir}"
-default_model: "m"
-runs:
-  - scenario: scenario_001
-    characters: [char_001, char_002]
-    turns: 1
-    turn_strategy: ROUND_ROBIN
-`,
-    );
-    const config = loadConfig(configPath, tmpBase);
-    expect(config.evalName).toBe("eval-02");
-    expect(config.datasetDir).toBe(dir);
   });
 
   it("throws if scenario not found in dataset", () => {
@@ -191,6 +170,31 @@ runs:
     const config = loadConfig(configPath, tmpBase);
     expect(config.datasetDir).toBeDefined();
     expect(config.runs).toHaveLength(1);
+  });
+
+  it("throws when EVAL_RESULTS_PATH is not set and resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    delete process.env.EVAL_RESULTS_PATH;
+    writeFileSync(configPath, `output_dir: "${freshDir()}"\ndefault_model: "m"\nruns:\n  - scenario: scenario_001\n    characters: [char_001, char_002]\n    turns: 1\n    turn_strategy: ROUND_ROBIN\n`);
+    try {
+      expect(() => loadConfig(configPath)).toThrow("EVAL_RESULTS_PATH");
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+    }
+  });
+
+  it("uses EVAL_RESULTS_PATH when resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    process.env.EVAL_RESULTS_PATH = tmpBase;
+    const dir = freshDir();
+    writeFileSync(configPath, `output_dir: "${dir}"\ndefault_model: "m"\nruns:\n  - scenario: scenario_001\n    characters: [char_001, char_002]\n    turns: 1\n    turn_strategy: ROUND_ROBIN\n`);
+    try {
+      const config = loadConfig(configPath);
+      expect(config.datasetDir).toBe(dir);
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+      else delete process.env.EVAL_RESULTS_PATH;
+    }
   });
 
   it("throws if ORCHESTRATOR is used with 2 characters", () => {

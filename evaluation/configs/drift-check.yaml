@@ -1,15 +1,15 @@
 # Drift Check — minimal run against test-run-001 (reconstruct in segment mode)
 # Run: bun evaluation/reconstruct_persona.ts evaluation/configs/drift-check.yaml
 # Required env: LLM_API_KEY, LLM_BASE_URL
-dataset_dir: "test-run-001"
+dataset_dir: "dataset_v1"
 
 reconstructor:
-  model: "google/gemma-4-31b-it:free"
+  model: "deepseek/deepseek-v4-flash"
 
 comparators:
-  - model: "google/gemma-4-31b-it:free"
+  - model: "openai/gpt-oss-120b"
 
-segments: 2
+segments: 3
 
 fields:
   - personalityTraits

@@ -92,6 +92,7 @@ export type DriftJudgeConfig = {
 
 export type ValidatedDriftConfig = {
   evalDir: string;
+  conversationsDir: string;
   baseUrl: string;
   segments: number;
   judges: DriftJudgeConfig[];

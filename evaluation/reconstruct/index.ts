@@ -22,6 +22,7 @@ import type {
 } from "./types";
 import type { CharacterRecord, ScenarioRecord } from "../generator/config";
 import type { ConversationResult } from "../generator/conversation";
+import type { CostTracker } from "../cost/tracker";
 
 function getGtItems(char: CharacterRecord, field: ProfileField): string[] {
   return (char[field as keyof CharacterRecord] as string[] | undefined) ?? [];
@@ -34,6 +35,8 @@ export async function runReconstructionForConversation(
   characters: CharacterRecord[],
   config: ValidatedReconstructConfig,
   apiKey: string,
+  tracker: CostTracker,
+  conversationId: string,
 ): Promise<ConversationReconstructionResult> {
   const strippedMessages = result.messages.map((m) => ({
     ...m,
@@ -64,14 +67,13 @@ export async function runReconstructionForConversation(
 
     console.log(`  [${alias} → ${realName}] reconstructing ${config.segments} segments…`);
 
-    // ── Step 1: Reconstruct + score vs GT for each segment ───────────────────
     const segmentResults: SegmentResult[] = [];
     const segmentFields: Array<Partial<Record<ProfileField, ReconstructedField>>> = [];
 
     for (const seg of segments) {
       const userMsg = buildReconstructorUserMessage(alias, scenario, seg.messages, config.fields);
 
-      const reconstruction = await callReconstructor(
+      const { output: reconstruction, usage: reconUsage } = await callReconstructor(
         client,
         config.reconstructorModel,
         reconstructorSysPrompt,
@@ -79,6 +81,15 @@ export async function runReconstructionForConversation(
         config.fields,
         `reconstructor:${alias}:seg${seg.segment_index}`,
       );
+
+      if (reconUsage) {
+        tracker.record({
+          conversationId,
+          segmentIdx: seg.segment_index,
+          role: "reconstructor",
+          ...reconUsage,
+        });
+      }
 
       const fieldScores: Partial<Record<ProfileField, FieldScore>> = {};
       const reconFields: Partial<Record<ProfileField, ReconstructedField>> = {};
@@ -99,13 +110,21 @@ export async function runReconstructionForConversation(
         const comparatorOutputs = await Promise.all(
           config.comparators.map(async (comp) => {
             const compUserMsg = buildComparatorUserMessage(field, gtItems, reconField.items);
-            const output = await callComparator(
+            const { output, usage: compUsage } = await callComparator(
               client,
               comp.model,
               comparatorSysPrompt,
               compUserMsg,
               `${comp.label}:${alias}:seg${seg.segment_index}:${field}`,
             );
+            if (compUsage) {
+              tracker.record({
+                conversationId,
+                segmentIdx: seg.segment_index,
+                role: "comparator",
+                ...compUsage,
+              });
+            }
             return { model: comp.model, scores: output.item_scores };
           }),
         );
@@ -130,7 +149,6 @@ export async function runReconstructionForConversation(
       segmentFields.push(reconFields);
     }
 
-    // ── Step 2: Compute drift metrics per field ───────────────────────────────
     const hasMultipleSegments = segmentFields.length >= 2;
     const seg0Fields = segmentFields[0] ?? {};
     const segNFields = segmentFields[segmentFields.length - 1] ?? {};
@@ -165,13 +183,21 @@ export async function runReconstructionForConversation(
               seg0Field.items,
               segNField.items,
             );
-            const output = await callComparator(
+            const { output, usage: compUsage } = await callComparator(
               client,
               comp.model,
               comparatorSysPrompt,
               compUserMsg,
               `${comp.label}:${alias}:internal:${field}`,
             );
+            if (compUsage) {
+              tracker.record({
+                conversationId,
+                segmentIdx: null,
+                role: "comparator",
+                ...compUsage,
+              });
+            }
             return { model: comp.model, scores: output.item_scores };
           }),
         );
@@ -184,7 +210,6 @@ export async function runReconstructionForConversation(
       fieldDrift[field] = computeFieldDriftScore(segmentF1s, internalConsistency);
     }
 
-    // ── Step 3: Aggregate per character ──────────────────────────────────────
     const slopes = PROFILE_FIELDS.map(
       (f) => fieldDrift[f]?.gt_divergence_slope ?? null,
     ).filter((s): s is number => s !== null);

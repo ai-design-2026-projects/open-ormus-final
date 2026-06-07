@@ -110,6 +110,7 @@ export type ComparatorConfig = {
 
 export type ValidatedReconstructConfig = {
   evalDir: string;
+  conversationsDir: string;
   baseUrl: string;
   reconstructorModel: string;
   comparators: ComparatorConfig[];

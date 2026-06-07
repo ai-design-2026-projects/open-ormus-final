@@ -9,7 +9,8 @@ export type JudgeConfig = {
 };
 
 export type ValidatedJudgeConfig = {
-  evalDir: string;   // absolute path: <resultsBase>/<datasetDir>/<evalName>
+  evalDir: string;          // absolute path: <resultsBase>/<datasetDir>/<evalName>
+  conversationsDir: string; // absolute path: <resultsBase>/<datasetDir>/conversations
   baseUrl: string;
   judges: JudgeConfig[];
   rawConfigText: string;
@@ -28,7 +29,10 @@ const JudgeConfigSchema = z.object({
 export function loadJudgeConfig(
   configPath: string,
   evalName: string,
-  resultsBasePath: string = join(process.cwd(), "evaluation", "results"),
+  resultsBasePath: string = (() => {
+    if (!process.env.EVAL_RESULTS_PATH) throw new Error("EVAL_RESULTS_PATH is not set");
+    return process.env.EVAL_RESULTS_PATH;
+  })(),
 ): ValidatedJudgeConfig {
   const rawConfigText = readFileSync(configPath, "utf-8");
   const parsed: unknown = parseYaml(rawConfigText);
@@ -40,11 +44,11 @@ export function loadJudgeConfig(
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
   const evalDir = join(resultsBasePath, input.dataset_dir, evalName);
-  const conversationsDir = join(evalDir, "conversations");
+  const conversationsDir = join(resultsBasePath, input.dataset_dir, "conversations");
 
   if (!existsSync(conversationsDir)) {
     throw new Error(
-      `Conversations directory not found: ${conversationsDir}\nRun the generate step first with the same eval-name.`,
+      `Conversations directory not found: ${conversationsDir}\nRun the generate step first.`,
     );
   }
 
@@ -58,5 +62,5 @@ export function loadJudgeConfig(
     model: j.model,
   }));
 
-  return { evalDir, baseUrl, judges, rawConfigText };
+  return { evalDir, conversationsDir, baseUrl, judges, rawConfigText };
 }

@@ -32,12 +32,24 @@ export type TurnConfig = {
   temperature?: number;
 };
 
+export type RawUsageMeta = {
+  generationId: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number | null;
+  cachedTokens: number | null;
+  latencyMs: number;
+};
+
 export type TurnResult = {
   characterId: string;
   characterName: string;
   content: string;
   reasoning: string | null;
   emotion: Emotion;
+  characterUsage: RawUsageMeta | null;
+  orchestratorUsage: RawUsageMeta | null;
 };
 
 export type TurnEvent =

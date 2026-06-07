@@ -5,7 +5,7 @@ import { loadDriftConfig } from "../config";
 
 const TMP = join(import.meta.dir, "__tmp__");
 const EVAL_NAME = "eval-01";
-const CONVS = join(TMP, "dataset-001", EVAL_NAME, "conversations");
+const CONVS = join(TMP, "dataset-001", "conversations");
 
 beforeAll(() => {
   mkdirSync(CONVS, { recursive: true });
@@ -72,5 +72,27 @@ describe("loadDriftConfig", () => {
     delete process.env["LLM_BASE_URL"];
     expect(() => loadDriftConfig(validYaml, EVAL_NAME, TMP)).toThrow("LLM_BASE_URL");
     process.env["LLM_BASE_URL"] = "http://localhost:4000";
+  });
+
+  it("throws when EVAL_RESULTS_PATH is not set and resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    delete process.env.EVAL_RESULTS_PATH;
+    try {
+      expect(() => loadDriftConfig(validYaml, EVAL_NAME)).toThrow("EVAL_RESULTS_PATH");
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+    }
+  });
+
+  it("uses EVAL_RESULTS_PATH when resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    process.env.EVAL_RESULTS_PATH = TMP;
+    try {
+      const cfg = loadDriftConfig(validYaml, EVAL_NAME);
+      expect(cfg.evalDir).toBe(join(TMP, "dataset-001", EVAL_NAME));
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+      else delete process.env.EVAL_RESULTS_PATH;
+    }
   });
 });

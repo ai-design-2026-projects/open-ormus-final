@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { JudgeOutputSchema } from "./types";
 import { judgeResponseFormat } from "./schema";
 import type { JudgeOutput } from "./types";
+import type { RawUsageMeta } from "../../packages/shared/conversation/types";
+import { parseJsonFromLlm } from "../utils";
 
 const MAX_RETRIES = 3;
 
@@ -11,34 +13,51 @@ export async function callJudge(
   systemPrompt: string,
   userMessage: string,
   label: string,
-): Promise<JudgeOutput> {
+): Promise<{ output: JudgeOutput; usage: RawUsageMeta | null }> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await client.chat.completions.create({
-        model,
-        temperature: 0,
-        stream: false,
-        response_format: judgeResponseFormat,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        extra_headers: { "HTTP-Referer": "https://openormus.app", "X-Title": "OpenOrmus" },
-      });
+      const startTime = Date.now();
+      const { data: response, response: httpResponse } = await client.chat.completions
+        .create({
+          model,
+          temperature: 0,
+          stream: false,
+          response_format: judgeResponseFormat,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+          extra_headers: { "HTTP-Referer": "https://openormus.app", "X-Title": "OpenOrmus" },
+        })
+        .withResponse();
 
       const raw = response.choices[0]?.message.content;
       if (!raw) throw new Error(`[${label}] empty response on attempt ${attempt}`);
 
       let parsed: unknown;
       try {
-        parsed = JSON.parse(raw);
+        parsed = parseJsonFromLlm(raw);
       } catch {
         throw new Error(`[${label}] JSON parse failed. Raw:\n${raw}`);
       }
 
-      return JudgeOutputSchema.parse(parsed);
+      const output = JudgeOutputSchema.parse(parsed);
+      const generationId = httpResponse.headers.get("x-generation-id") ?? response.id;
+      const usage: RawUsageMeta | null = response.usage
+        ? {
+            generationId,
+            model,
+            inputTokens: response.usage.prompt_tokens,
+            outputTokens: response.usage.completion_tokens,
+            reasoningTokens: response.usage.completion_tokens_details?.reasoning_tokens ?? null,
+            cachedTokens: response.usage.prompt_tokens_details?.cached_tokens ?? null,
+            latencyMs: Date.now() - startTime,
+          }
+        : null;
+
+      return { output, usage };
     } catch (err) {
       lastError = err;
       process.stderr.write(

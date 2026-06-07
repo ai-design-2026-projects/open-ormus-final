@@ -23,7 +23,10 @@ Constraints:
 For each assignment provide 1–3 reasons. Each reason must follow this format:
   "[exact quote or paraphrase from transcript]" → matches [profile field]: [specific value from that field]
 
-Do not write vague summaries ("seems confrontational"). Every reason must be grounded in a specific line from the transcript and a specific field in a profile.`;
+Do not write vague summaries ("seems confrontational"). Every reason must be grounded in a specific line from the transcript and a specific field in a profile.
+
+Respond with ONLY valid JSON — no markdown, no explanation, no preamble. Use this exact structure:
+{"assignments":[{"alias":"<alias>","real_name":"<real name>","reasons":["<reason 1>","<reason 2>"]}]}`;
 }
 
 export function buildJudgeUserMessage(

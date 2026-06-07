@@ -324,8 +324,8 @@ export function DriftTab({ dataset, evalName }: { dataset: string; evalName: str
   if (loading) return <p className="text-muted-foreground text-[13px]">Loading…</p>;
   if (data === null || !Array.isArray(data.conversations)) {
     return (
-      <p className="text-muted-foreground text-[13px]">
-        No context drift results found for this evaluation.
+      <p className="text-red-500 text-[13px]">
+        Context drift pass not run — this evaluation is incomplete.
       </p>
     );
   }

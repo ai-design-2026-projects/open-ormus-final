@@ -2,7 +2,7 @@
 // evaluation/ is not a workspace package — Bun resolves deps from root for these scripts.
 import { z } from "zod";
 import { parse as parseYaml } from "yaml";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ---- Dataset record types (mirror characters.yaml / scenarios.yaml fields) ----
@@ -49,7 +49,6 @@ export type ValidatedRun = {
 
 export type ValidatedConfig = {
   datasetDir: string;
-  evalName: string;      // like "eval-01"
   baseUrl: string;
   runs: ValidatedRun[];
   rawConfigText: string; // copied verbatim into the output directory
@@ -90,18 +89,12 @@ const ALL_SCENARIOS = rawScenarios as ScenarioRecord[];
 
 // ---- Loader ----
 
-function resolveEvalName(resultsBase: string, datasetDir: string): string {
-  let n = 1;
-  while (true) {
-    const candidate = `eval-${String(n).padStart(2, "0")}`;
-    if (!existsSync(join(resultsBase, datasetDir, candidate))) return candidate;
-    n++;
-  }
-}
-
 export function loadConfig(
   configPath: string,
-  resultsBasePath: string = join(process.cwd(), "evaluation", "results"),
+  resultsBasePath: string = (() => {
+    if (!process.env.EVAL_RESULTS_PATH) throw new Error("EVAL_RESULTS_PATH is not set");
+    return process.env.EVAL_RESULTS_PATH;
+  })(),
 ): ValidatedConfig {
   const rawConfigText = readFileSync(configPath, "utf-8");
   const parsed: unknown = parseYaml(rawConfigText);
@@ -111,8 +104,6 @@ export function loadConfig(
   const rawBaseUrl = process.env["LLM_BASE_URL"];
   if (!rawBaseUrl) throw new Error("LLM_BASE_URL env var is not set");
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
-
-  const evalName = resolveEvalName(resultsBasePath, input.output_dir);
 
   const validatedRuns: ValidatedRun[] = input.runs.map((run, i) => {
     const idx = i + 1;
@@ -135,5 +126,5 @@ export function loadConfig(
     return { index: idx, scenario, characters, turns: run.turns, model, turn_strategy: run.turn_strategy };
   });
 
-  return { datasetDir: input.output_dir, evalName, baseUrl, runs: validatedRuns, rawConfigText };
+  return { datasetDir: input.output_dir, baseUrl, runs: validatedRuns, rawConfigText };
 }

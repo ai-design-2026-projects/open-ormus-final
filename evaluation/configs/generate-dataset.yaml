@@ -12,11 +12,10 @@
 #   Block D (13-14): Noise test — 5-character ORCHESTRATOR scenes
 #   Block E (15):    Personal betrayal coverage
 
-output_dir: "dataset-v2"
+output_dir: "dataset-v1"
 default_model: "xiaomi/mimo-v2-flash"
 
 runs:
-
   # -----------------------------------------------------------------------
   # Block A: Tier 1 Distinctive
   # -----------------------------------------------------------------------

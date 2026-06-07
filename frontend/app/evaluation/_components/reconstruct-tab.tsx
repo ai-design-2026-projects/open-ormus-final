@@ -527,8 +527,8 @@ export function ReconstructTab({ dataset, evalName }: { dataset: string; evalNam
   if (loading) return <p className="text-muted-foreground text-[13px]">Loading…</p>;
   if (data === null) {
     return (
-      <p className="text-muted-foreground text-[13px]">
-        No reconstruction results found for this evaluation.
+      <p className="text-red-500 text-[13px]">
+        Reconstruction pass not run — this evaluation is incomplete.
       </p>
     );
   }

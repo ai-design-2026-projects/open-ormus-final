@@ -17,6 +17,7 @@ import type {
 } from "./types";
 import type { CharacterRecord, ScenarioRecord } from "../generator/config";
 import type { ConversationResult } from "../generator/conversation";
+import type { CostTracker } from "../cost/tracker";
 
 export async function runDriftForConversation(
   result: ConversationResult,
@@ -25,10 +26,11 @@ export async function runDriftForConversation(
   characters: CharacterRecord[],
   config: ValidatedDriftConfig,
   apiKey: string,
+  tracker: CostTracker,
+  conversationId: string,
 ): Promise<ConversationDriftResult> {
   const client = new OpenAI({ baseURL: `${config.baseUrl}/v1`, apiKey });
 
-  // Map alias → CharacterRecord for prompt building
   const aliasToRecord = new Map<string, CharacterRecord>();
   for (const convChar of result.characters) {
     const record = characters.find((c) => c.id === convChar.id);
@@ -36,16 +38,13 @@ export async function runDriftForConversation(
     aliasToRecord.set(convChar.name, record);
   }
 
-  // Build prompt character list with real names
   const promptCharacters = result.characters.map((convChar) => {
     const record = aliasToRecord.get(convChar.name)!;
     return { id: convChar.id, name: record.name, archetype: record.archetype, record };
   });
 
-  // Strip reasoning/subtext — only observable behaviour
   const messages = result.messages.map((m) => ({ ...m, reasoning: "", subtext: "" }));
 
-  // Replace aliases with real names in transcript
   const realNameMessages = messages.map((m) => ({
     ...m,
     character_name:
@@ -77,7 +76,6 @@ export async function runDriftForConversation(
 
     process.stdout.write(`  [seg ${segIdx + 1}/${segments.length}] judging…`);
 
-    // Call all judges in parallel
     const judgeResults = await Promise.allSettled(
       config.judges.map((judge) =>
         callJudge(
@@ -90,12 +88,24 @@ export async function runDriftForConversation(
       ),
     );
 
-    const successfulOutputs = judgeResults
-      .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof callJudge>>> =>
+    const successfulResults = judgeResults
+      .filter((r): r is PromiseFulfilledResult<{ output: Awaited<ReturnType<typeof callJudge>>["output"]; usage: Awaited<ReturnType<typeof callJudge>>["usage"] }> =>
         r.status === "fulfilled",
       )
       .map((r) => r.value);
 
+    for (const { usage } of successfulResults) {
+      if (usage) {
+        tracker.record({
+          conversationId,
+          segmentIdx: segIdx,
+          role: "judge",
+          ...usage,
+        });
+      }
+    }
+
+    const successfulOutputs = successfulResults.map((r) => r.output);
     const lowConfidence = successfulOutputs.length < 2;
 
     if (successfulOutputs.length === 0) {
@@ -104,11 +114,9 @@ export async function runDriftForConversation(
       );
     }
 
-    // Vote on scenario_engagement
     const engVotes = successfulOutputs.map((o) => o.scenario_engagement as EngagementLabel);
     const engResult = majorityVoteEngagement(engVotes);
 
-    // Vote on personality_alignment per character
     const alignmentScores: CharacterAlignmentScore[] = promptCharacters.map((char) => {
       const votes = successfulOutputs
         .map((o) => o.character_alignment.find((a) => a.character_id === char.id)?.label)

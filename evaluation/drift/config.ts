@@ -16,7 +16,10 @@ const DriftConfigSchema = z.object({
 export function loadDriftConfig(
   rawConfigText: string,
   evalName: string,
-  resultsBasePath: string = join(process.cwd(), "evaluation", "results"),
+  resultsBasePath: string = (() => {
+    if (!process.env.EVAL_RESULTS_PATH) throw new Error("EVAL_RESULTS_PATH is not set");
+    return process.env.EVAL_RESULTS_PATH;
+  })(),
 ): ValidatedDriftConfig {
   const parsed: unknown = parseYaml(rawConfigText);
   const input = DriftConfigSchema.parse(parsed);
@@ -27,7 +30,7 @@ export function loadDriftConfig(
   const baseUrl = rawBaseUrl.replace(/\/v1\/?$/, "");
 
   const evalDir = join(resultsBasePath, input.dataset_dir, evalName);
-  const conversationsDir = join(evalDir, "conversations");
+  const conversationsDir = join(resultsBasePath, input.dataset_dir, "conversations");
 
   if (!existsSync(conversationsDir)) {
     throw new Error(`Conversations directory not found: ${conversationsDir}\nRun the generate step first.`);
@@ -43,5 +46,5 @@ export function loadDriftConfig(
     model: j.model,
   }));
 
-  return { evalDir, baseUrl, segments: input.segments, judges, rawConfigText };
+  return { evalDir, conversationsDir, baseUrl, segments: input.segments, judges, rawConfigText };
 }

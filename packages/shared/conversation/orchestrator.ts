@@ -1,50 +1,17 @@
 import OpenAI from "openai";
-import type { TurnConfig } from "./types";
-
-type OrchestratorParticipant = {
-  characterId: string;
-  character: { name: string; sheet: unknown };
-};
-
-type OrchestratorMessage = {
-  character: { name: string };
-  content: string;
-};
+import type { TurnConfig, RawUsageMeta } from "./types";
+import { buildOrchestratorSystemPrompt, buildOrchestratorUserMessage } from "./prompts/orchestrator";
+import type { OrchestratorParticipant, OrchestratorMessage } from "./prompts/orchestrator";
 
 export async function selectNextSpeakerWithOrchestrator(
   participants: OrchestratorParticipant[],
   messages: OrchestratorMessage[],
-  config: TurnConfig
-): Promise<string> {
+  config: TurnConfig,
+): Promise<{ characterId: string; usage: RawUsageMeta | null }> {
   if (!config.model) {
     console.error("[orchestrator] model not set in TurnConfig");
-    return fallback(participants, messages);
+    return { characterId: fallback(participants, messages), usage: null };
   }
-
-  const charactersList = participants
-    .map(
-      (p) =>
-        `- id: ${p.characterId} | Name: ${p.character.name}` +
-        (p.character.sheet != null
-          ? ` | Character sheet: ${JSON.stringify(p.character.sheet)}`
-          : "")
-    )
-    .join("\n");
-
-  const historyText =
-    messages.length > 0
-      ? messages.map((m) => `[${m.character.name}]: ${m.content}`).join("\n")
-      : "(The scene has just begun — no lines have been spoken yet.)";
-
-  const userMessage = [
-    "Characters:",
-    charactersList,
-    "",
-    "Conversation so far:",
-    historyText,
-    "",
-    "Which character should speak next? Reply with their characterId only.",
-  ].join("\n");
 
   try {
     const client = new OpenAI({
@@ -52,39 +19,48 @@ export async function selectNextSpeakerWithOrchestrator(
       apiKey: config.apiKey,
     });
 
-    const response = await client.chat.completions.create({
-      model: config.model,
-      max_tokens: 64,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a conversation director for a multi-character roleplay scene. " +
-            "Given the characters and conversation history below, decide which character " +
-            "should speak next to make the conversation feel natural and engaging. " +
-            "Reply with only the characterId of the chosen character, nothing else.",
-        },
-        { role: "user", content: userMessage },
-      ],
-    });
+    const startTime = Date.now();
+    const { data: response, response: httpResponse } = await client.chat.completions
+      .create({
+        model: config.model,
+        max_tokens: 64,
+        messages: [
+          { role: "system", content: buildOrchestratorSystemPrompt() },
+          { role: "user", content: buildOrchestratorUserMessage(participants, messages) },
+        ],
+      })
+      .withResponse();
 
     const chosen = (response.choices[0]?.message.content ?? "").trim();
+    const generationId = httpResponse.headers.get("x-generation-id") ?? response.id;
+    const usage: RawUsageMeta | null = response.usage
+      ? {
+          generationId,
+          model: config.model,
+          inputTokens: response.usage.prompt_tokens,
+          outputTokens: response.usage.completion_tokens,
+          reasoningTokens: response.usage.completion_tokens_details?.reasoning_tokens ?? null,
+          cachedTokens: response.usage.prompt_tokens_details?.cached_tokens ?? null,
+          latencyMs: Date.now() - startTime,
+        }
+      : null;
 
     if (participants.some((p) => p.characterId === chosen)) {
-      return chosen;
+      return { characterId: chosen, usage };
     }
 
-    console.error(`[orchestrator] Invalid characterId returned: "${chosen}"`);
-    return fallback(participants, messages);
+    const validIds = participants.map((p) => p.characterId).join(", ");
+    console.error(`[orchestrator] Invalid characterId returned: "${chosen}" (expected one of: ${validIds})`);
+    return { characterId: fallback(participants, messages), usage };
   } catch (err) {
     console.error("[orchestrator] Error:", err);
-    return fallback(participants, messages);
+    return { characterId: fallback(participants, messages), usage: null };
   }
 }
 
 function fallback(
   participants: OrchestratorParticipant[],
-  messages: OrchestratorMessage[]
+  messages: OrchestratorMessage[],
 ): string {
   if (participants.length === 0) throw new Error("[orchestrator] fallback called with empty participants");
   const p = participants[messages.length % participants.length];

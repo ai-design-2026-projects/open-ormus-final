@@ -8,24 +8,21 @@ export function initOutputDir(
   resultsBase: string,
   config: ValidatedConfig,
 ): string {
-  const evalDir = join(resultsBase, config.datasetDir, config.evalName);
-  mkdirSync(join(evalDir, "conversations"), { recursive: true });
+  const datasetDir = join(resultsBase, config.datasetDir);
+  mkdirSync(join(datasetDir, "conversations"), { recursive: true });
 
   const meta = {
-    eval_name: config.evalName,
     created_at: new Date().toISOString(),
     dataset_dir: config.datasetDir,
-    passes: {
-      generate: {
-        model: config.runs[0]?.model ?? "unknown",
-        runs: config.runs.length,
-      },
+    generate: {
+      model: config.runs[0]?.model ?? "unknown",
+      runs: config.runs.length,
     },
   };
-  writeFileSync(join(evalDir, "meta.yaml"), stringify(meta), "utf-8");
-  writeFileSync(join(evalDir, "generate-config.yaml"), config.rawConfigText, "utf-8");
+  writeFileSync(join(datasetDir, "meta.yaml"), stringify(meta), "utf-8");
+  writeFileSync(join(datasetDir, "generate-config.yaml"), config.rawConfigText, "utf-8");
 
-  return evalDir;
+  return datasetDir;
 }
 
 export function writeConversation(

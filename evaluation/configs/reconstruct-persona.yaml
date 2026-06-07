@@ -5,14 +5,15 @@
 # NOTE: pair differentiation is most meaningful when both pair members (char_009/010,
 # char_011/012, char_013/014, char_015/016) appear under the same scenario_id.
 
-dataset_dir: "dataset-v2"
+dataset_dir: "dataset-v1"
+eval_name: "eval-01"
 
 reconstructor:
-  model: "mistralai/mistral-nemo"
+  model: "deepseek/deepseek-v4-flash"
 
 comparators:
-  - model: "mistralai/mistral-nemo"
-  - model: "mistralai/mistral-nemo"
+  - model: "openai/gpt-oss-120b"
+  - model: "qwen/qwen3.6-flash"
 
 # fields: optional — defaults to all 6 behavioural fields
 # fields:

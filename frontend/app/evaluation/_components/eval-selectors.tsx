@@ -37,13 +37,18 @@ export function EvalSelectors({
       <select
         value={selectedEval}
         onChange={(e) => onEvalChange(e.target.value)}
-        className="text-[13px] border rounded-lg px-2 py-1 bg-background text-foreground"
+        disabled={!datasetEntry?.evals.length}
+        className="text-[13px] border rounded-lg px-2 py-1 bg-background text-foreground disabled:opacity-50"
       >
-        {(datasetEntry?.evals ?? []).map((e) => (
-          <option key={e.name} value={e.name}>
-            {e.name}{e.meta.created_at ? ` · ${new Date(e.meta.created_at).toLocaleString()}` : ""}
-          </option>
-        ))}
+        {datasetEntry?.evals.length ? (
+          datasetEntry.evals.map((e) => (
+            <option key={e.name} value={e.name}>
+              {e.name}{e.meta.created_at ? ` · ${new Date(e.meta.created_at).toLocaleString()}` : ""}
+            </option>
+          ))
+        ) : (
+          <option value="">— no runs yet —</option>
+        )}
       </select>
     </div>
   );

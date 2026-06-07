@@ -14,7 +14,7 @@ beforeAll(() => {
   configPath = join(tmpBase, "config.yaml");
   process.env["LLM_API_KEY"] = "test-key";
   process.env["LLM_BASE_URL"] = "http://localhost:4000";
-  mkdirSync(join(tmpBase, testDataset, testEval, "conversations"), { recursive: true });
+  mkdirSync(join(tmpBase, testDataset, "conversations"), { recursive: true });
 });
 
 afterAll(() => {
@@ -39,10 +39,34 @@ describe("loadJudgeConfig", () => {
 
   it("throws when judge output already exists", () => {
     const ds = `ds-exist-${Date.now()}`;
-    mkdirSync(join(tmpBase, ds, testEval, "conversations"), { recursive: true });
+    mkdirSync(join(tmpBase, ds, "conversations"), { recursive: true });
     mkdirSync(join(tmpBase, ds, testEval, "judge_guessing"), { recursive: true });
     writeFileSync(configPath, `dataset_dir: "${ds}"\njudges:\n  - model: "m"\n`);
     expect(() => loadJudgeConfig(configPath, testEval, tmpBase)).toThrow("already exists");
+  });
+
+  it("throws when EVAL_RESULTS_PATH is not set and resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    delete process.env.EVAL_RESULTS_PATH;
+    writeFileSync(configPath, `dataset_dir: "${testDataset}"\njudges:\n  - model: "m"\n`);
+    try {
+      expect(() => loadJudgeConfig(configPath, testEval)).toThrow("EVAL_RESULTS_PATH");
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+    }
+  });
+
+  it("uses EVAL_RESULTS_PATH when resultsBasePath is not passed", () => {
+    const saved = process.env.EVAL_RESULTS_PATH;
+    process.env.EVAL_RESULTS_PATH = tmpBase;
+    writeFileSync(configPath, `dataset_dir: "${testDataset}"\njudges:\n  - model: "m"\n`);
+    try {
+      const config = loadJudgeConfig(configPath, testEval);
+      expect(config.evalDir).toBe(join(tmpBase, testDataset, testEval));
+    } finally {
+      if (saved !== undefined) process.env.EVAL_RESULTS_PATH = saved;
+      else delete process.env.EVAL_RESULTS_PATH;
+    }
   });
 
   it("throws when LLM_BASE_URL not set", () => {

@@ -84,6 +84,12 @@ You are sharing this scene with: {{otherParticipants}}.
 ## Scene
 {{sceneContext}}`;
 
+export const SCENE_START = "(The scene has just begun — no lines have been spoken yet.)";
+
+export function buildContinuePrompt(speakingCharacterName: string): string {
+  return `Continue as ${speakingCharacterName}. Write only their next line.`;
+}
+
 const template = Handlebars.compile(templateSource);
 
 export function buildCharacterPrompt(

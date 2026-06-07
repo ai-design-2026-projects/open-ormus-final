@@ -10,6 +10,7 @@ import { GenerateTab } from "./_components/generate-tab";
 import { JudgeTab } from "./_components/judge-tab";
 import { ReconstructTab } from "./_components/reconstruct-tab";
 import { DriftTab } from "./_components/drift-tab";
+import { CostsTab } from "./_components/costs-tab";
 
 export default async function EvaluationPage({
   searchParams,
@@ -25,14 +26,17 @@ export default async function EvaluationPage({
 
   if (datasets.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 text-center p-8">
-        <p className="text-[15px] font-medium">No evaluation results yet</p>
-        <p className="text-[13px] text-muted-foreground max-w-sm">
-          Run the generation pipeline first, then the judge, reconstruct, and drift passes.
-        </p>
-        <code className="text-[12px] bg-muted px-3 py-2 rounded-lg mt-1 text-left block max-w-sm">
-          bun evaluation/generate_dataset.ts evaluation/configs/generate-dataset.yaml
-        </code>
+      <div className="min-h-screen flex flex-col">
+        <AppNav />
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
+          <p className="text-[15px] font-medium">No evaluation data yet</p>
+          <p className="text-[13px] text-muted-foreground max-w-sm">
+            Generate a dataset first, then run the evaluation pipeline.
+          </p>
+          <code className="text-[12px] bg-muted px-3 py-2 rounded-lg mt-1 text-left block max-w-sm whitespace-pre">
+            {`bun evaluation/generate_dataset.ts evaluation/configs/generate-dataset.yaml\nbun evaluation/run_pipeline.ts <dataset-name>`}
+          </code>
+        </div>
       </div>
     );
   }
@@ -64,6 +68,7 @@ export default async function EvaluationPage({
               <TabsTrigger value="judge">Judge</TabsTrigger>
               <TabsTrigger value="reconstruct">Reconstruct</TabsTrigger>
               <TabsTrigger value="drift">Drift</TabsTrigger>
+              <TabsTrigger value="costs">Costs</TabsTrigger>
             </TabsList>
             <TabsContent value="dataset" className="p-6">
               <DatasetTab />
@@ -80,14 +85,20 @@ export default async function EvaluationPage({
             <TabsContent value="drift" className="p-6">
               <DriftTab dataset={selectedDataset} evalName={selectedEval ?? ""} />
             </TabsContent>
+            <TabsContent value="costs" className="p-6">
+              <CostsTab dataset={selectedDataset} evalName={selectedEval ?? ""} />
+            </TabsContent>
           </Tabs>
         </>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center p-8">
-          <p className="text-[15px] font-medium">No eval runs for {selectedDataset}</p>
-          <p className="text-[13px] text-muted-foreground">
-            Run the evaluation pipeline against this dataset to see results here.
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
+          <p className="text-[15px] font-medium">No runs yet for {selectedDataset}</p>
+          <p className="text-[13px] text-muted-foreground max-w-sm">
+            Run the evaluation pipeline on this dataset.
           </p>
+          <code className="text-[12px] bg-muted px-3 py-2 rounded-lg mt-1 text-left block max-w-sm">
+            bun evaluation/run_pipeline.ts {selectedDataset}
+          </code>
         </div>
       )}
     </div>

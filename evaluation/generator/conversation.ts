@@ -8,8 +8,7 @@ import type {
 import type { CharacterRecord, ValidatedRun } from "./config";
 import type { AliasMap } from "../judge/alias";
 import { realNameToAlias } from "../judge/alias";
-
-// ---- Output types ----
+import type { CostTracker } from "../cost/tracker";
 
 export type ConversationMessage = {
   turn: number;
@@ -36,8 +35,6 @@ export type ConversationResult = {
   completed_at: string;
   messages: ConversationMessage[];
 };
-
-// ---- Participant builder ----
 
 function buildParticipant(char: CharacterRecord, alias: string): TurnParticipant {
   return {
@@ -67,22 +64,20 @@ function buildParticipant(char: CharacterRecord, alias: string): TurnParticipant
   };
 }
 
-// ---- Runner ----
-
 export async function runConversation(
   run: ValidatedRun,
   baseUrl: string,
   apiKey: string,
   aliasMap: AliasMap,
+  tracker: CostTracker | null = null,
 ): Promise<ConversationResult> {
   const started_at = new Date().toISOString();
   const participants: TurnParticipant[] = run.characters.map((char) =>
     buildParticipant(char, realNameToAlias(aliasMap, char.name))
   );
   const messages: TurnMessage[] = [];
-
-  // Combine scenario context + initial_prompt — identical to how production uses context
   const context = `${run.scenario.context}\n\n${run.scenario.initial_prompt}`;
+  const conversationId = String(run.index).padStart(3, "0");
 
   const config: TurnConfig = {
     model: run.model,
@@ -105,6 +100,25 @@ export async function runConversation(
       if (done) {
         turnResult = value as TurnResult;
         break;
+      }
+    }
+
+    if (tracker) {
+      if (turnResult!.characterUsage) {
+        tracker.record({
+          conversationId,
+          segmentIdx: null,
+          role: "character",
+          ...turnResult!.characterUsage,
+        });
+      }
+      if (turnResult!.orchestratorUsage) {
+        tracker.record({
+          conversationId,
+          segmentIdx: null,
+          role: "orchestrator",
+          ...turnResult!.orchestratorUsage,
+        });
       }
     }
 

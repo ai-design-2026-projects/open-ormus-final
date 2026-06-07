@@ -56,6 +56,16 @@ Don't start implementing until the plan is confirmed.
 - When context compacts, the summary must preserve: list of modified files,
   any open decisions, and the current task's next step.
 
+## Prompt Library
+
+All LLM-facing text must live in dedicated prompt files — never inline in business logic:
+
+- `packages/shared/conversation/prompts/` — shared conversation prompts (character system prompt, orchestrator, scene start, continue instruction)
+- `evaluation/<pass>/prompt.ts` — evaluation pass prompts (one per pass: judge, reconstruct, drift)
+- `frontend/lib/agent/prompt.ts` — agent assistant prompt
+
+**What counts as a prompt:** system prompt strings, user message templates, instruction text shown to the LLM, scene cue strings. If it's a string that an LLM will read, it belongs in a prompt file.
+
 ## Never (Claude Code specifics)
 
 - Don't run `bun add <pkg>` without explicit approval — see `AGENTS.md §10`.

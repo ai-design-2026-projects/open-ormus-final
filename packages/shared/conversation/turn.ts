@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import { CharacterSearchResultSchema } from "../schema/character_search";
 import { parseEmotionBlock } from "../schema/emotion";
-import type { TurnParticipant, TurnMessage, TurnConfig, TurnResult, TurnEvent, TurnStrategy } from "./types";
+import type { TurnParticipant, TurnMessage, TurnConfig, TurnResult, TurnEvent, TurnStrategy, RawUsageMeta } from "./types";
 import type { Emotion } from "./types";
 import { selectNextSpeakerWithOrchestrator } from "./orchestrator";
 import { buildCharacterMessages } from "./build-messages";
@@ -33,16 +33,18 @@ export async function* generateTurn(
   onEmotion?: (emotion: Emotion) => void,
 ): AsyncGenerator<TurnEvent, TurnResult> {
   let nextParticipant: TurnParticipant;
+  let orchestratorUsage: RawUsageMeta | null = null;
 
   if (input.turnStrategy === "ORCHESTRATOR") {
-    const characterId = await selectNextSpeakerWithOrchestrator(
+    const result = await selectNextSpeakerWithOrchestrator(
       input.participants,
       input.messages,
       config,
     );
-    const found = input.participants.find((p) => p.characterId === characterId);
+    orchestratorUsage = result.usage;
+    const found = input.participants.find((p) => p.characterId === result.characterId);
     if (!found) {
-      throw new ConversationError("LITELLM_ERROR", `Orchestrator returned unknown characterId "${characterId}"`);
+      throw new ConversationError("LITELLM_ERROR", `Orchestrator returned unknown characterId "${result.characterId}"`);
     }
     nextParticipant = found;
   } else {
@@ -72,15 +74,19 @@ export async function* generateTurn(
   let content = "";
   let reasoningText = "";
   let parsedEmotion: Emotion | null = null;
+  let streamGenerationId = "";
+  let streamUsage: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number } } | null = null;
+  const llmStartTime = Date.now();
 
   yield { type: "thinking" };
 
   try {
-    const stream = await client.chat.completions.create(
+    const { data: stream, response: httpResponse } = await client.chat.completions.create(
       {
         model: config.model,
         max_tokens: 768,
         stream: true,
+        stream_options: { include_usage: true },
         temperature: config.temperature,
         messages: [
           { role: "system" as const, content: systemPrompt },
@@ -93,7 +99,10 @@ export async function* generateTurn(
         extra_body: { reasoning: { effort: "none" } },
       } as ChatCompletionCreateParamsStreaming,
       { signal },
-    );
+    ).withResponse();
+
+    const headerGenerationId = httpResponse.headers.get("x-generation-id");
+    if (headerGenerationId) streamGenerationId = headerGenerationId;
 
     let rawBuffer = "";
     let parserState:
@@ -104,10 +113,12 @@ export async function* generateTurn(
       | "dialogue" = "pre_reasoning";
 
     for await (const chunk of stream) {
+      if (!streamGenerationId && chunk.id) streamGenerationId = chunk.id;
+      if (chunk.usage) streamUsage = chunk.usage;
+
       const token = chunk.choices[0]?.delta.content;
       if (!token) continue;
 
-      // Dialogue tokens stream directly — no buffering needed.
       if (parserState === "dialogue") {
         content += token;
         yield { type: "token", text: token };
@@ -122,7 +133,6 @@ export async function* generateTurn(
           rawBuffer = rawBuffer.slice(idx + REASONING_TAG.length);
           parserState = "in_reasoning";
         } else if (rawBuffer.length > 300) {
-          // Model skipped reasoning block — look for emotion directly.
           const emoIdx = rawBuffer.indexOf(EMOTION_TAG);
           if (emoIdx !== -1) {
             rawBuffer = rawBuffer.slice(emoIdx + EMOTION_TAG.length);
@@ -169,13 +179,16 @@ export async function* generateTurn(
       }
     }
 
-    // Flush any remaining buffered content if the parser never reached dialogue state.
     if (parserState !== "dialogue" && rawBuffer) {
       content += rawBuffer;
     }
 
     if (parsedEmotion === null) {
-      throw new ConversationError("LITELLM_ERROR", "No emotion block found in LLM response");
+      const snippet = rawBuffer.slice(0, 300).replace(/\n/g, "\\n");
+      throw new ConversationError(
+        "LITELLM_ERROR",
+        `No emotion block found in LLM response (parser stopped at: ${parserState}; tail: "${snippet}")`,
+      );
     }
   } catch (err) {
     if (err instanceof ConversationError) throw err;
@@ -187,11 +200,25 @@ export async function* generateTurn(
     throw new ConversationError("LITELLM_ERROR", "Empty content from LLM");
   }
 
+  const characterUsage: RawUsageMeta | null = streamUsage
+    ? {
+        generationId: streamGenerationId,
+        model: config.model,
+        inputTokens: streamUsage.prompt_tokens ?? 0,
+        outputTokens: streamUsage.completion_tokens ?? 0,
+        reasoningTokens: streamUsage.completion_tokens_details?.reasoning_tokens ?? null,
+        cachedTokens: streamUsage.prompt_tokens_details?.cached_tokens ?? null,
+        latencyMs: Date.now() - llmStartTime,
+      }
+    : null;
+
   return {
     characterId: nextParticipant.characterId,
     characterName: nextParticipant.character.name,
     content,
     reasoning: reasoningText || null,
     emotion: parsedEmotion,
+    characterUsage,
+    orchestratorUsage,
   };
 }

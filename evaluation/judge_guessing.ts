@@ -1,10 +1,16 @@
+import { parse as parseYaml } from "yaml";
+import { readFileSync } from "node:fs";
 import { runJudgingPass } from "./judge/pass";
 
 const configPath = process.argv[2];
-const evalName = process.argv[3] ?? "eval-01";
 if (!configPath) {
-  console.error("Usage: bun evaluation/judge_guessing.ts <config.yaml> [eval-name]");
-  console.error("Example: bun evaluation/judge_guessing.ts evaluation/configs/judge-guessing.yaml eval-01");
+  console.error("Usage: bun evaluation/judge_guessing.ts <config.yaml>");
+  process.exit(1);
+}
+
+const { eval_name: evalName } = parseYaml(readFileSync(configPath, "utf-8")) as { eval_name?: string };
+if (!evalName) {
+  console.error(`eval_name must be set in ${configPath}`);
   process.exit(1);
 }
 

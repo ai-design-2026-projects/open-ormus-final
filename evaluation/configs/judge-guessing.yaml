@@ -2,9 +2,10 @@
 # Run: bun evaluation/judge_guessing.ts evaluation/configs/judge-guessing.yaml
 # Required env vars: LLM_API_KEY, LLM_BASE_URL
 
-dataset_dir: "dataset-v2"
+dataset_dir: "dataset-v1"
+eval_name: "eval-01"
 
 judges:
-  - model: "mistralai/mistral-nemo"
-  - model: "mistralai/mistral-nemo"
-  - model: "mistralai/mistral-nemo"
+  - model: "openai/gpt-oss-120b"
+  - model: "deepseek/deepseek-v4-flash"
+  - model: "qwen/qwen3.6-flash"

@@ -1,11 +1,15 @@
 import OpenAI from "openai";
 import { callJudge } from "./call";
 import { buildJudgeSystemPrompt, buildJudgeUserMessage } from "./prompt";
+import { termColors } from "../utils";
 import type { AliasMap } from "./alias";
 import type { CharacterRecord, ScenarioRecord } from "../generator/config";
 import type { ConversationResult } from "../generator/conversation";
 import type { JudgeResult, JudgeAssignmentResult, GuessingScenarioResult } from "./types";
 import type { JudgeConfig } from "./config";
+import type { CostTracker } from "../cost/tracker";
+
+const col = termColors();
 
 export async function runJudges(
   result: ConversationResult,
@@ -15,6 +19,9 @@ export async function runJudges(
   judges: JudgeConfig[],
   baseUrl: string,
   apiKey: string,
+  tracker: CostTracker,
+  conversationId: string,
+  log: (line: string) => void,
 ): Promise<GuessingScenarioResult> {
   if (judges.length === 0) {
     return {
@@ -32,9 +39,20 @@ export async function runJudges(
   const judgeResults: JudgeResult[] = [];
 
   for (const judgeConfig of judges) {
-    process.stdout.write(`  [${judgeConfig.label}] ${judgeConfig.model}… `);
+    const retryLines: string[] = [];
+    const { output, usage } = await callJudge(
+      client, judgeConfig.model, systemPrompt, userMessage, judgeConfig.label,
+      (line) => retryLines.push(line),
+    );
 
-    const output = await callJudge(client, judgeConfig.model, systemPrompt, userMessage, judgeConfig.label);
+    if (usage) {
+      tracker.record({
+        conversationId,
+        segmentIdx: null,
+        role: "judge",
+        ...usage,
+      });
+    }
 
     const assignments: JudgeAssignmentResult[] = output.assignments.map((a) => {
       const real_name_actual = aliasMap[a.alias] ?? "(unknown alias)";
@@ -51,7 +69,18 @@ export async function runJudges(
     judgeResults.push({ label: judgeConfig.label, model: judgeConfig.model, assignments, all_correct });
 
     const wrongCount = assignments.filter((a) => !a.correct).length;
-    console.log(all_correct ? "✓ all correct" : `✗ ${wrongCount}/${assignments.length} wrong`);
+    const resultStr = all_correct
+      ? `${col.green}✓ all correct${col.reset}`
+      : `${col.red}✗ ${wrongCount}/${assignments.length} wrong${col.reset}`;
+    const retryNote = retryLines.length > 0
+      ? ` ${col.dim}(↻ ${retryLines.length} retr${retryLines.length === 1 ? "y" : "ies"})${col.reset}`
+      : "";
+    const model = judgeConfig.model.length > 34 ? judgeConfig.model.slice(0, 34) + "…" : judgeConfig.model;
+
+    log(`  [${judgeConfig.label}] ${model.padEnd(37)} ${resultStr}${retryNote}\n`);
+    for (const line of retryLines) {
+      log(`    ${col.dim}↻ ${line}${col.reset}\n`);
+    }
   }
 
   return {
