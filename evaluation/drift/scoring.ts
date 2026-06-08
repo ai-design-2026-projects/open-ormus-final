@@ -41,7 +41,8 @@ export function majorityVoteEngagement(votes: EngagementLabel[]): {
   if (counts.active > half) label = "active";
   else if (counts.absent > half) label = "absent";
 
-  return { label, confidence: counts[label] / valid.length, score: labelToScore(label) };
+  const meanScoreEng = valid.reduce((s, v) => s + labelToScore(v), 0) / valid.length;
+  return { label, confidence: counts[label] / valid.length, score: meanScoreEng };
 }
 
 export function majorityVoteAlignment(votes: AlignmentLabel[]): {
@@ -62,7 +63,8 @@ export function majorityVoteAlignment(votes: AlignmentLabel[]): {
   if (counts.consistent > half) label = "consistent";
   else if (counts.contradicts > half) label = "contradicts";
 
-  return { label, confidence: counts[label] / valid.length, score: labelToScore(label) };
+  const meanScoreAlign = valid.reduce((s, v) => s + labelToScore(v), 0) / valid.length;
+  return { label, confidence: counts[label] / valid.length, score: meanScoreAlign };
 }
 
 export function computeVerdict(totalDrift: number): Verdict {

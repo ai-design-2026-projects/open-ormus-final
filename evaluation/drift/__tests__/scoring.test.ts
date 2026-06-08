@@ -47,7 +47,7 @@ describe("majorityVoteEngagement", () => {
     const result = majorityVoteEngagement(["active", "active", "touched"]);
     expect(result.label).toBe("active");
     expect(result.confidence).toBeCloseTo(2 / 3);
-    expect(result.score).toBe(1.0);
+    expect(result.score).toBeCloseTo((1 + 1 + 0.5) / 3); // mean of vote scores
   });
 
   it("tie → touched (middle label)", () => {
@@ -77,6 +77,7 @@ describe("majorityVoteAlignment", () => {
     const r = majorityVoteAlignment(["consistent", "consistent", "neutral"]);
     expect(r.label).toBe("consistent");
     expect(r.confidence).toBeCloseTo(2 / 3);
+    expect(r.score).toBeCloseTo((1 + 1 + 0.5) / 3); // mean of vote scores
   });
 
   it("tie → neutral (middle label)", () => {
@@ -87,7 +88,7 @@ describe("majorityVoteAlignment", () => {
   it("contradicts majority", () => {
     const r = majorityVoteAlignment(["contradicts", "contradicts", "neutral"]);
     expect(r.label).toBe("contradicts");
-    expect(r.score).toBe(0.0);
+    expect(r.score).toBeCloseTo((0 + 0 + 0.5) / 3); // mean of vote scores
   });
 });
 

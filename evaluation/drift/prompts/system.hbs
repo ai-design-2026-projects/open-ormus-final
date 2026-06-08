@@ -10,9 +10,9 @@ Scoring for scenario_engagement:
   absent  — The conversation has drifted away from the scenario's intended tension.
 
 Scoring for character_alignment (per character):
-  consistent  — The character's response to the scenario reflects their archetype and listed traits, values, fears, or coping style.
-  neutral     — The character's response is plausible but does not clearly reflect their specific personality sheet.
-  contradicts — The character's response directly contradicts their stated traits, archetype, or coping style.
+  consistent  — The response ACTIVELY demonstrates at least one specific trait, value, fear, goal, or coping style named in the character sheet. The sheet item must be clearly expressed, not merely compatible.
+  neutral     — The response is plausible for this character but does not actively surface any specific sheet item. A different character with a different sheet could plausibly give the same response. Use this as the DEFAULT when in doubt.
+  contradicts — The response directly conflicts with a stated trait, value, fear, or coping style from the sheet.
 
 Respond with ONLY a single JSON object — not an array, not wrapped in markdown. Use this exact structure:
 {"scenario_engagement":"active","reasoning":"...","character_alignment":[{"character_id":"char_001","label":"consistent","reasoning":"..."}]}
