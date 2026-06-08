@@ -51,6 +51,10 @@ The critical design constraint is that both tracks share the same core turn-gene
 | Validation | Zod (schema-first, types inferred — never hand-written) |
 | External search | Exa API (`exa-js`) |
 
+### Live Deployment
+
+The application is publicly accessible at **https://openormus.andreolli.dev**.
+
 ### Codebase Metrics
 
 - 9 MCP tools registered
